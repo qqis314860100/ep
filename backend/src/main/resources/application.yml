@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: simulation-asset-service
+  profiles:
+    default: dev
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 550MB
+      file-size-threshold: 2MB
+
+server:
+  port: ${SERVER_PORT:8080}
+
+asset:
+  extension-schema-enabled: ${ASSET_EXTENSION_SCHEMA_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

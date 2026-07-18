@@ -1,0 +1,18 @@
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+frontend/node_modules/
+frontend/dist/
+
+# Local browser traces and generated visual verification artifacts.
+.playwright-cli/
+output/playwright/
+
+backend/target/
+
+*.log
+.env
+.env.*
+!.env.example
