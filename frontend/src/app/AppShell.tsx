@@ -29,6 +29,11 @@ const TopBar = styled(Header)`
   background: rgba(255, 255, 255, 0.96);
   border-bottom: 1px solid #e5e8e3;
   backdrop-filter: blur(12px);
+
+  @media (max-width: 1100px) {
+    gap: 24px;
+    padding: 0 22px;
+  }
 `
 
 const Brand = styled.button`
@@ -95,6 +100,10 @@ const Nav = styled.nav`
   display: flex;
   align-self: stretch;
   gap: 26px;
+
+  @media (max-width: 1100px) {
+    gap: 16px;
+  }
 `
 
 const NavItem = styled.button<{ $active: boolean }>`
@@ -127,6 +136,10 @@ const Main = styled(Content)`
   width: min(1320px, calc(100% - 56px));
   margin: 0 auto;
   padding: 30px 0 56px;
+
+  @media (max-width: 1100px) {
+    width: calc(100% - 44px);
+  }
 `
 
 interface AppShellProps {

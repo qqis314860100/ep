@@ -1,4 +1,4 @@
-export type GovernanceTaskStatus = 'IN_PROGRESS' | 'PENDING_CONFIRMATION' | 'COMPLETED'
+export type GovernanceTaskStatus = 'DRAFT' | 'IN_PROGRESS' | 'PENDING_CONFIRMATION' | 'COMPLETED'
 export type GovernancePlanStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
 
 export interface GovernanceEmployee {
@@ -84,7 +84,7 @@ export async function getGovernanceTasks(): Promise<GovernanceTask[]> {
 
 export async function createGovernanceTask(input: Omit<GovernanceTask, 'id' | 'completed' | 'status'>): Promise<GovernanceTask> {
   if (useMocks) {
-    const task: GovernanceTask = { ...input, id: mockTasks.length + 1, completed: 0, status: 'IN_PROGRESS' }
+    const task: GovernanceTask = { ...input, id: mockTasks.length + 1, completed: 0, status: 'DRAFT' }
     mockTasks.push(task)
     return task
   }
@@ -105,6 +105,7 @@ export async function updateGovernanceProgress(taskId: number, completed: number
   if (useMocks) {
     const task = mockTasks.find((item) => item.id === taskId)
     if (!task) throw new Error('治理任务不存在')
+    if (task.status !== 'IN_PROGRESS') throw new Error('只有进行中的任务可以更新进度')
     task.completed = Math.max(0, Math.min(completed, task.total))
     task.status = task.completed === task.total ? 'PENDING_CONFIRMATION' : 'IN_PROGRESS'
     return task
@@ -117,6 +118,9 @@ export async function updateGovernanceProgress(taskId: number, completed: number
 
 export async function updateGovernancePlan(taskId: number, planId: number, status: GovernancePlanStatus): Promise<GovernancePlan> {
   if (useMocks) {
+    const task = mockTasks.find((item) => item.id === taskId)
+    if (!task) throw new Error('治理任务不存在')
+    if (task.status !== 'IN_PROGRESS') throw new Error('只有进行中的任务可以更新计划状态')
     const plan = (mockPlans[taskId] ?? []).find((item) => item.id === planId)
     if (!plan) throw new Error('计划项不存在')
     plan.status = status
@@ -136,6 +140,9 @@ export type CreateGovernancePlanInput = Omit<GovernancePlan, 'id' | 'taskId' | '
 
 export async function createGovernancePlan(taskId: number, input: CreateGovernancePlanInput): Promise<GovernancePlan> {
   if (useMocks) {
+    const task = mockTasks.find((item) => item.id === taskId)
+    if (!task) throw new Error('治理任务不存在')
+    if (task.status !== 'DRAFT') throw new Error('任务开始执行后计划已锁定，不能直接新增计划')
     const current = mockPlans[taskId] ?? []
     const plan = { ...input, id: Date.now(), taskId, status: 'TODO' as const, completedQuantity: 0 }
     mockPlans[taskId] = [...current, plan]
@@ -144,5 +151,24 @@ export async function createGovernancePlan(taskId: number, input: CreateGovernan
   return request<GovernancePlan>(`/api/v1/governance/tasks/${taskId}/plans`, {
     method: 'POST',
     body: JSON.stringify(input),
+  })
+}
+
+export async function startGovernanceTask(taskId: number): Promise<GovernanceTask> {
+  if (useMocks) {
+    const task = mockTasks.find((item) => item.id === taskId)
+    if (!task) throw new Error('治理任务不存在')
+    if (task.status !== 'DRAFT') throw new Error('只有草稿任务可以开始执行')
+    const plans = mockPlans[taskId] ?? []
+    if (!plans.length) throw new Error('至少添加一项计划后才能开始执行')
+    if (plans.some((plan) => !plan.assigneeId || !plan.plannedStart || !plan.plannedEnd || plan.plannedQuantity <= 0)) {
+      throw new Error('所有计划都必须设置责任人、起止日期和计划数量')
+    }
+    task.status = 'IN_PROGRESS'
+    return task
+  }
+  return request<GovernanceTask>(`/api/v1/governance/tasks/${taskId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'IN_PROGRESS' }),
   })
 }

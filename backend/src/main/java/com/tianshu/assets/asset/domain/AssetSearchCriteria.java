@@ -9,6 +9,7 @@ public record AssetSearchCriteria(
         String platformVariant,
         String base,
         String productionLine,
+        Boolean previewable,
         int page,
         int perPage) {
 
@@ -21,6 +22,6 @@ public record AssetSearchCriteria(
 
     public AssetSearchCriteria(String query, AssetType assetType, AssetStatus status,
             String base, String productionLine, int page, int perPage) {
-        this(query, assetType, status, "", "", "", base, productionLine, page, perPage);
+        this(query, assetType, status, "", "", "", base, productionLine, null, page, perPage);
     }
 }

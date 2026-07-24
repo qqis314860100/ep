@@ -10,11 +10,13 @@ const SearchPage = lazy(() => import('./pages/main/search'))
 const DetailPage = lazy(() => import('./pages/main/detail'))
 const FavoritesPage = lazy(() => import('./pages/main/favorites'))
 const MyUploadsPage = lazy(() => import('./pages/main/uploads'))
-const DrawingManagementPage = lazy(() => import('./pages/sys/drawing'))
-const GovernancePage = lazy(() => import('./features/governance/GovernancePage').then((module) => ({ default: module.GovernancePage })))
+const GovernancePage = lazy(() =>
+  import('./pages/sys/drawing'),
+)
 const UploadPage = lazy(() =>
   import('./pages/sys/file'),
 )
+const DictionaryPage = lazy(() => import('./pages/sys/dictionaries'))
 const ModulePlaceholder = lazy(() =>
   import('./features/common/ModulePlaceholder').then((module) => ({ default: module.ModulePlaceholder })),
 )
@@ -65,13 +67,12 @@ export default function App() {
                   <Route path="/assets/:id" element={<DetailPage />} />
                   <Route path="/upload" element={<UploadPage />} />
                   <Route path="/governance" element={<GovernancePage />} />
-                  <Route path="/sys/drawing" element={<DrawingManagementPage />} />
-                  <Route path="/sys/governance" element={<GovernancePage />} />
+                  <Route path="/sys/drawing" element={<GovernancePage />} />
                   <Route path="/sys/file" element={<UploadPage />} />
                   <Route path="/favorites" element={<FavoritesPage />} />
                   <Route path="/my-uploads" element={<MyUploadsPage />} />
-                  <Route path="/dictionaries" element={<ModulePlaceholder title="基础数据管理" />} />
-                  <Route path="/sys/dictionaries" element={<ModulePlaceholder title="基础数据管理" />} />
+                  <Route path="/dictionaries" element={<DictionaryPage />} />
+                  <Route path="/sys/dictionaries" element={<DictionaryPage />} />
                   <Route path="/settings" element={<ModulePlaceholder title="系统管理" />} />
                   <Route path="/sys/settings" element={<ModulePlaceholder title="系统管理" />} />
                   <Route path="*" element={<Navigate to="/" replace />} />

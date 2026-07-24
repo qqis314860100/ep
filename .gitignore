@@ -11,6 +11,8 @@ frontend/dist/
 output/playwright/
 
 backend/target/
+.data/
+backend/.data/
 
 *.log
 .env

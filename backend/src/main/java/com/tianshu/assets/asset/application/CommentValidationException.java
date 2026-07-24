@@ -7,4 +7,8 @@ public class CommentValidationException extends RuntimeException {
     public CommentValidationException() {
         super("评论内容不能为空");
     }
+
+    public CommentValidationException(String message) {
+        super(message);
+    }
 }

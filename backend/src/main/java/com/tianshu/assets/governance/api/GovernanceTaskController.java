@@ -78,6 +78,17 @@ public class GovernanceTaskController {
         return GovernanceTaskResponse.from(task, service.assigneeId(task.id()));
     }
 
+    @PatchMapping("/{taskId}/status")
+    public GovernanceTaskResponse updateStatus(
+            @PathVariable long taskId,
+            @Valid @RequestBody UpdateTaskStatusRequest request) {
+        if (!"IN_PROGRESS".equals(request.status())) {
+            throw new IllegalArgumentException("当前仅支持将草稿任务开始执行");
+        }
+        var task = service.start(taskId);
+        return GovernanceTaskResponse.from(task, service.assigneeId(task.id()));
+    }
+
     public record CreateTaskRequest(
             @NotBlank String name,
             String scope,
@@ -98,4 +109,6 @@ public class GovernanceTaskController {
             List<Long> dependencyIds) {}
 
     public record UpdateProgressRequest(@Min(0) int completed) {}
+
+    public record UpdateTaskStatusRequest(@NotBlank String status) {}
 }

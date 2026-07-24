@@ -6,6 +6,9 @@ import com.tianshu.assets.asset.application.DuplicateAssetNumberException;
 import com.tianshu.assets.asset.application.CommentValidationException;
 import com.tianshu.assets.asset.application.ForbiddenOperationException;
 import com.tianshu.assets.asset.application.AssetFileValidationException;
+import com.tianshu.assets.governance.application.GovernanceTaskStateException;
+import com.tianshu.assets.dictionary.application.DictionaryConflictException;
+import com.tianshu.assets.dictionary.application.DictionaryNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -51,6 +54,21 @@ public class ApiExceptionHandler {
     @ExceptionHandler(UnsupportedOperationException.class)
     ResponseEntity<ApiError> handleReadOnly(UnsupportedOperationException exception) {
         return response(HttpStatus.CONFLICT, "read_only_adapter", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(GovernanceTaskStateException.class)
+    ResponseEntity<ApiError> handleGovernanceStateConflict(GovernanceTaskStateException exception) {
+        return response(HttpStatus.CONFLICT, "governance_task_state_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(DictionaryNotFoundException.class)
+    ResponseEntity<ApiError> handleDictionaryNotFound(DictionaryNotFoundException exception) {
+        return response(HttpStatus.NOT_FOUND, "dictionary_item_not_found", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(DictionaryConflictException.class)
+    ResponseEntity<ApiError> handleDictionaryConflict(DictionaryConflictException exception) {
+        return response(HttpStatus.CONFLICT, "dictionary_item_conflict", exception.getMessage(), List.of());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

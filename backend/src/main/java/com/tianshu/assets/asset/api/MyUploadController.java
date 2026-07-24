@@ -29,7 +29,7 @@ public class MyUploadController {
             @RequestParam(required = false) AssetStatus status,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(name = "per_page", defaultValue = "20") @Min(1) @Max(100) int perPage) {
-        var result = assetQueryService.search(new AssetSearchCriteria("", null, status, ownerName, "", "", "", "", page, perPage));
+        var result = assetQueryService.search(new AssetSearchCriteria("", null, status, ownerName, "", "", "", "", null, page, perPage));
         return new PageResponse<>(result.items().stream().map(AssetResponse::from).toList(),
                 PageResponse.Meta.of(result.total(), result.page(), result.perPage()));
     }

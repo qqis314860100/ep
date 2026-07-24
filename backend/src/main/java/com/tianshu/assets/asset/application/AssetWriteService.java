@@ -8,25 +8,25 @@ import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.domain.AssetStatus;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
+import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AssetWriteService {
 
     private final AssetRepository assetRepository;
-    private final Set<String> favorites = ConcurrentHashMap.newKeySet();
-    private final List<AssetComment> comments = new ArrayList<>();
-    private final Map<String, Set<Long>> commentLikes = new ConcurrentHashMap<>();
-    private final AtomicLong nextCommentId = new AtomicLong(1);
+    private final AssetCollaborationStore collaborationStore;
+
+    @Autowired
+    public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore) {
+        this.assetRepository = assetRepository;
+        this.collaborationStore = collaborationStore;
+    }
 
     public AssetWriteService(AssetRepository assetRepository) {
-        this.assetRepository = assetRepository;
+        this(assetRepository, new InMemoryAssetCollaborationStore());
     }
 
     public Asset saveDraft(AssetDraft draft) {
@@ -89,85 +89,102 @@ public class AssetWriteService {
 
     public boolean isFavorite(long assetId, String userId) {
         ensureAssetExists(assetId);
-        return favorites.contains(favoriteKey(assetId, userId));
+        return collaborationStore.isFavorite(assetId, userId);
     }
 
     public boolean setFavorite(long assetId, String userId, boolean favorite) {
         ensureAssetExists(assetId);
-        var key = favoriteKey(assetId, userId);
-        if (favorite) {
-            favorites.add(key);
-        } else {
-            favorites.remove(key);
-        }
-        return favorite;
+        return collaborationStore.setFavorite(assetId, userId, favorite);
     }
 
     public synchronized List<Long> favoriteAssetIds(String userId) {
-        var normalizedUser = userId == null || userId.isBlank() ? "demo-user" : userId;
-        var prefix = normalizedUser + ":";
-        return favorites.stream()
-                .filter(key -> key.startsWith(prefix))
-                .map(key -> key.substring(prefix.length()))
-                .map(Long::parseLong)
-                .sorted()
+        return collaborationStore.favoriteAssetIds(userId);
+    }
+
+    public synchronized List<CommentView> comments(long assetId, String userId) {
+        return comments(assetId, userId, false);
+    }
+
+    public synchronized List<CommentView> comments(long assetId, String userId, boolean canModerate) {
+        ensureAssetExists(assetId);
+        var normalizedUser = normalizeUser(userId);
+        return collaborationStore.comments(assetId, userId).stream()
+                .map(stored -> toCommentView(stored.comment(), normalizedUser, canModerate, stored.likedByCurrentUser()))
                 .toList();
     }
 
-    public synchronized List<AssetComment> comments(long assetId) {
+    public synchronized CommentView comment(long assetId, long commentId, String userId) {
+        return comment(assetId, commentId, userId, false);
+    }
+
+    public synchronized CommentView comment(long assetId, long commentId, String userId, boolean canModerate) {
         ensureAssetExists(assetId);
-        return comments.stream().filter(comment -> comment.assetId() == assetId).toList();
+        var stored = collaborationStore.comments(assetId, userId).stream()
+                .filter(item -> item.comment().id() == commentId)
+                .findFirst()
+                .orElseThrow(() -> new AssetNotFoundException(commentId));
+        return toCommentView(stored.comment(), normalizeUser(userId), canModerate, stored.likedByCurrentUser());
     }
 
     public synchronized AssetComment addComment(long assetId, String userId, String authorName, String content) {
+        return addComment(assetId, userId, authorName, content, List.of());
+    }
+
+    public synchronized AssetComment addComment(
+            long assetId, String userId, String authorName, String content, List<String> imageKeys) {
         ensureAssetExists(assetId);
-        if (content == null || content.isBlank()) {
-            throw new CommentValidationException();
+        var normalizedImages = imageKeys == null ? List.<String>of() : imageKeys.stream()
+                .filter(key -> key != null && !key.isBlank())
+                .distinct()
+                .toList();
+        if ((content == null || content.isBlank()) && normalizedImages.isEmpty()) {
+            throw new CommentValidationException("评论内容和图片不能同时为空");
         }
-        var normalizedUser = userId == null || userId.isBlank() ? "demo-user" : userId;
-        var comment = new AssetComment(
-                nextCommentId.getAndIncrement(),
-                assetId,
-                normalizedUser,
+        if (content != null && content.trim().length() > 500) {
+            throw new CommentValidationException("评论内容不能超过 500 个字符");
+        }
+        if (normalizedImages.size() > 6) {
+            throw new CommentValidationException("评论图片不能超过 6 张");
+        }
+        var normalizedUser = normalizeUser(userId);
+        return collaborationStore.addComment(assetId, normalizedUser,
                 authorName == null || authorName.isBlank() ? normalizedUser : authorName,
-                content.trim(),
-                Instant.now(),
-                false,
-                0);
-        comments.add(comment);
-        return comment;
+                content == null ? "" : content.trim(), normalizedImages);
     }
 
     public synchronized void deleteComment(long assetId, long commentId, String userId) {
-        var comment = findComment(assetId, commentId);
-        if (!comment.authorId().equals(userId == null || userId.isBlank() ? "demo-user" : userId)) {
+        deleteComment(assetId, commentId, userId, false);
+    }
+
+    public synchronized void deleteComment(long assetId, long commentId, String userId, boolean canModerate) {
+        var comment = comment(assetId, commentId, userId, canModerate).comment();
+        if (!canModerate && !comment.authorId().equals(normalizeUser(userId))) {
             throw new ForbiddenOperationException("只能删除自己的评论");
         }
-        comments.set(comments.indexOf(comment), new AssetComment(
-                comment.id(), comment.assetId(), comment.authorId(), comment.authorName(), comment.content(),
-                comment.createdAt(), true, comment.likeCount()));
+        collaborationStore.deleteComment(assetId, commentId);
     }
 
     public synchronized CommentLikeResponseState setCommentLike(
             long assetId, long commentId, String userId, boolean liked) {
-        var comment = findComment(assetId, commentId);
-        var normalizedUser = userId == null || userId.isBlank() ? "demo-user" : userId;
-        var userLikes = commentLikes.computeIfAbsent(normalizedUser, ignored -> ConcurrentHashMap.newKeySet());
-        if (liked) userLikes.add(commentId);
-        else userLikes.remove(commentId);
-        var count = commentLikes.values().stream().filter(likes -> likes.contains(commentId)).count();
-        var updated = new AssetComment(
-                comment.id(), comment.assetId(), comment.authorId(), comment.authorName(), comment.content(),
-                comment.createdAt(), comment.deleted(), count);
-        comments.set(comments.indexOf(comment), updated);
-        return new CommentLikeResponseState(liked, count);
+        var comment = comment(assetId, commentId, userId, false).comment();
+        if (comment.deleted()) {
+            throw new ForbiddenOperationException("已删除的评论不能点赞");
+        }
+        var result = collaborationStore.setCommentLike(assetId, commentId, userId, liked);
+        return new CommentLikeResponseState(result.liked(), result.likeCount());
     }
 
-    private AssetComment findComment(long assetId, long commentId) {
-        return comments.stream()
-                .filter(comment -> comment.assetId() == assetId && comment.id() == commentId)
-                .findFirst()
-                .orElseThrow(() -> new AssetNotFoundException(commentId));
+    public synchronized boolean isCommentImageLinked(long assetId, String storageKey) {
+        ensureAssetExists(assetId);
+        return collaborationStore.isCommentImageLinked(assetId, storageKey);
+    }
+
+    private CommentView toCommentView(
+            AssetComment comment, String normalizedUser, boolean canModerate, boolean likedByCurrentUser) {
+        return new CommentView(
+                comment,
+                likedByCurrentUser,
+                canModerate || comment.authorId().equals(normalizedUser));
     }
 
     private void ensureAssetExists(long assetId) {
@@ -176,8 +193,8 @@ public class AssetWriteService {
         }
     }
 
-    private String favoriteKey(long assetId, String userId) {
-        return (userId == null || userId.isBlank() ? "demo-user" : userId) + ":" + assetId;
+    private String normalizeUser(String userId) {
+        return userId == null || userId.isBlank() ? "demo-user" : userId;
     }
 
     private void validateCommon(AssetDraft draft) {
@@ -233,4 +250,6 @@ public class AssetWriteService {
     }
 
     public record CommentLikeResponseState(boolean liked, long likeCount) {}
+
+    public record CommentView(AssetComment comment, boolean likedByCurrentUser, boolean canDelete) {}
 }

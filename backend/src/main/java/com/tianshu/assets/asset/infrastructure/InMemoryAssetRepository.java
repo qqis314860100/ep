@@ -191,6 +191,9 @@ public class InMemoryAssetRepository implements AssetRepository {
         var matchesStatus = criteria.status() == null || asset.status() == criteria.status();
         var matchesOwner = criteria.ownerName() == null || criteria.ownerName().isBlank()
                 || criteria.ownerName().equals(asset.ownerName());
+        var matchesPreviewable = criteria.previewable() == null
+                || !criteria.previewable()
+                || asset.files().stream().anyMatch(AssetFile::previewable);
         var matchesScope = asset.scopes().stream().anyMatch(scope ->
                 (criteria.platformFamily() == null || criteria.platformFamily().isBlank()
                         || criteria.platformFamily().equals(scope.platformFamily()))
@@ -201,7 +204,7 @@ public class InMemoryAssetRepository implements AssetRepository {
                         && (criteria.productionLine() == null
                                 || criteria.productionLine().isBlank()
                                 || criteria.productionLine().equals(scope.productionLine())));
-        return matchesQuery && matchesType && matchesStatus && matchesOwner && matchesScope;
+        return matchesQuery && matchesType && matchesStatus && matchesOwner && matchesPreviewable && matchesScope;
     }
 
     private static Asset asset(

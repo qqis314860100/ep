@@ -1,11 +1,11 @@
-import { CheckCircleOutlined, ClockCircleOutlined, DatabaseOutlined, ExclamationCircleOutlined, InfoCircleOutlined, PlusOutlined, UnorderedListOutlined } from '@ant-design/icons'
-import { Alert, App as AntdApp, Button, Drawer, Form, Input, InputNumber, Progress, Select, Space, Table, Tag, Typography } from 'antd'
+import { CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, DatabaseOutlined, ExclamationCircleOutlined, FileTextOutlined, InfoCircleOutlined, LockOutlined, PlayCircleOutlined, PlusOutlined, TeamOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { Alert, App as AntdApp, Button, Drawer, Form, Input, InputNumber, Progress, Select, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
-import { createGovernancePlan, createGovernanceTask, getGovernanceEmployees, getGovernancePlans, getGovernanceTasks, updateGovernancePlan, updateGovernanceProgress, type CreateGovernancePlanInput, type GovernancePlan, type GovernanceTask, type GovernanceTaskStatus } from '../../services/governanceService'
+import { createGovernancePlan, createGovernanceTask, getGovernanceEmployees, getGovernancePlans, getGovernanceTasks, startGovernanceTask, updateGovernancePlan, updateGovernanceProgress, type CreateGovernancePlanInput, type GovernancePlan, type GovernanceTask, type GovernanceTaskStatus } from '../../services/governanceService'
 
 type GovernanceTaskFormValues = {
   name: string
@@ -141,6 +141,163 @@ const DetailSummary = styled.div`
   background: #f4f8f5;
   border: 1px solid #dcebe3;
   border-radius: 5px;
+`
+
+const WorkflowGuide = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+`
+
+const WorkflowStep = styled.div<{ $active?: boolean }>`
+  min-height: 76px;
+  padding: 11px 12px;
+  background: ${({ $active }) => $active ? '#eef7f3' : '#f7f9f7'};
+  border: 1px solid ${({ $active }) => $active ? '#b9d9cc' : '#e0e7e2'};
+  border-radius: 6px;
+`
+
+const WorkflowStepTop = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #214f43;
+  font-size: 12px;
+  font-weight: 650;
+`
+
+const WorkflowStepNumber = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: #fff;
+  background: #2f7567;
+  border-radius: 50%;
+  font-size: 11px;
+`
+
+const WorkflowStepHelp = styled.div`
+  margin-top: 7px;
+  padding-left: 27px;
+  color: #68746f;
+  font-size: 11px;
+  line-height: 17px;
+`
+
+const PlanSection = styled.div`
+  margin-top: 18px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #dce3df;
+  border-radius: 6px;
+`
+
+const PlanSectionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+`
+
+const PlanSectionTitle = styled.div`
+  color: #20332c;
+  font-size: 14px;
+  font-weight: 650;
+`
+
+const PlanSectionHint = styled.div`
+  margin-top: 3px;
+  color: #68746f;
+  font-size: 12px;
+  line-height: 18px;
+`
+
+const PlanForm = styled.div`
+  margin-top: 12px;
+  padding: 13px;
+  background: #f7faf8;
+  border: 1px solid #dcebe3;
+  border-radius: 5px;
+`
+
+const PlanFormTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 11px;
+  color: #214f43;
+  font-size: 13px;
+  font-weight: 650;
+`
+
+const OwnerHint = styled.div`
+  margin: -4px 0 10px;
+  color: #68746f;
+  font-size: 11px;
+`
+
+const PlanFormGrid = styled.div`
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr);
+  gap: 10px;
+  align-items: end;
+
+  & + & {
+    margin-top: 10px;
+  }
+`
+
+const PlanField = styled.label`
+  display: block;
+  min-width: 0;
+`
+
+const PlanFieldLabel = styled.span`
+  display: block;
+  margin-bottom: 5px;
+  color: #4f5e57;
+  font-size: 11px;
+`
+
+const PlanFormActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  height: 100%;
+`
+
+const TimelineSection = styled(PlanSection)`
+  overflow: hidden;
+`
+
+const ProgressSummaryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 18px;
+`
+
+const ProgressSummaryItem = styled.div`
+  padding: 11px 12px;
+  background: #f7f9f7;
+  border: 1px solid #e0e7e2;
+  border-radius: 5px;
+`
+
+const ProgressSummaryLabel = styled.div`
+  color: #68746f;
+  font-size: 11px;
+`
+
+const ProgressSummaryValue = styled.div`
+  margin-top: 4px;
+  color: #20332c;
+  font-size: 18px;
+  font-weight: 650;
 `
 
 const DetailTitle = styled.div`
@@ -314,6 +471,7 @@ const targetOptions = [
 ]
 
 const statusConfig: Record<GovernanceTaskStatus, { label: string; color: string; icon: JSX.Element }> = {
+  DRAFT: { label: '草稿', color: 'default', icon: <FileTextOutlined /> },
   IN_PROGRESS: { label: '进行中', color: 'processing', icon: <ClockCircleOutlined /> },
   PENDING_CONFIRMATION: { label: '待确认', color: 'gold', icon: <ExclamationCircleOutlined /> },
   COMPLETED: { label: '已完成', color: 'green', icon: <CheckCircleOutlined /> },
@@ -325,6 +483,7 @@ export function GovernancePage() {
   const queryClient = useQueryClient()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [detailTask, setDetailTask] = useState<GovernanceTask | null>(null)
+  const [detailMode, setDetailMode] = useState<'progress' | 'plan'>('progress')
   const [progressDraft, setProgressDraft] = useState(0)
   const [newPlanDraft, setNewPlanDraft] = useState<PlanDraft>(emptyPlanDraft)
   const [form] = Form.useForm<GovernanceTaskFormValues>()
@@ -341,11 +500,14 @@ export function GovernancePage() {
   })
   const createMutation = useMutation({
     mutationFn: createGovernanceTask,
-    onSuccess: async () => {
+    onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: ['governance-tasks'] })
       setDrawerOpen(false)
       form.resetFields()
-      message.success('治理任务已创建')
+      setDetailMode('plan')
+      setDetailTask(created)
+      setNewPlanDraft(emptyPlanDraft())
+      message.success('任务草稿已创建，请先完成计划编排')
     },
     onError: (error) => message.error(error instanceof Error ? error.message : '治理任务创建失败'),
   })
@@ -375,6 +537,16 @@ export function GovernancePage() {
     },
     onError: (error) => message.error(error instanceof Error ? error.message : '计划项添加失败'),
   })
+  const startMutation = useMutation({
+    mutationFn: startGovernanceTask,
+    onSuccess: async (updated) => {
+      setDetailTask(updated)
+      setDetailMode('progress')
+      await queryClient.invalidateQueries({ queryKey: ['governance-tasks'] })
+      message.success('任务已开始执行，计划结构已锁定')
+    },
+    onError: (error) => message.error(error instanceof Error ? error.message : '任务启动失败'),
+  })
   const tasks = tasksQuery.data ?? []
   const selectedStageInfo = processOptions.find((item) => item.value === selectedStage)
   const selectedTargetInfo = targetOptions.find((item) => item.value === selectedTarget)
@@ -395,7 +567,7 @@ export function GovernancePage() {
     { title: '进度', width: 220, render: (_, record) => <Space direction="vertical" size={2} style={{ width: '100%' }}><Progress percent={record.total ? Math.round((record.completed / record.total) * 100) : 0} size="small" strokeColor="#2f7567" /><Typography.Text type="secondary" style={{ fontSize: 11 }}>{record.completed} / {record.total}</Typography.Text></Space> },
     { title: '计划完成', dataIndex: 'dueDate', width: 120 },
     { title: '状态', dataIndex: 'status', width: 110, render: (value: GovernanceTaskStatus) => { const config = statusConfig[value]; return <Tag color={config.color} icon={config.icon}>{config.label}</Tag> } },
-    { title: '操作', width: 110, render: (_, record) => <Button type="link" icon={<UnorderedListOutlined />} onClick={() => { setDetailTask(record); setProgressDraft(record.completed); setNewPlanDraft(emptyPlanDraft()) }}>计划与进度</Button> },
+    { title: '操作', width: 210, render: (_, record) => <Space size={2}><Tooltip title={record.status === 'DRAFT' ? '完成计划编排并开始执行后可查看进度' : undefined}><span><Button type="link" disabled={record.status === 'DRAFT'} icon={<ClockCircleOutlined />} onClick={() => { setDetailMode('progress'); setDetailTask(record); setProgressDraft(record.completed); setNewPlanDraft(emptyPlanDraft()) }}>查看进度</Button></span></Tooltip><Tooltip title={record.status === 'DRAFT' ? '设置计划、责任人、日期和前置关系' : '任务开始执行后计划结构已锁定'}><span><Button type="link" disabled={record.status !== 'DRAFT'} icon={record.status === 'DRAFT' ? <UnorderedListOutlined /> : <LockOutlined />} onClick={() => { setDetailMode('plan'); setDetailTask(record); setNewPlanDraft(emptyPlanDraft()) }}>{record.status === 'DRAFT' ? '编排计划' : '计划已锁定'}</Button></span></Tooltip></Space> },
   ]
 
   const openCreateDrawer = () => {
@@ -423,6 +595,7 @@ export function GovernancePage() {
   }
 
   const detailPlans = plansQuery.data ?? []
+  const canStartTask = detailPlans.length > 0 && detailPlans.every((plan) => plan.assigneeId && plan.plannedStart && plan.plannedEnd && plan.plannedQuantity > 0)
   const draftPreview: GovernancePlan | null = newPlanDraft.title.trim() || newPlanDraft.plannedStart || newPlanDraft.plannedEnd ? {
     ...newPlanDraft,
     id: -1,
@@ -443,6 +616,20 @@ export function GovernancePage() {
     groups[key] = [...(groups[key] ?? []), plan]
     return groups
   }, {})
+  const planColumns: ColumnsType<GovernancePlan> = [
+    { title: '计划项', dataIndex: 'title', render: (value: string) => <Typography.Text strong style={{ fontSize: 12 }}>{value}</Typography.Text> },
+    { title: '责任人', dataIndex: 'assigneeId', width: 130, render: (value?: string) => <Space size={5}><TeamOutlined style={{ color: '#2f7567' }} /><span>{employeeName(value)}</span></Space> },
+    { title: '计划时间', width: 180, render: (_, plan) => plan.plannedStart && plan.plannedEnd ? <Space size={5}><CalendarOutlined style={{ color: '#81928a' }} /><span>{plan.plannedStart} 至 {plan.plannedEnd}</span></Space> : <Typography.Text type="secondary">待排期</Typography.Text> },
+    { title: '计划量', width: 100, render: (_, plan) => `${plan.completedQuantity} / ${plan.plannedQuantity} ${plan.quantityUnit}` },
+    { title: '当前状态', dataIndex: 'status', width: 105, render: (value: GovernancePlan['status']) => <Tag color={planStatusConfig[value].color}>{planStatusConfig[value].label}</Tag> },
+  ]
+  const progressPlanColumns: ColumnsType<GovernancePlan> = [
+    { title: '执行计划', dataIndex: 'title', render: (value: string) => <Typography.Text strong style={{ fontSize: 12 }}>{value}</Typography.Text> },
+    { title: '责任人', dataIndex: 'assigneeId', width: 120, render: (value?: string) => <Space size={5}><TeamOutlined style={{ color: '#2f7567' }} /><span>{employeeName(value)}</span></Space> },
+    { title: '计划时间', width: 180, render: (_, plan) => plan.plannedStart && plan.plannedEnd ? `${plan.plannedStart} 至 ${plan.plannedEnd}` : <Typography.Text type="secondary">待排期</Typography.Text> },
+    { title: '进度', width: 120, render: (_, plan) => `${plan.completedQuantity} / ${plan.plannedQuantity} ${plan.quantityUnit}` },
+    { title: detailTask?.status === 'IN_PROGRESS' ? '更新状态' : '状态', dataIndex: 'status', width: 112, render: (value: GovernancePlan['status'], plan) => detailTask?.status === 'IN_PROGRESS' ? <Select size="small" value={value} options={Object.entries(planStatusConfig).map(([status, item]) => ({ value: status, label: item.label }))} onChange={(next) => planMutation.mutate({ taskId: detailTask.id, planId: plan.id, status: next as GovernancePlan['status'] })} style={{ width: 92 }} /> : <Tag color={planStatusConfig[value].color}>{planStatusConfig[value].label}</Tag> },
+  ]
 
   return (
     <>
@@ -455,7 +642,7 @@ export function GovernancePage() {
         showIcon
         icon={<InfoCircleOutlined />}
         message="治理任务是一次可分派、可追踪、可验收的数据整理工作"
-        description="选择要做的动作和整理内容，写清处理边界，再指定负责人和截止日期。系统会记录任务进度，业务确认和质量验收在后续环节完成。"
+        description="新建任务先保存为草稿；完成计划、责任人和排期后再开始执行。执行开始后计划结构锁定，只更新状态和完成量。"
       />
       <Metrics>{metrics.map(([label, value]) => <Metric key={label}><MetricLabel>{label}</MetricLabel><MetricValue>{value}</MetricValue></Metric>)}</Metrics>
       <TableSurface><Table rowKey="id" columns={columns} dataSource={tasks} loading={tasksQuery.isLoading} pagination={false} locale={{ emptyText: '暂无治理任务' }} /></TableSurface>
@@ -523,13 +710,13 @@ export function GovernancePage() {
             <Typography.Text strong>创建后将生成：</Typography.Text>
             <br />动作：{selectedStageInfo?.label ?? '待选择'} · 内容：{selectedTargetInfo?.shortLabel ?? '待选择'}
             <br />范围：{selectedScope || '待填写处理边界'}
-            <br /><Typography.Text type="secondary">任务创建后进入“进行中”，负责人可在后续页面更新处理进度并提交业务确认。</Typography.Text>
+            <br /><Typography.Text type="secondary">任务创建后先保存为草稿；完成计划编排并确认无误后，再由负责人启动执行。</Typography.Text>
           </TaskPreview>
         </Form>
       </Drawer>
       <Drawer
-        title="任务计划与进度"
-        width="min(980px, calc(100vw - 32px))"
+        title={detailMode === 'plan' ? '任务计划编排' : '任务执行进度'}
+        width="min(1120px, calc(100vw - 32px))"
         open={detailTask !== null}
         onClose={() => setDetailTask(null)}
         destroyOnHidden
@@ -541,50 +728,81 @@ export function GovernancePage() {
               <DetailMeta>{detailTask.scope}</DetailMeta>
               <Space size={8} style={{ marginTop: 8 }}>
                 <Tag color={statusConfig[detailTask.status].color}>{statusConfig[detailTask.status].label}</Tag>
-                <Typography.Text type="secondary">负责人：{detailTask.owner}</Typography.Text>
+                <Typography.Text type="secondary">任务总负责人：{detailTask.owner}</Typography.Text>
+                {detailMode === 'plan' ? <Tooltip title={canStartTask ? '开始后计划结构将锁定' : '至少添加一项计划，并补齐责任人、起止日期和数量'}><span><Button size="small" type="primary" icon={<PlayCircleOutlined />} disabled={!canStartTask} loading={startMutation.isPending} onClick={() => startMutation.mutate(detailTask.id)}>开始执行</Button></span></Tooltip> : <Tooltip title={detailTask.status === 'DRAFT' ? '返回计划编排' : '执行开始后计划结构已锁定'}><span><Button size="small" disabled={detailTask.status !== 'DRAFT'} icon={detailTask.status === 'DRAFT' ? <UnorderedListOutlined /> : <LockOutlined />} onClick={() => { setDetailMode('plan'); setNewPlanDraft(emptyPlanDraft()) }}>{detailTask.status === 'DRAFT' ? '编排任务计划' : '计划已锁定'}</Button></span></Tooltip>}
               </Space>
             </DetailSummary>
 
-            <DetailSectionTitle>
-              <span>计划清单与时间轴</span>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>{detailPlans.filter((plan) => plan.status === 'DONE').length} / {detailPlans.length} 已完成</Typography.Text>
-            </DetailSectionTitle>
-            {detailTimeline ? <Gantt>
-              <GanttHeader><div>计划项 / 数量 / 负责人</div><GanttScale>{detailTimeline.scale.map((date) => <div key={date}>{formatShortDate(date)}</div>)}</GanttScale></GanttHeader>
-              {visualPlans.map((plan) => { const bar = getPlanBar(plan, detailTimeline); const isDraft = plan.id < 0; return <GanttRow key={plan.id}><GanttLabel><Typography.Text strong style={{ fontSize: 12 }}>{plan.title}</Typography.Text><Typography.Text type="secondary" style={{ display: 'block', fontSize: 11 }}>{plan.completedQuantity} / {plan.plannedQuantity || '-'} {plan.quantityUnit} · {employeeName(plan.assigneeId)}</Typography.Text>{isDraft ? <Tag style={{ marginTop: 5 }}>草稿预览</Tag> : <Select size="small" value={plan.status} options={Object.entries(planStatusConfig).map(([value, item]) => ({ value, label: item.label }))} onChange={(value) => planMutation.mutate({ taskId: detailTask.id, planId: plan.id, status: value as GovernancePlan['status'] })} style={{ width: 90, marginTop: 5 }} />}</GanttLabel><GanttTrack><GanttBar title={`${plan.title} · ${plan.plannedStart ?? '未排期'} - ${plan.plannedEnd ?? '未排期'}`} $left={bar.left} $width={bar.width} $status={plan.status} /></GanttTrack></GanttRow> })}
-            </Gantt> : <Typography.Text type="secondary">计划项还没有起止时间，补充时间后才能生成甘特图。</Typography.Text>}
+            {detailMode === 'plan' && <WorkflowGuide>
+              <WorkflowStep $active><WorkflowStepTop><WorkflowStepNumber>1</WorkflowStepNumber>查看计划清单</WorkflowStepTop><WorkflowStepHelp>先确认每个阶段要做什么、处理多少资料。</WorkflowStepHelp></WorkflowStep>
+              <WorkflowStep><WorkflowStepTop><WorkflowStepNumber>2</WorkflowStepNumber>添加并分配</WorkflowStepTop><WorkflowStepHelp>在清单下方添加计划，并选择具体责任人。</WorkflowStepHelp></WorkflowStep>
+              <WorkflowStep><WorkflowStepTop><WorkflowStepNumber>3</WorkflowStepNumber>查看时间轴</WorkflowStepTop><WorkflowStepHelp>填写起止日期后，甘特图会自动生成并实时预览。</WorkflowStepHelp></WorkflowStep>
+              <WorkflowStep><WorkflowStepTop><WorkflowStepNumber>4</WorkflowStepNumber>确认编排结果</WorkflowStepTop><WorkflowStepHelp>核对责任人、日期、数量和前置关系后完成编排。</WorkflowStepHelp></WorkflowStep>
+            </WorkflowGuide>}
 
-            <Typography.Text strong style={{ display: 'block', margin: '18px 0 10px' }}>添加计划项，右侧时间轴会实时更新</Typography.Text>
-            <Space direction="vertical" size={8} style={{ width: '100%' }}>
-              <Input value={newPlanDraft.title} onChange={(event) => setNewPlanDraft((current) => ({ ...current, title: event.target.value }))} placeholder="例如：提交业务专家确认" />
-              <Space wrap size={8} align="start">
-                <Input type="date" value={newPlanDraft.plannedStart ?? ''} onChange={(event) => setNewPlanDraft((current) => ({ ...current, plannedStart: event.target.value || undefined }))} />
-                <Input type="date" value={newPlanDraft.plannedEnd ?? ''} onChange={(event) => setNewPlanDraft((current) => ({ ...current, plannedEnd: event.target.value || undefined }))} />
-                <InputNumber min={1} precision={0} value={newPlanDraft.plannedQuantity} onChange={(value) => setNewPlanDraft((current) => ({ ...current, plannedQuantity: value ?? 1 }))} placeholder="计划量" />
-                <Select value={newPlanDraft.quantityUnit} onChange={(value) => setNewPlanDraft((current) => ({ ...current, quantityUnit: value }))} options={['个资产', '个字段', '个关系', '个文件', '项'].map((value) => ({ value, label: value }))} style={{ width: 110 }} />
-              </Space>
-              <Space wrap size={8} align="start">
-                <Select value={newPlanDraft.assigneeId} allowClear placeholder="计划负责人" onChange={(value) => setNewPlanDraft((current) => ({ ...current, assigneeId: value }))} options={(employeesQuery.data ?? []).map((employee) => ({ value: employee.id, label: employee.name }))} style={{ width: 150 }} />
-                <Select mode="multiple" value={newPlanDraft.dependencyIds.map(String)} allowClear placeholder="前置计划" onChange={(values) => setNewPlanDraft((current) => ({ ...current, dependencyIds: values.map(Number) }))} options={detailPlans.map((plan) => ({ value: String(plan.id), label: plan.title }))} style={{ minWidth: 220 }} />
-                <Button type="primary" loading={createPlanMutation.isPending} disabled={!newPlanDraft.title.trim()} onClick={createPlan}>添加计划</Button>
-              </Space>
-            </Space>
+            {detailMode === 'plan' && <Alert type="warning" showIcon message="开始执行后将锁定计划结构" description="锁定后不能直接新增计划或调整责任关系，只能更新执行状态和完成量。需要调整时应走计划变更流程并记录原因。" />}
 
-            <DetailSectionTitle><span>责任泳道</span><Typography.Text type="secondary" style={{ fontSize: 12 }}>按负责人查看交接</Typography.Text></DetailSectionTitle>
-            <Swimlane>{Object.entries(swimlaneGroups).map(([employeeId, plans]) => <SwimlaneLane key={employeeId}><SwimlaneOwner>{employeeName(employeeId)}</SwimlaneOwner><SwimlaneItems>{plans.map((plan) => <SwimlaneItem key={plan.id}><Typography.Text strong>{plan.title}</Typography.Text><Typography.Text type="secondary" style={{ display: 'block', fontSize: 11 }}>{plan.status === 'DONE' ? '已完成' : plan.plannedStart && plan.plannedEnd ? `${formatShortDate(plan.plannedStart)} - ${formatShortDate(plan.plannedEnd)}` : '待排期'}</Typography.Text></SwimlaneItem>)}</SwimlaneItems></SwimlaneLane>)}</Swimlane>
+            {detailMode === 'progress' && <>
+              <Alert type="info" showIcon message="这里用于查看和更新执行结果" description="计划结构、责任人和前置关系请进入“编排任务计划”维护；当前页面只关注完成情况、时间安排和人员负荷。" />
+              <ProgressSummaryGrid>
+                <ProgressSummaryItem><ProgressSummaryLabel>计划项</ProgressSummaryLabel><ProgressSummaryValue>{detailPlans.length}</ProgressSummaryValue></ProgressSummaryItem>
+                <ProgressSummaryItem><ProgressSummaryLabel>已完成计划</ProgressSummaryLabel><ProgressSummaryValue>{detailPlans.filter((plan) => plan.status === 'DONE').length}</ProgressSummaryValue></ProgressSummaryItem>
+                <ProgressSummaryItem><ProgressSummaryLabel>任务完成率</ProgressSummaryLabel><ProgressSummaryValue>{detailTask.total ? Math.round((detailTask.completed / detailTask.total) * 100) : 0}%</ProgressSummaryValue></ProgressSummaryItem>
+              </ProgressSummaryGrid>
+            </>}
 
-            <DetailSectionTitle><span>任务完成进度</span><Typography.Text type="secondary">按任务总量更新</Typography.Text></DetailSectionTitle>
-            <Progress percent={detailTask.total ? Math.round((detailTask.completed / detailTask.total) * 100) : 0} strokeColor="#2f7567" />
-            <ProgressEditor>
-              <Form.Item label="已完成数量" style={{ flex: 1, marginBottom: 0 }}>
-                <InputNumber min={0} max={detailTask.total} precision={0} value={progressDraft} onChange={(value) => setProgressDraft(value ?? 0)} style={{ width: '100%' }} />
-              </Form.Item>
-              <Typography.Text type="secondary" style={{ paddingBottom: 7 }}>/ {detailTask.total}</Typography.Text>
-              <Button type="primary" loading={progressMutation.isPending} onClick={() => progressMutation.mutate({ taskId: detailTask.id, completed: progressDraft })}>更新进度</Button>
-            </ProgressEditor>
-            <Typography.Paragraph type="secondary" style={{ marginTop: 10, fontSize: 12 }}>
-              完成数量达到预计处理量后，任务会进入“待确认”，由业务专家确认结果；确认通过后再进入验收和归档。
-            </Typography.Paragraph>
+            <PlanSection>
+              <PlanSectionHeader>
+                <div><PlanSectionTitle>{detailMode === 'plan' ? '计划清单与责任分配' : '执行计划概览'}</PlanSectionTitle><PlanSectionHint>{detailMode === 'plan' ? '在这里维护工作拆分、计划责任人、日期、数量和执行顺序。' : '只读查看当前计划结构；计划调整请进入计划编排。'}</PlanSectionHint></div>
+                <Tag color="blue">{detailPlans.filter((plan) => plan.status === 'DONE').length} / {detailPlans.length} 已完成</Tag>
+              </PlanSectionHeader>
+              <Table<GovernancePlan> rowKey="id" size="small" columns={detailMode === 'plan' ? planColumns : progressPlanColumns} dataSource={detailPlans} pagination={false} locale={{ emptyText: detailMode === 'plan' ? '还没有计划项，请在下方添加第一项' : '该任务还没有编排执行计划' }} />
+
+              {detailMode === 'plan' && <PlanForm>
+                <PlanFormTitle><PlusOutlined />新增计划项</PlanFormTitle>
+                <OwnerHint>责任人从员工目录中选择，和任务总负责人可以是同一个人，也可以分别指定。</OwnerHint>
+                <PlanFormGrid>
+                  <PlanField><PlanFieldLabel>计划名称</PlanFieldLabel><Input value={newPlanDraft.title} onChange={(event) => setNewPlanDraft((current) => ({ ...current, title: event.target.value }))} placeholder="例如：提交业务专家确认" /></PlanField>
+                  <PlanField><PlanFieldLabel>计划责任人</PlanFieldLabel><Select value={newPlanDraft.assigneeId} allowClear placeholder="选择执行人" onChange={(value) => setNewPlanDraft((current) => ({ ...current, assigneeId: value }))} options={(employeesQuery.data ?? []).map((employee) => ({ value: employee.id, label: employee.name, title: employee.department }))} optionRender={(option) => <div><OptionTitle>{option.data.label}</OptionTitle><OptionHelp>{option.data.title}</OptionHelp></div>} style={{ width: '100%' }} /></PlanField>
+                  <PlanField><PlanFieldLabel>计划开始</PlanFieldLabel><Input type="date" value={newPlanDraft.plannedStart ?? ''} onChange={(event) => setNewPlanDraft((current) => ({ ...current, plannedStart: event.target.value || undefined }))} /></PlanField>
+                  <PlanField><PlanFieldLabel>计划结束</PlanFieldLabel><Input type="date" value={newPlanDraft.plannedEnd ?? ''} onChange={(event) => setNewPlanDraft((current) => ({ ...current, plannedEnd: event.target.value || undefined }))} /></PlanField>
+                </PlanFormGrid>
+                <PlanFormGrid>
+                  <PlanField><PlanFieldLabel>计划数量</PlanFieldLabel><InputNumber min={1} precision={0} value={newPlanDraft.plannedQuantity} onChange={(value) => setNewPlanDraft((current) => ({ ...current, plannedQuantity: value ?? 1 }))} style={{ width: '100%' }} placeholder="例如：286" /></PlanField>
+                  <PlanField><PlanFieldLabel>数量单位</PlanFieldLabel><Select value={newPlanDraft.quantityUnit} onChange={(value) => setNewPlanDraft((current) => ({ ...current, quantityUnit: value }))} options={['个资产', '个字段', '个关系', '个文件', '项'].map((value) => ({ value, label: value }))} style={{ width: '100%' }} /></PlanField>
+                  <PlanField><PlanFieldLabel>前置计划（可选）</PlanFieldLabel><Select mode="multiple" value={newPlanDraft.dependencyIds.map(String)} allowClear placeholder="没有可留空" maxTagCount="responsive" onChange={(values) => setNewPlanDraft((current) => ({ ...current, dependencyIds: values.map(Number) }))} options={detailPlans.map((plan) => ({ value: String(plan.id), label: plan.title }))} style={{ width: '100%' }} /></PlanField>
+                  <PlanFormActions><Button type="primary" icon={<PlusOutlined />} loading={createPlanMutation.isPending} disabled={!newPlanDraft.title.trim()} onClick={createPlan}>添加到计划清单</Button></PlanFormActions>
+                </PlanFormGrid>
+              </PlanForm>}
+            </PlanSection>
+
+            <TimelineSection>
+              <PlanSectionHeader><div><PlanSectionTitle>{detailMode === 'plan' ? '排期预览' : '执行时间轴'}</PlanSectionTitle><PlanSectionHint>{detailMode === 'plan' ? '用于检查计划先后关系；新计划填写日期后会以草稿立即出现。' : '横向查看计划开始、结束和当前执行状态。'}</PlanSectionHint></div><CalendarOutlined style={{ color: '#2f7567', fontSize: 18 }} /></PlanSectionHeader>
+              {detailTimeline ? <Gantt>
+                <GanttHeader><div>计划项 / 责任人</div><GanttScale>{detailTimeline.scale.map((date) => <div key={date}>{formatShortDate(date)}</div>)}</GanttScale></GanttHeader>
+                {visualPlans.map((plan) => { const bar = getPlanBar(plan, detailTimeline); const isDraft = plan.id < 0; return <GanttRow key={plan.id}><GanttLabel><Typography.Text strong style={{ fontSize: 12 }}>{plan.title}</Typography.Text><Typography.Text type="secondary" style={{ display: 'block', fontSize: 11 }}>{employeeName(plan.assigneeId)} · {plan.plannedStart && plan.plannedEnd ? `${formatShortDate(plan.plannedStart)} - ${formatShortDate(plan.plannedEnd)}` : '待排期'}</Typography.Text>{isDraft ? <Tag style={{ marginTop: 5 }}>草稿预览</Tag> : detailMode === 'progress' && detailTask.status === 'IN_PROGRESS' ? <Select size="small" value={plan.status} options={Object.entries(planStatusConfig).map(([value, item]) => ({ value, label: item.label }))} onChange={(value) => planMutation.mutate({ taskId: detailTask.id, planId: plan.id, status: value as GovernancePlan['status'] })} style={{ width: 90, marginTop: 5 }} /> : <Tag color={planStatusConfig[plan.status].color} style={{ marginTop: 5 }}>{planStatusConfig[plan.status].label}</Tag>}</GanttLabel><GanttTrack><GanttBar title={`${plan.title} · ${plan.plannedStart ?? '未排期'} - ${plan.plannedEnd ?? '未排期'}`} $left={bar.left} $width={bar.width} $status={plan.status} /></GanttTrack></GanttRow> })}
+              </Gantt> : <Typography.Text type="secondary">还没有可排期的计划项，请先在上方填写计划开始和结束日期。</Typography.Text>}
+            </TimelineSection>
+
+            <PlanSection>
+              <PlanSectionHeader><div><PlanSectionTitle>{detailMode === 'plan' ? '责任分布预览' : '责任分布'}</PlanSectionTitle><PlanSectionHint>按负责人归集计划，快速看出每个人承担的工作以及交接关系；人员在计划编排中设置。</PlanSectionHint></div><TeamOutlined style={{ color: '#2f7567', fontSize: 18 }} /></PlanSectionHeader>
+              <Swimlane>{Object.entries(swimlaneGroups).map(([employeeId, plans]) => <SwimlaneLane key={employeeId}><SwimlaneOwner>{employeeName(employeeId)}<Typography.Text type="secondary" style={{ display: 'block', marginTop: 3, fontSize: 11 }}>{plans.length} 项计划</Typography.Text></SwimlaneOwner><SwimlaneItems>{plans.map((plan) => <SwimlaneItem key={plan.id}><Typography.Text strong>{plan.title}</Typography.Text><Typography.Text type="secondary" style={{ display: 'block', fontSize: 11 }}>{plan.status === 'DONE' ? '已完成' : plan.plannedStart && plan.plannedEnd ? `${formatShortDate(plan.plannedStart)} - ${formatShortDate(plan.plannedEnd)}` : '待排期'}</Typography.Text></SwimlaneItem>)}</SwimlaneItems></SwimlaneLane>)}</Swimlane>
+            </PlanSection>
+
+            {detailMode === 'progress' && <>
+              <DetailSectionTitle><span>任务完成进度</span><Typography.Text type="secondary">按任务总量更新</Typography.Text></DetailSectionTitle>
+              <Progress percent={detailTask.total ? Math.round((detailTask.completed / detailTask.total) * 100) : 0} strokeColor="#2f7567" />
+              <ProgressEditor>
+                <Form.Item label="已完成数量" style={{ flex: 1, marginBottom: 0 }}>
+                  <InputNumber disabled={detailTask.status !== 'IN_PROGRESS'} min={0} max={detailTask.total} precision={0} value={progressDraft} onChange={(value) => setProgressDraft(value ?? 0)} style={{ width: '100%' }} />
+                </Form.Item>
+                <Typography.Text type="secondary" style={{ paddingBottom: 7 }}>/ {detailTask.total}</Typography.Text>
+                <Button type="primary" disabled={detailTask.status !== 'IN_PROGRESS'} loading={progressMutation.isPending} onClick={() => progressMutation.mutate({ taskId: detailTask.id, completed: progressDraft })}>更新进度</Button>
+              </ProgressEditor>
+              <Typography.Paragraph type="secondary" style={{ marginTop: 10, fontSize: 12 }}>
+                完成数量达到预计处理量后，任务会进入“待确认”，由业务专家确认结果；确认通过后再进入验收和归档。
+              </Typography.Paragraph>
+            </>}
           </>
         )}
       </Drawer>

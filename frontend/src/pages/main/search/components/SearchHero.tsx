@@ -3,7 +3,7 @@ import { Button, Input } from 'antd'
 import styled from 'styled-components'
 
 const Hero = styled.section`
-  padding: 34px 42px 30px;
+  padding: 24px 30px 22px;
   color: #fff;
   background: #214f43;
   border-radius: 12px;
@@ -13,7 +13,7 @@ const Hero = styled.section`
 const Title = styled.h1`
   margin: 0 0 7px;
   color: #fff;
-  font-size: 30px;
+  font-size: 25px;
   font-weight: 650;
 `
 
@@ -29,7 +29,7 @@ const SearchRow = styled.div`
   display: flex;
   gap: 10px;
   max-width: 780px;
-  margin-top: 22px;
+  margin-top: 16px;
 
   .ant-input-affix-wrapper {
     height: 46px;
@@ -54,7 +54,7 @@ const QuickLinks = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 12px;
 `
 
 const QuickLink = styled.button`
@@ -91,7 +91,7 @@ export function SearchHero({ query, onQueryChange, onSearch, onQuickSearch }: Se
         <Button type="primary" icon={<SearchOutlined />} onClick={onSearch}>搜索</Button>
       </SearchRow>
       <QuickLinks aria-label="常用搜索">
-        {['宁德基地', '溧阳基地', '三维模型', 'PDF 图纸'].map((item) => (
+        {['可预览资料', '三维模型', 'PDF 图纸', '标准设备模块'].map((item) => (
           <QuickLink key={item} onClick={() => onQuickSearch(item)}>{item}</QuickLink>
         ))}
       </QuickLinks>

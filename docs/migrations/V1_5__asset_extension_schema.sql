@@ -106,3 +106,27 @@ CREATE TABLE IF NOT EXISTS asset_audit_ext (
     KEY idx_asset_audit_actor (actor_user_id, created_at)
 ) COMMENT='New audit events; legacy sys_file_operation_log remains unchanged';
 
+CREATE TABLE IF NOT EXISTS dictionary_item (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    category_code VARCHAR(80) NOT NULL,
+    item_code VARCHAR(100) NOT NULL,
+    item_name VARCHAR(200) NOT NULL,
+    parent_id BIGINT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ENABLED',
+    sort_order INT NOT NULL DEFAULT 0,
+    usage_count BIGINT NOT NULL DEFAULT 0,
+    description VARCHAR(500) NULL,
+    forward_name VARCHAR(200) NULL,
+    reverse_name VARCHAR(200) NULL,
+    directional TINYINT(1) NOT NULL DEFAULT 0,
+    allow_duplicate TINYINT(1) NOT NULL DEFAULT 0,
+    merge_target_id BIGINT NULL,
+    version BIGINT NOT NULL DEFAULT 0 COMMENT 'Optimistic-lock version',
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_dictionary_category_code (category_code, item_code),
+    KEY idx_dictionary_category_status (category_code, status, sort_order),
+    KEY idx_dictionary_parent (parent_id, status),
+    KEY idx_dictionary_merge_target (merge_target_id)
+) COMMENT='Controlled product, production and asset dictionaries';

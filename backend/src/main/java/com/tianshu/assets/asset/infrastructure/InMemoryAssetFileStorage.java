@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("!oceanbase")
+@Profile("dev")
 public class InMemoryAssetFileStorage implements AssetFileStorage {
 
     private static final long MAX_FILE_SIZE = 500L * 1024 * 1024;

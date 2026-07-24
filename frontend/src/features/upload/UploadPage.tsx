@@ -26,9 +26,11 @@ import {
 import type { UploadProps } from 'antd'
 import type { UploadChangeParam, UploadFile } from 'antd/es/upload/interface'
 import type { ColumnsType } from 'antd/es/table'
+import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { saveAssetDraft, submitAsset, uploadAssetFile } from '../../services/assetService'
+import { getDictionaryItems } from '../../services/dictionaryService'
 import type { AssetDraftInput, AssetFile, AssetType } from '../../types/asset'
 
 const { Dragger } = Upload
@@ -250,24 +252,16 @@ const ActionBar = styled.div`
   border-top: 1px solid #dfe7e2;
 `
 
-const assetTypeOptions = [
+const fallbackAssetTypeOptions = [
   ['THREE_DIMENSIONAL_MODEL', '三维模型'],
   ['TWO_DIMENSIONAL_DRAWING', '二维图纸'],
   ['MIXED_ASSET', '混合资产'],
   ['OTHER', '其他资料'],
 ] as const
 
-const roleOptions = ['三维源模型', '二维图纸', '预览文件', '说明文件', '其他附件']
-const specialtyOptions = ['机械', '电气', '液压', '气动', '工装']
+const fallbackRoleOptions = ['三维源模型', '二维图纸', '预览文件', '说明附件', '其他附件']
+const fallbackSpecialtyOptions = ['机械', '电气', '液压', '气动', '工装']
 const recognizedFormats = new Set(['X_T', 'STEP', 'STP', 'IGES', 'IGS', 'DWG', 'DXF', 'PDF', 'PNG', 'JPG', 'JPEG', 'TIFF', 'WEBP', 'DOC', 'DOCX', 'ZIP', 'RAR'])
-const platformOptions = [
-  { value: '乘用车', label: '乘用车', variants: ['大面水冷', '底部水冷'] },
-  { value: '商用车', label: '商用车', variants: [] },
-  { value: '储能', label: '储能', variants: ['集装箱', '电箱', '电柜'] },
-  { value: '模组', label: '模组', variants: [] },
-  { value: '圆柱', label: '圆柱', variants: [] },
-]
-
 function fileFormat(name: string) {
   const extension = name.split('.').pop()
   return extension ? extension.toUpperCase() : 'OTHER'
@@ -311,6 +305,9 @@ export function UploadPage() {
   const [form] = Form.useForm<UploadFormValues>()
   const fileList = Form.useWatch('files', form) ?? emptyUploadFiles
   const platform = Form.useWatch('platform', form)
+  const platformVariant = Form.useWatch('platformVariant', form)
+  const base = Form.useWatch('base', form)
+  const productionLine = Form.useWatch('productionLine', form)
   const [roles, setRoles] = useState<Record<string, string>>({})
   const [groups, setGroups] = useState<Record<string, string>>({})
   const [fileStages, setFileStages] = useState<Record<string, FileStage>>({})
@@ -319,7 +316,28 @@ export function UploadPage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
 
-  const selectedPlatform = platformOptions.find((item) => item.value === platform)
+  const dictionaryQuery = useQuery({ queryKey: ['dictionary-items'], queryFn: getDictionaryItems })
+  const dictionaryItems = (dictionaryQuery.data ?? []).filter((item) => item.status === 'ENABLED')
+  const platformFamilies = dictionaryItems.filter((item) => item.category === 'PLATFORM_FAMILY')
+  const selectedPlatform = platformFamilies.find((item) => item.name === platform)
+  const platformVariants = dictionaryItems.filter((item) => item.category === 'PLATFORM_VARIANT' && item.parentId === selectedPlatform?.id)
+  const selectedVariant = platformVariants.find((item) => item.name === platformVariant)
+  const productLines = dictionaryItems.filter((item) => item.category === 'PRODUCT_LINE' && item.parentId === selectedVariant?.id)
+  const bases = dictionaryItems.filter((item) => item.category === 'BASE')
+  const selectedBase = bases.find((item) => item.name === base)
+  const productionLines = dictionaryItems.filter((item) => item.category === 'PRODUCTION_LINE' && item.parentId === selectedBase?.id)
+  const selectedProductionLine = productionLines.find((item) => item.name === productionLine)
+  const processSections = dictionaryItems.filter((item) => item.category === 'PROCESS_SECTION' && item.parentId === selectedProductionLine?.id)
+  const assetTypeOptions = dictionaryQuery.data
+    ? dictionaryItems.filter((item) => item.category === 'ASSET_TYPE').map((item) => [item.code, item.name] as const)
+    : fallbackAssetTypeOptions
+  const roleOptions = dictionaryQuery.data
+    ? dictionaryItems.filter((item) => item.category === 'FILE_ROLE').map((item) => item.name)
+    : fallbackRoleOptions
+  const specialtyOptions = dictionaryQuery.data
+    ? dictionaryItems.filter((item) => item.category === 'SPECIALTY').map((item) => item.name)
+    : fallbackSpecialtyOptions
+  const moduleTagOptions = dictionaryItems.filter((item) => item.category === 'MODULE_TAG').map((item) => ({ value: item.name, label: item.name }))
   const formatSummary = useMemo(() => {
     const formats = [...new Set(fileList.map((file) => formatLabel(file.name)))]
     const unknownCount = fileList.filter((file) => !isRecognizedFormat(file.name)).length
@@ -332,7 +350,6 @@ export function UploadPage() {
 
   const handleFilesChange = (info: UploadChangeParam<UploadFile>) => {
     const nextFiles: UploadFile[] = info.fileList
-    form.setFieldsValue({ files: nextFiles })
     setRoles((current) => Object.fromEntries(nextFiles.map((file) => [file.uid, current[file.uid] ?? defaultRole(file.name)])))
     setGroups((current) => Object.fromEntries(nextFiles.map((file, index) => [file.uid, current[file.uid] ?? `资产组 ${Math.floor(index / 2) + 1}`])))
     setFileStages((current) => Object.fromEntries(nextFiles.map((file) => [file.uid, current[file.uid] ?? '待上传'])))
@@ -553,23 +570,23 @@ export function UploadPage() {
               <Form.Item name="platform" label="覆盖平台" rules={[{ required: true, message: '请选择覆盖平台' }]}>
                 <Select
                   placeholder="八大平台"
-                  options={platformOptions.map(({ value, label }) => ({ value, label }))}
-                  onChange={() => form.setFieldValue('platformVariant', undefined)}
+                  options={platformFamilies.map((item) => ({ value: item.name, label: item.name }))}
+                  onChange={() => form.setFieldsValue({ platformVariant: undefined, productLine: undefined })}
                 />
               </Form.Item>
-              <Form.Item name="platformVariant" label="平台子类" rules={[{ required: platform === '乘用车' || platform === '储能', message: '请选择平台子类' }]}>
-                <Select disabled={!selectedPlatform?.variants.length} placeholder={selectedPlatform?.variants.length ? '请选择子类' : '该平台无需细分'} options={(selectedPlatform?.variants ?? []).map((value) => ({ value, label: value }))} />
+              <Form.Item name="platformVariant" label="平台子类" rules={[{ required: true, message: '请选择平台子类' }]}>
+                <Select disabled={!selectedPlatform} placeholder="请选择子类" options={platformVariants.map((item) => ({ value: item.name, label: item.name }))} onChange={() => form.setFieldValue('productLine', undefined)} />
               </Form.Item>
               <Form.Item name="productLine" label="产品线" rules={[{ required: true, message: '请选择产品线' }]}>
-                <Select placeholder="选择产品线" options={['H03', 'P02', 'M01', 'P01'].map((value) => ({ value, label: value }))} />
+                <Select disabled={!selectedVariant} placeholder="选择产品线" options={productLines.map((item) => ({ value: item.name, label: item.name }))} />
               </Form.Item>
               <Form.Item name="base" label="基地" rules={[{ required: true, message: '请选择基地' }]}>
-                <Select placeholder="选择基地" options={['宁德基地', '溧阳基地'].map((value) => ({ value, label: value }))} />
+                <Select placeholder="选择基地" options={bases.map((item) => ({ value: item.name, label: item.name }))} onChange={() => form.setFieldsValue({ productionLine: undefined, processSection: undefined })} />
               </Form.Item>
               <Form.Item name="productionLine" label="拉线" rules={[{ required: true, message: '请选择拉线' }]}>
-                <Select placeholder="选择拉线" options={['A 拉线', 'B 拉线'].map((value) => ({ value, label: value }))} />
+                <Select disabled={!selectedBase} placeholder="选择拉线" options={productionLines.map((item) => ({ value: item.name, label: item.name }))} onChange={() => form.setFieldValue('processSection', undefined)} />
               </Form.Item>
-              <Form.Item name="processSection" label="工序段"><Input placeholder="可选，例如：焊接段" /></Form.Item>
+              <Form.Item name="processSection" label="工序段"><Select allowClear disabled={!selectedProductionLine} placeholder="选择工序段" options={processSections.map((item) => ({ value: item.name, label: item.name }))} /></Form.Item>
             </ScopeGrid>
           </FormSection>
 
@@ -583,7 +600,7 @@ export function UploadPage() {
                 const showModuleFields = getFieldValue('platform') === '模组' || getFieldValue('standardEquipmentModule')
                 return showModuleFields ? (
                   <ScopeGrid>
-                    <Form.Item name="moduleTags" label="模组标签"><Select mode="tags" placeholder="如：定位模块、输送模块" /></Form.Item>
+                    <Form.Item name="moduleTags" label="模组标签"><Select mode="multiple" placeholder="选择模组标签" options={moduleTagOptions} /></Form.Item>
                     <Form.Item name="linkedModuleAssetIds" label="关联模块数模 ID"><Input prefix={<LinkOutlined />} placeholder="多个 ID 用逗号分隔" /></Form.Item>
                     <Form.Item name="equipmentInterconnectCode" label="设备互联编码"><Input prefix={<SettingOutlined />} placeholder="可选，用于关联拉线数据" /></Form.Item>
                   </ScopeGrid>

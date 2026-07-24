@@ -1,6 +1,7 @@
 package com.tianshu.assets.asset.domain;
 
 import java.time.Instant;
+import java.util.List;
 
 public record AssetComment(
         long id,
@@ -8,6 +9,12 @@ public record AssetComment(
         String authorId,
         String authorName,
         String content,
+        List<String> imageKeys,
         Instant createdAt,
         boolean deleted,
-        long likeCount) {}
+        long likeCount) {
+
+    public AssetComment {
+        imageKeys = imageKeys == null ? List.of() : List.copyOf(imageKeys);
+    }
+}

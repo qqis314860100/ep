@@ -30,6 +30,7 @@ function matchesSearch(asset: Asset, params: AssetSearchParams) {
     asset.files.some((file) => file.name.toLowerCase().includes(query))
   const matchesType = !params.assetType || asset.assetType === params.assetType
   const matchesStatus = !params.status || asset.status === params.status
+  const matchesPreviewable = !params.previewable || asset.files.some((file) => file.previewable)
   const matchesScope = asset.scopes.some(
     (scope) =>
       (!params.platformFamily || (scope.platformFamily ?? scope.platform) === params.platformFamily) &&
@@ -37,7 +38,7 @@ function matchesSearch(asset: Asset, params: AssetSearchParams) {
       (!params.base || scope.base === params.base) &&
       (!params.productionLine || scope.productionLine === params.productionLine),
   )
-  return matchesQuery && matchesType && matchesStatus && matchesScope
+  return matchesQuery && matchesType && matchesStatus && matchesPreviewable && matchesScope
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -82,7 +83,13 @@ export async function searchAssets(params: AssetSearchParams): Promise<AssetPage
   if (params.platformVariant) query.set('platform_variant', params.platformVariant)
   if (params.base) query.set('base', params.base)
   if (params.productionLine) query.set('production_line', params.productionLine)
+  if (params.previewable) query.set('previewable', 'true')
   return request<AssetPage>(`/api/v1/assets?${query.toString()}`)
+}
+
+export function getAssetFilePreviewUrl(assetId: number, file: AssetFile): string | undefined {
+  if (useMocks || !file.previewable || !file.id || !file.storageKey) return undefined
+  return `${apiBaseUrl}/api/v1/assets/${assetId}/files/${file.id}?preview=true`
 }
 
 export async function getAsset(id: number): Promise<Asset> {
@@ -227,25 +234,49 @@ export async function getComments(id: number): Promise<AssetComment[]> {
   return request<AssetComment[]>(`/api/v1/assets/${id}/comments`)
 }
 
-export async function addComment(id: number, content: string): Promise<AssetComment> {
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error(`无法读取图片：${file.name}`))
+    reader.readAsDataURL(file)
+  })
+}
+
+export async function addComment(id: number, content: string, images: File[] = []): Promise<AssetComment> {
   if (useMocks) {
     await delay(120)
+    const mockImages = await Promise.all(images.map(async (image, index) => ({
+      key: `mock-${nextMockCommentId}-${index}`,
+      url: await readFileAsDataUrl(image),
+    })))
     const comment: AssetComment = {
       id: nextMockCommentId++,
       assetId: id,
+      authorId: 'demo-user',
       authorName: '陈工',
       content,
+      images: mockImages,
       createdAt: new Date().toISOString(),
       deleted: false,
       likeCount: 0,
+      likedByCurrentUser: false,
+      canDelete: true,
     }
-    mockComments.push(comment)
+    mockComments.unshift(comment)
     return comment
   }
-  return request<AssetComment>(`/api/v1/assets/${id}/comments`, {
+  const formData = new FormData()
+  formData.append('authorName', '陈工')
+  formData.append('content', content)
+  images.forEach((image) => formData.append('images', image))
+  const response = await fetch(`${apiBaseUrl}/api/v1/assets/${id}/comments`, {
     method: 'POST',
-    body: JSON.stringify({ authorName: '陈工', content }),
+    headers: { Accept: 'application/json' },
+    body: formData,
   })
+  if (!response.ok) throw new Error(`评论发布失败：${response.status}`)
+  return response.json() as Promise<AssetComment>
 }
 
 export async function deleteComment(assetId: number, commentId: number): Promise<void> {
@@ -258,25 +289,18 @@ export async function deleteComment(assetId: number, commentId: number): Promise
   await request<void>(`/api/v1/assets/${assetId}/comments/${commentId}`, { method: 'DELETE' })
 }
 
-export async function setCommentLike(assetId: number, commentId: number, liked: boolean): Promise<AssetComment> {
+export async function setCommentLike(assetId: number, commentId: number, liked: boolean): Promise<{ liked: boolean; likeCount: number }> {
   if (useMocks) {
     await delay(80)
     const comment = mockComments.find((item) => item.assetId === assetId && item.id === commentId)
     if (!comment) throw new Error('未找到评论')
-    comment.likeCount = Math.max(0, comment.likeCount + (liked ? 1 : -1))
-    return comment
+    if (comment.likedByCurrentUser !== liked) {
+      comment.likeCount = Math.max(0, comment.likeCount + (liked ? 1 : -1))
+      comment.likedByCurrentUser = liked
+    }
+    return { liked: comment.likedByCurrentUser, likeCount: comment.likeCount }
   }
-  const response = await request<{ likeCount: number }>(`/api/v1/assets/${assetId}/comments/${commentId}/like`, {
+  return request<{ liked: boolean; likeCount: number }>(`/api/v1/assets/${assetId}/comments/${commentId}/like`, {
     method: liked ? 'POST' : 'DELETE',
   })
-  const comments = await getComments(assetId)
-  return comments.find((comment) => comment.id === commentId) ?? {
-    id: commentId,
-    assetId,
-    authorName: '',
-    content: '',
-    createdAt: '',
-    deleted: false,
-    likeCount: response.likeCount,
-  }
 }

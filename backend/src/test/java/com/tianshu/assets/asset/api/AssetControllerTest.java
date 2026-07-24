@@ -1,6 +1,7 @@
 package com.tianshu.assets.asset.api;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,7 +14,9 @@ import com.tianshu.assets.common.api.ApiExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
+import java.nio.charset.StandardCharsets;
 
 class AssetControllerTest {
 
@@ -54,6 +57,14 @@ class AssetControllerTest {
                         .param("platform_variant", "底部水冷"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.meta.total").value(2));
+    }
+
+    @Test
+    void filtersAssetsThatHavePreviewableFiles() throws Exception {
+        mockMvc.perform(get("/api/v1/assets").param("previewable", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(4))
+                .andExpect(jsonPath("$.data[0].id").value(101));
     }
 
     @Test
@@ -135,7 +146,9 @@ class AssetControllerTest {
                         .content("{\"authorName\":\"陈工\",\"content\":\"接口评论\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.content").value("接口评论"));
+                .andExpect(jsonPath("$.content").value("接口评论"))
+                .andExpect(jsonPath("$.likedByCurrentUser").value(false))
+                .andExpect(jsonPath("$.canDelete").value(true));
 
         mockMvc.perform(post("/api/v1/assets/101/comments/1/like"))
                 .andExpect(status().isOk())
@@ -144,6 +157,13 @@ class AssetControllerTest {
         mockMvc.perform(post("/api/v1/assets/101/comments/1/like"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.likeCount").value(1));
+        mockMvc.perform(get("/api/v1/assets/101/comments"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].likedByCurrentUser").value(true));
+        mockMvc.perform(get("/api/v1/assets/101/comments").header("X-User-Id", "another-user"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].likedByCurrentUser").value(false))
+                .andExpect(jsonPath("$[0].canDelete").value(false));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .delete("/api/v1/assets/101/comments/1"))
@@ -151,5 +171,48 @@ class AssetControllerTest {
         mockMvc.perform(get("/api/v1/assets/101/comments"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].deleted").value(true));
+    }
+
+    @Test
+    void acceptsValidatedCommentImages() throws Exception {
+        var pngBytes = new byte[] {
+                (byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+                0x00, 0x00, 0x00, 0x00
+        };
+        var author = new MockMultipartFile(
+                "authorName", "", "text/plain;charset=UTF-8", "陈工".getBytes(StandardCharsets.UTF_8));
+        var content = new MockMultipartFile(
+                "content", "", "text/plain;charset=UTF-8", "带图反馈".getBytes(StandardCharsets.UTF_8));
+        var image = new MockMultipartFile("images", "feedback.png", "image/png", pngBytes);
+
+        mockMvc.perform(multipart("/api/v1/assets/101/comments")
+                        .file(author)
+                        .file(content)
+                        .file(image))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").value("带图反馈"))
+                .andExpect(jsonPath("$.images.length()").value(1))
+                .andExpect(jsonPath("$.images[0].url").isNotEmpty());
+    }
+
+    @Test
+    void allowsContentAdministratorsToModerateComments() throws Exception {
+        mockMvc.perform(post("/api/v1/assets/101/comments")
+                        .header("X-User-Id", "comment-author")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"authorName\":\"作者\",\"content\":\"待处理评论\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/assets/101/comments")
+                        .header("X-User-Id", "content-admin")
+                        .header("X-User-Roles", "CONTENT_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].canDelete").value(true));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/v1/assets/101/comments/1")
+                        .header("X-User-Id", "content-admin")
+                        .header("X-User-Roles", "CONTENT_ADMIN"))
+                .andExpect(status().isOk());
     }
 }

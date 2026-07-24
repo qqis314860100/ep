@@ -1,5 +1,1 @@
-import { AssetSearchPage } from '../../../features/assets/AssetSearchPage'
-
-export default function DrawingManagementPage() {
-  return <AssetSearchPage management />
-}
+export { GovernancePage as default } from '../../../features/governance/GovernancePage'

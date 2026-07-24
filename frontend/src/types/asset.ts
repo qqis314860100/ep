@@ -81,6 +81,7 @@ export interface AssetSearchParams {
   platformVariant?: string
   base?: string
   productionLine?: string
+  previewable?: boolean
   page: number
   perPage: number
 }
@@ -117,11 +118,20 @@ export interface AssetDraftInput {
 export interface AssetComment {
   id: number
   assetId: number
+  authorId: string
   authorName: string
   content: string
+  images: AssetCommentImage[]
   createdAt: string
   deleted: boolean
   likeCount: number
+  likedByCurrentUser: boolean
+  canDelete: boolean
+}
+
+export interface AssetCommentImage {
+  key: string
+  url: string
 }
 
 export interface EquipmentInterconnection {
