@@ -2,8 +2,12 @@ package com.tianshu.assets.document.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.tianshu.assets.common.file.InMemoryFileStorage;
 import com.tianshu.assets.document.domain.DocumentSearchCriteria;
 import com.tianshu.assets.document.domain.DocumentStatus;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 class InMemoryDocumentRepositoryTest {
@@ -41,5 +45,29 @@ class InMemoryDocumentRepositoryTest {
 
         assertThat(repository.existsByDocumentNumber("doc-wi-000001")).isTrue();
         assertThat(repository.existsByDocumentNumber("DOC-NOT-FOUND")).isFalse();
+    }
+
+    @Test
+    void seedsACompletePdfForBrowserPreview() {
+        var storage = new InMemoryFileStorage();
+        var repository = new InMemoryDocumentRepository(storage);
+        var file = repository.findById(101).orElseThrow().currentVersion().files().getFirst();
+        var content = storage.open(file.storageKey()).orElseThrow().content();
+        var pdf = new String(content, StandardCharsets.ISO_8859_1);
+
+        assertThat(content.length).isGreaterThan(1_000);
+        assertThat(pdf).startsWith("%PDF-").contains("%%EOF");
+    }
+
+    @Test
+    void seedsAVisibleImageForBrowserPreview() throws Exception {
+        var storage = new InMemoryFileStorage();
+        var repository = new InMemoryDocumentRepository(storage);
+        var file = repository.findById(102).orElseThrow().currentVersion().files().getFirst();
+        var content = storage.open(file.storageKey()).orElseThrow().content();
+        var image = ImageIO.read(new ByteArrayInputStream(content));
+
+        assertThat(image.getWidth()).isEqualTo(320);
+        assertThat(image.getHeight()).isEqualTo(180);
     }
 }
