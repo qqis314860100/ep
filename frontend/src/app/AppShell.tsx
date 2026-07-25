@@ -4,6 +4,7 @@ import {
   CloudUploadOutlined,
   DatabaseOutlined,
   FileSearchOutlined,
+  FileTextOutlined,
   HeartOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -11,7 +12,7 @@ import {
   SettingOutlined,
 } from '@ant-design/icons'
 import { Avatar, Button, Layout, Tooltip } from 'antd'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 
@@ -252,6 +253,7 @@ interface NavigationItem {
 
 const primaryItems: NavigationItem[] = [
   { key: 'search', label: '资料检索', path: '/', icon: <FileSearchOutlined />, active: (path) => path === '/' || path.startsWith('/assets') },
+  { key: 'documents', label: '文档中心', path: '/documents', icon: <FileTextOutlined />, active: (path) => path.startsWith('/documents') },
   { key: 'upload', label: '上传资料', path: '/upload', icon: <CloudUploadOutlined />, active: (path) => path === '/upload' || path === '/sys/file' },
   { key: 'favorites', label: '我的收藏', path: '/favorites', icon: <HeartOutlined />, active: (path) => path === '/favorites' },
   { key: 'my-uploads', label: '我的上传', path: '/my-uploads', icon: <BookOutlined />, active: (path) => path === '/my-uploads' },
@@ -271,6 +273,10 @@ export function AppShell({ children }: AppShellProps) {
   const currentModule = allItems.find((item) => item.active(location.pathname))?.label ?? '生产知识资产平台'
   const isUploadRoute = location.pathname === '/upload' || location.pathname === '/sys/file'
 
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   const toggleCollapsed = () => {
     setCollapsed((current) => {
       window.localStorage.setItem('workspace-nav-collapsed', String(!current))
@@ -285,6 +291,7 @@ export function AppShell({ children }: AppShellProps) {
         $active={item.active(location.pathname)}
         $collapsed={collapsed}
         aria-label={item.label}
+        aria-current={item.active(location.pathname) ? 'page' : undefined}
         onClick={() => navigate(item.path)}
       >
         {item.icon}
