@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the upload page denser and keep the desktop asset-file panel at a stable `430px` height with an internally scrolling file queue.
+**Goal:** Make the upload page denser and keep the desktop asset-file panel exactly as tall as the main scrollable content area, with no vertical whitespace and an internally scrolling file queue.
 
-**Architecture:** Keep the existing upload component and business state intact. Change only styled-component layout rules and the Ant Design table scroll height so the right panel becomes a fixed-height flex column on desktop, while the existing `980px` breakpoint restores natural height for narrow screens.
+**Architecture:** Keep the existing upload component and business state intact. Make `UploadScrollArea` the desktop grid and size container, then size its sticky asset-file panel to `100cqh`. This binds the panel height to the actual content viewport without hard-coded pixels or JavaScript measurement, while the existing `980px` breakpoint restores natural height for narrow screens.
 
 **Tech Stack:** React 18, TypeScript, Ant Design, styled-components, Vite, in-app browser verification.
 
@@ -41,9 +41,9 @@ const panel = [...document.querySelectorAll('section')]
 })
 ```
 
-Expected before implementation: FAIL because the height is content-driven rather than exactly `430`, and the panel is not a flex column.
+Expected before implementation: FAIL because the panel starts below the content area's top edge and ends above its bottom edge.
 
-### Task 2: Implement the compact fixed-height panel
+### Task 2: Implement the compact content-height panel
 
 **Files:**
 - Modify: `frontend/src/features/upload/UploadPage.tsx:80-278`
@@ -84,17 +84,35 @@ const MetadataPanel = styled(Section)`
 
 Also reduce section-header and form-section vertical gaps by `2px` while retaining the current colors, typography hierarchy, borders, and radius.
 
-- [ ] **Step 2: Convert the asset-file panel into a fixed-height flex column**
+- [ ] **Step 2: Make the asset-file panel fill the content viewport**
 
-Update `UploadPanel`, `Dropzone`, `QueueSummary`, and `FilesTable`:
+Make `UploadScrollArea` the grid and size container, remove the intermediate `Workspace` wrapper, and update `UploadPanel`, `Dropzone`, `QueueSummary`, and `FilesTable`:
 
 ```tsx
+const UploadScrollArea = styled.div`
+  container-type: size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 10px;
+  align-items: start;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 4px 0 0;
+
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr;
+  }
+`
+
 const UploadPanel = styled(Section)`
   position: sticky;
-  top: 64px;
+  top: 0;
   display: flex;
   flex-direction: column;
-  height: 430px;
+  align-self: start;
+  height: 100cqh;
+  max-height: 100cqh;
   min-height: 0;
   padding: 10px;
 
@@ -111,6 +129,7 @@ const UploadPanel = styled(Section)`
   @media (max-width: 980px) {
     position: static;
     height: auto;
+    max-height: none;
     min-height: 0;
   }
 `
@@ -204,11 +223,19 @@ At `1366x768`, verify:
 ```js
 const panel = [...document.querySelectorAll('section')]
   .find((element) => element.textContent?.includes('资产文件'))
+const content = panel?.parentElement
 const submit = [...document.querySelectorAll('button')]
   .find((element) => element.textContent?.includes('提交待整理'))
 
 ({
   panelHeight: panel?.getBoundingClientRect().height,
+  contentHeight: content?.getBoundingClientRect().height,
+  topDelta: panel && content
+    ? panel.getBoundingClientRect().top - content.getBoundingClientRect().top
+    : null,
+  bottomDelta: panel && content
+    ? content.getBoundingClientRect().bottom - panel.getBoundingClientRect().bottom
+    : null,
   panelDisplay: panel ? getComputedStyle(panel).display : null,
   submitBottom: submit?.getBoundingClientRect().bottom,
   viewportHeight: window.innerHeight,
@@ -216,15 +243,15 @@ const submit = [...document.querySelectorAll('button')]
 })
 ```
 
-Expected: `panelHeight` is `430`, `panelDisplay` is `flex`, the submit button remains inside the viewport, and `horizontalOverflow` is `false`.
+Expected: `panelHeight` equals `contentHeight`, both edge deltas are zero apart from subpixel rounding, `panelDisplay` is `flex`, the submit button remains inside the viewport, and `horizontalOverflow` is `false`. Repeat after scrolling the content area and confirm both edges remain aligned.
 
 - [ ] **Step 2: Verify narrow-screen fallback**
 
-At `970px` wide (below the `980px` breakpoint and above the application's global `960px` minimum width), verify that the asset-file panel computed height is not forced to `430px`, the workspace is one column, and its controls are not clipped.
+At `970px` wide (below the `980px` breakpoint and above the application's global `960px` minimum width), verify that the asset-file panel uses natural height, the content area is one column, and its controls are not clipped.
 
 - [ ] **Step 3: Capture browser evidence**
 
-Capture desktop and narrow-screen screenshots showing the fixed panel, internal file table region, visible action bar, and responsive single-column fallback.
+Capture desktop and narrow-screen screenshots showing the content-height panel, internal file table region, visible action bar, and responsive single-column fallback.
 
 - [ ] **Step 4: Run the production build and diff checks**
 

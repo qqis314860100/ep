@@ -49,11 +49,20 @@ const UploadFrame = styled.div`
 `
 
 const UploadScrollArea = styled.div`
+  container-type: size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 10px;
+  align-items: start;
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 0 4px 2px 0;
+  padding: 0 4px 0 0;
   scrollbar-gutter: stable;
+
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr;
+  }
 `
 
 type FileStage = '待上传' | '上传中' | '校验中' | '可用' | '失败'
@@ -128,17 +137,6 @@ const IntakeSteps = styled(Steps)`
   }
 `
 
-const Workspace = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 10px;
-  align-items: start;
-
-  @media (max-width: 980px) {
-    grid-template-columns: 1fr;
-  }
-`
-
 const Section = styled.section`
   min-width: 0;
   padding: 10px;
@@ -161,10 +159,12 @@ const MetadataPanel = styled(Section)`
 
 const UploadPanel = styled(Section)`
   position: sticky;
-  top: 64px;
+  top: 0;
   display: flex;
   flex-direction: column;
-  height: 430px;
+  align-self: start;
+  height: 100cqh;
+  max-height: 100cqh;
   min-height: 0;
   padding: 10px;
 
@@ -185,6 +185,7 @@ const UploadPanel = styled(Section)`
   @media (max-width: 980px) {
     position: static;
     height: auto;
+    max-height: none;
     min-height: 0;
   }
 `
@@ -320,7 +321,7 @@ const ActionBar = styled.div`
   flex: 0 0 auto;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 0;
   padding: 8px 0 0;
   background: #f4f6f5;
   border-top: 1px solid #dfe7e2;
@@ -611,7 +612,6 @@ export function UploadPage() {
         />
 
         <UploadScrollArea>
-          <Workspace>
         <MetadataPanel>
           <SectionHeader>
             <div><SectionTitle>资产元数据</SectionTitle><SectionHint>先填写工程师最熟悉的信息，后台整理人员可继续补充字典和关联关系。</SectionHint></div>
@@ -733,7 +733,6 @@ export function UploadPage() {
           </FilesTable>
           <Button block size="small" disabled={fileList.length === 0} onClick={autoGroup}>自动归组</Button>
         </UploadPanel>
-          </Workspace>
         </UploadScrollArea>
 
         <ActionBar>
