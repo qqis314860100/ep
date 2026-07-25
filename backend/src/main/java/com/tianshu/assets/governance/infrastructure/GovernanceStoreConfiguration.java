@@ -2,6 +2,7 @@ package com.tianshu.assets.governance.infrastructure;
 
 import com.tianshu.assets.governance.task.application.GovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStore;
+import com.tianshu.assets.governance.issue.application.GovernanceIssueStore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +19,16 @@ public class GovernanceStoreConfiguration {
             matchIfMissing = true)
     GovernanceTaskStore inMemoryGovernanceTaskStore() {
         return InMemoryGovernanceTaskStore.withLegacySeed();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(GovernanceIssueStore.class)
+    @ConditionalOnProperty(
+            name = "asset.governance-schema-enabled",
+            havingValue = "false",
+            matchIfMissing = true)
+    GovernanceIssueStore inMemoryGovernanceIssueStore() {
+        return InMemoryGovernanceIssueStore.withFieldSeeds();
     }
 
     @Bean

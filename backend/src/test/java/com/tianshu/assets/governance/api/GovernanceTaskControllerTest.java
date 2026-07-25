@@ -10,7 +10,9 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standal
 
 import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceEmployeeDirectory;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
+import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
 import com.tianshu.assets.governance.task.domain.GovernanceTask;
 import com.tianshu.assets.governance.task.domain.GovernanceTaskStatus;
@@ -24,12 +26,16 @@ class GovernanceTaskControllerTest {
 
     private MockMvc mockMvc;
     private GovernanceTaskApplicationService service;
+    private InMemoryGovernanceTaskStore taskStore;
+    private InMemoryGovernanceIssueStore issueStore;
 
     @BeforeEach
     void setUp() {
-        service = new GovernanceTaskApplicationService(
-                InMemoryGovernanceTaskStore.withLegacySeed(), new InMemoryGovernanceEmployeeDirectory());
-        mockMvc = standaloneSetup(new GovernanceTaskController(service))
+        taskStore = InMemoryGovernanceTaskStore.withLegacySeed();
+        issueStore = InMemoryGovernanceIssueStore.withFieldSeeds();
+        service = new GovernanceTaskApplicationService(taskStore, new InMemoryGovernanceEmployeeDirectory());
+        mockMvc = standaloneSetup(new GovernanceTaskController(
+                        service, new GovernanceIssueService(issueStore, taskStore)))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
     }
@@ -54,8 +60,9 @@ class GovernanceTaskControllerTest {
                 0, "GOV-LEGACY-NULL-DATE", "未排期历史任务", "历史导入", "LEGACY_IMPORT",
                 "emp-wang", "王工", "emp-wang", null, GovernanceTaskStatus.IN_PROGRESS, 0,
                 GovernanceWorkflowVersion.LEGACY_PROGRESS, null, null, 12, 3, 0));
-        mockMvc = standaloneSetup(new GovernanceTaskController(new GovernanceTaskApplicationService(
-                        store, new InMemoryGovernanceEmployeeDirectory())))
+        mockMvc = standaloneSetup(new GovernanceTaskController(
+                        new GovernanceTaskApplicationService(store, new InMemoryGovernanceEmployeeDirectory()),
+                        new GovernanceIssueService(new InMemoryGovernanceIssueStore(), store)))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
 
@@ -65,13 +72,41 @@ class GovernanceTaskControllerTest {
     }
 
     @Test
-    void rejectsLegacyTaskCreationWithoutIssues() throws Exception {
+    void createsClosedLoopTaskFromIssueIds() throws Exception {
         mockMvc.perform(post("/api/v1/governance/tasks")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"平台子类映射\",\"scope\":\"八大平台\",\"owner\":\"陈工\",\"assigneeId\":\"emp-chen\",\"total\":20,\"dueDate\":\"2026-09-01\"}"))
+                        .content("{\"name\":\"平台字段补充\",\"issueIds\":[1001,1002],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.scope").value("FIELD_SUPPLEMENT"))
+                .andExpect(jsonPath("$.owner").value("陈工"))
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.workflowVersion").value("CLOSED_LOOP_V1"))
+                .andExpect(jsonPath("$.currentRound").value(1))
+                .andExpect(jsonPath("$.version").value(0));
+    }
+
+    @Test
+    void mapsDuplicateIssueClaimToStableConflict() throws Exception {
+        var request = "{\"name\":\"平台字段补充\",\"issueIds\":[1001],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}";
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("governance_task_state_conflict"))
-                .andExpect(jsonPath("$.error.message").value("历史进度任务为只读，请按问题池重新建单"));
+                .andExpect(jsonPath("$.error.code").value("governance_issue_conflict"))
+                .andExpect(jsonPath("$.error.message").value("问题已被其他治理任务纳入"));
+    }
+
+    @Test
+    void rejectsEmptyIssueIdsAtBoundary() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"平台字段补充\",\"issueIds\":[],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("validation_error"));
     }
 
     @Test

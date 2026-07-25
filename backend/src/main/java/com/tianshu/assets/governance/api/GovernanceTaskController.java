@@ -1,11 +1,14 @@
 package com.tianshu.assets.governance.api;
 
 import com.tianshu.assets.governance.domain.GovernanceEmployee;
+import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
+import com.tianshu.assets.governance.issue.application.GovernanceIssueService.CreateGovernanceTaskCommand;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
 import com.tianshu.assets.governance.task.domain.GovernancePlan;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.List;
@@ -26,9 +29,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class GovernanceTaskController {
 
     private final GovernanceTaskApplicationService service;
+    private final GovernanceIssueService issueService;
 
-    public GovernanceTaskController(GovernanceTaskApplicationService service) {
+    public GovernanceTaskController(
+            GovernanceTaskApplicationService service, GovernanceIssueService issueService) {
         this.service = service;
+        this.issueService = issueService;
     }
 
     @GetMapping
@@ -39,7 +45,8 @@ public class GovernanceTaskController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public GovernanceTaskResponse create(@Valid @RequestBody CreateTaskRequest request) {
-        return GovernanceTaskResponse.from(service.rejectTaskCreation());
+        return GovernanceTaskResponse.from(issueService.createTask(new CreateGovernanceTaskCommand(
+                request.name(), request.issueIds(), request.ownerUserId(), request.ownerName(), request.dueDate())));
     }
 
     @GetMapping("/employees")
@@ -84,11 +91,10 @@ public class GovernanceTaskController {
 
     public record CreateTaskRequest(
             @NotBlank String name,
-            String scope,
-            @NotBlank String owner,
-            @Min(1) int total,
-            @NotNull LocalDate dueDate,
-            String assigneeId) {}
+            @NotEmpty List<Long> issueIds,
+            @NotBlank String ownerUserId,
+            @NotBlank String ownerName,
+            @NotNull LocalDate dueDate) {}
 
     public record UpdatePlanRequest(@NotBlank String status) {}
 
