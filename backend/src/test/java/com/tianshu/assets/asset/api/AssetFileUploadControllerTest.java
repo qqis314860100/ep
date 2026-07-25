@@ -5,8 +5,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
-import com.tianshu.assets.asset.infrastructure.InMemoryAssetFileStorage;
 import com.tianshu.assets.common.api.ApiExceptionHandler;
+import com.tianshu.assets.common.file.InMemoryFileStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
@@ -18,7 +18,7 @@ class AssetFileUploadControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = standaloneSetup(new AssetFileUploadController(new InMemoryAssetFileStorage()))
+        mockMvc = standaloneSetup(new AssetFileUploadController(new InMemoryFileStorage()))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
     }

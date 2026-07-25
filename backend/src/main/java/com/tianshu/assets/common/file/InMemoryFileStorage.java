@@ -1,6 +1,5 @@
-package com.tianshu.assets.asset.infrastructure;
+package com.tianshu.assets.common.file;
 
-import com.tianshu.assets.asset.application.AssetFileStorage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,10 +15,10 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Profile("dev")
-public class InMemoryAssetFileStorage implements AssetFileStorage {
+public class InMemoryFileStorage implements FileStorage {
 
     private static final long MAX_FILE_SIZE = 500L * 1024 * 1024;
-    private final Map<String, StoredAssetFile> files = new ConcurrentHashMap<>();
+    private final Map<String, StoredFile> files = new ConcurrentHashMap<>();
 
     @Override
     public String store(InputStream content, long size, String originalFilename, String contentType) throws IOException {
@@ -28,13 +27,12 @@ public class InMemoryAssetFileStorage implements AssetFileStorage {
         }
         var bytes = readLimited(content, MAX_FILE_SIZE);
         var key = UUID.randomUUID().toString();
-        var sha256 = sha256(bytes);
-        files.put(key, new StoredAssetFile(key, originalFilename, contentType, bytes.length, sha256, bytes));
+        files.put(key, new StoredFile(key, originalFilename, contentType, bytes.length, sha256(bytes), bytes));
         return key;
     }
 
     @Override
-    public Optional<StoredAssetFile> open(String storageKey) {
+    public Optional<StoredFile> open(String storageKey) {
         return Optional.ofNullable(files.get(storageKey));
     }
 

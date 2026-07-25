@@ -1,16 +1,16 @@
-package com.tianshu.assets.asset.application;
+package com.tianshu.assets.common.file;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
 
-public interface AssetFileStorage {
+public interface FileStorage {
 
     String store(InputStream content, long size, String originalFilename, String contentType) throws IOException;
 
-    Optional<StoredAssetFile> open(String storageKey);
+    Optional<StoredFile> open(String storageKey);
 
-    record StoredAssetFile(
+    record StoredFile(
             String storageKey,
             String originalFilename,
             String contentType,

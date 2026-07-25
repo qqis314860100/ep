@@ -43,6 +43,15 @@ class DictionaryControllerTest {
     }
 
     @Test
+    void exposesDocumentCategories() throws Exception {
+        mockMvc.perform(get("/api/v1/dictionaries/items").param("category", "DOCUMENT_CATEGORY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(6))
+                .andExpect(jsonPath("$[0].name").value("技术规范"))
+                .andExpect(jsonPath("$[5].name").value("标准模板"));
+    }
+
+    @Test
     void createsAndUpdatesDictionaryItem() throws Exception {
         var response = mockMvc.perform(post("/api/v1/dictionaries/items")
                         .contentType(MediaType.APPLICATION_JSON)

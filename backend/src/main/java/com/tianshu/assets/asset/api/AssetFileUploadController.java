@@ -1,8 +1,8 @@
 package com.tianshu.assets.asset.api;
 
-import com.tianshu.assets.asset.application.AssetFileStorage;
 import com.tianshu.assets.asset.application.AssetFileValidationException;
 import com.tianshu.assets.asset.domain.AssetFile;
+import com.tianshu.assets.common.file.FileStorage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Locale;
@@ -22,9 +22,9 @@ public class AssetFileUploadController {
     private static final long MAX_FILE_SIZE = 500L * 1024 * 1024;
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of("EXE", "BAT", "CMD", "COM", "MSI", "SH", "JS", "JAR");
     private static final Set<String> PREVIEWABLE_FORMATS = Set.of("PDF", "PNG", "JPG", "JPEG", "TIFF");
-    private final AssetFileStorage storage;
+    private final FileStorage storage;
 
-    public AssetFileUploadController(AssetFileStorage storage) {
+    public AssetFileUploadController(FileStorage storage) {
         this.storage = storage;
     }
 

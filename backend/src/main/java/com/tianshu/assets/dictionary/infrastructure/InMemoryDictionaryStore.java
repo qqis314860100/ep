@@ -25,6 +25,7 @@ public class InMemoryDictionaryStore implements DictionaryStore {
         seedProductHierarchy();
         seedProductionHierarchy();
         seedAssetClassifications();
+        seedDocumentCategories();
     }
 
     @Override
@@ -117,6 +118,15 @@ public class InMemoryDictionaryStore implements DictionaryStore {
         seedRelation(252, "REFERENCES", "引用", "引用", "被引用", true, true, 3);
         seedRelation(253, "MATCHES", "配套", "配套", "配套", false, true, 1);
         seedRelation(254, "REPLACES", "替代", "替代", "被替代", true, false, 0);
+    }
+
+    private void seedDocumentCategories() {
+        seed(261, "DOCUMENT_CATEGORY", "TECHNICAL_SPECIFICATION", "技术规范", null, 10, 0);
+        seed(262, "DOCUMENT_CATEGORY", "MANUAL", "说明书", null, 20, 0);
+        seed(263, "DOCUMENT_CATEGORY", "WORK_INSTRUCTION", "作业指导书", null, 30, 0);
+        seed(264, "DOCUMENT_CATEGORY", "COMMISSIONING", "调试资料", null, 40, 0);
+        seed(265, "DOCUMENT_CATEGORY", "ACCEPTANCE", "验收资料", null, 50, 0);
+        seed(266, "DOCUMENT_CATEGORY", "STANDARD_TEMPLATE", "标准模板", null, 60, 0);
     }
 
     private void seed(long id, String category, String code, String name, Long parentId, int sortOrder, long usageCount) {

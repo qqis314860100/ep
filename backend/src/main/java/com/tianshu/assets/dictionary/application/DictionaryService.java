@@ -25,7 +25,8 @@ public class DictionaryService {
             new DictionaryCategory("MODULE_TAG", "模组标签", "资产分类", null, "模组及标准设备模块的受控标签", 90),
             new DictionaryCategory("ASSET_TYPE", "资产类型", "资产分类", null, "三维、二维或混合资产", 100),
             new DictionaryCategory("FILE_ROLE", "文件角色", "资产分类", null, "资产包内文件的业务角色", 110),
-            new DictionaryCategory("RELATION_TYPE", "关系类型", "资产关系", null, "资产间包含、引用、配套或替代关系", 120));
+            new DictionaryCategory("RELATION_TYPE", "关系类型", "资产关系", null, "资产间包含、引用、配套或替代关系", 120),
+            new DictionaryCategory("DOCUMENT_CATEGORY", "文档分类", "文档中心", null, "知识文档的受控业务分类", 130));
 
     private final DictionaryStore store;
 

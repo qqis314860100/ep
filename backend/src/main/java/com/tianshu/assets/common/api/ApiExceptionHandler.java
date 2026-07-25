@@ -9,6 +9,10 @@ import com.tianshu.assets.asset.application.AssetFileValidationException;
 import com.tianshu.assets.governance.application.GovernanceTaskStateException;
 import com.tianshu.assets.dictionary.application.DictionaryConflictException;
 import com.tianshu.assets.dictionary.application.DictionaryNotFoundException;
+import com.tianshu.assets.document.application.DocumentNotFoundException;
+import com.tianshu.assets.document.application.DocumentPublishValidationException;
+import com.tianshu.assets.document.application.DocumentStateConflictException;
+import com.tianshu.assets.document.application.DuplicateDocumentNumberException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -69,6 +73,26 @@ public class ApiExceptionHandler {
     @ExceptionHandler(DictionaryConflictException.class)
     ResponseEntity<ApiError> handleDictionaryConflict(DictionaryConflictException exception) {
         return response(HttpStatus.CONFLICT, "dictionary_item_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(DocumentNotFoundException.class)
+    ResponseEntity<ApiError> handleDocumentNotFound(DocumentNotFoundException exception) {
+        return response(HttpStatus.NOT_FOUND, "document_not_found", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(DuplicateDocumentNumberException.class)
+    ResponseEntity<ApiError> handleDuplicateDocumentNumber(DuplicateDocumentNumberException exception) {
+        return response(HttpStatus.CONFLICT, "duplicate_document_number", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(DocumentStateConflictException.class)
+    ResponseEntity<ApiError> handleDocumentStateConflict(DocumentStateConflictException exception) {
+        return response(HttpStatus.CONFLICT, "document_state_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(DocumentPublishValidationException.class)
+    ResponseEntity<ApiError> handleDocumentPublishValidation(DocumentPublishValidationException exception) {
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, "document_publish_invalid", exception.getMessage(), List.of());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

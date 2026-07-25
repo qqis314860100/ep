@@ -137,3 +137,14 @@ VALUES
     (252, 'RELATION_TYPE', 'REFERENCES', '引用', NULL, 20, 3, '引用', '被引用', 1, 1),
     (253, 'RELATION_TYPE', 'MATCHES', '配套', NULL, 30, 1, '配套', '配套', 0, 1),
     (254, 'RELATION_TYPE', 'REPLACES', '替代', NULL, 40, 0, '替代', '被替代', 1, 0);
+
+INSERT IGNORE INTO dictionary_item
+    (id, category_code, item_code, item_name, parent_id, sort_order, usage_count,
+     forward_name, reverse_name, directional, allow_duplicate)
+VALUES
+    (261, 'DOCUMENT_CATEGORY', 'TECHNICAL_SPECIFICATION', '技术规范', NULL, 10, 0, NULL, NULL, 0, 0),
+    (262, 'DOCUMENT_CATEGORY', 'MANUAL', '说明书', NULL, 20, 0, NULL, NULL, 0, 0),
+    (263, 'DOCUMENT_CATEGORY', 'WORK_INSTRUCTION', '作业指导书', NULL, 30, 0, NULL, NULL, 0, 0),
+    (264, 'DOCUMENT_CATEGORY', 'COMMISSIONING', '调试资料', NULL, 40, 0, NULL, NULL, 0, 0),
+    (265, 'DOCUMENT_CATEGORY', 'ACCEPTANCE', '验收资料', NULL, 50, 0, NULL, NULL, 0, 0),
+    (266, 'DOCUMENT_CATEGORY', 'STANDARD_TEMPLATE', '标准模板', NULL, 60, 0, NULL, NULL, 0, 0);

@@ -1,6 +1,5 @@
-package com.tianshu.assets.asset.infrastructure;
+package com.tianshu.assets.common.file;
 
-import com.tianshu.assets.asset.application.AssetFileStorage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -16,12 +15,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Profile("local")
-public class LocalAssetFileStorage implements AssetFileStorage {
+public class LocalFileStorage implements FileStorage {
 
     private static final long MAX_FILE_SIZE = 500L * 1024 * 1024;
     private final Path root;
 
-    public LocalAssetFileStorage(@Value("${asset.file-storage-directory:.data/files}") String directory) {
+    public LocalFileStorage(@Value("${asset.file-storage-directory:.data/files}") String directory) {
         this.root = Path.of(directory).toAbsolutePath().normalize();
     }
 
@@ -38,7 +37,7 @@ public class LocalAssetFileStorage implements AssetFileStorage {
     }
 
     @Override
-    public Optional<StoredAssetFile> open(String storageKey) {
+    public Optional<StoredFile> open(String storageKey) {
         if (storageKey == null || !storageKey.matches("[a-fA-F0-9-]{36}")) return Optional.empty();
         try {
             var contentPath = root.resolve(storageKey + ".bin");
@@ -46,7 +45,7 @@ public class LocalAssetFileStorage implements AssetFileStorage {
             if (!Files.isRegularFile(contentPath) || !Files.isRegularFile(metadataPath)) return Optional.empty();
             var metadata = Files.readAllLines(metadataPath);
             var bytes = Files.readAllBytes(contentPath);
-            return Optional.of(new StoredAssetFile(storageKey, metadata.get(0), metadata.get(1), bytes.length,
+            return Optional.of(new StoredFile(storageKey, metadata.get(0), metadata.get(1), bytes.length,
                     metadata.size() > 2 ? metadata.get(2) : sha256(bytes), bytes));
         } catch (IOException exception) {
             return Optional.empty();

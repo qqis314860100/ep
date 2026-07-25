@@ -313,3 +313,53 @@ CREATE TABLE IF NOT EXISTS dictionary_item (
     KEY idx_dictionary_parent (parent_id, status),
     KEY idx_dictionary_merge_target (merge_target_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Controlled business dictionary items';
+
+CREATE TABLE IF NOT EXISTS knowledge_document (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    document_number VARCHAR(64) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    summary VARCHAR(1000) NOT NULL,
+    category_code VARCHAR(64) NOT NULL,
+    maintainer_id VARCHAR(64) NOT NULL DEFAULT '',
+    maintainer_name VARCHAR(100) NOT NULL,
+    maintainer_department VARCHAR(100) NOT NULL DEFAULT '',
+    status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
+    current_version_id BIGINT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    version BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_knowledge_document_number (document_number),
+    KEY idx_knowledge_document_search (status, category_code, updated_at),
+    KEY idx_knowledge_document_maintainer (maintainer_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Stable knowledge-document metadata';
+
+CREATE TABLE IF NOT EXISTS document_version (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    document_id BIGINT NOT NULL,
+    version_number VARCHAR(40) NOT NULL,
+    change_summary VARCHAR(1000) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
+    created_by VARCHAR(100) NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    published_by VARCHAR(100) NOT NULL DEFAULT '',
+    published_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_document_version_number (document_id, version_number),
+    KEY idx_document_version_status (document_id, status, published_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Immutable file version of a knowledge document';
+
+CREATE TABLE IF NOT EXISTS document_file (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    document_id BIGINT NOT NULL,
+    version_id BIGINT NOT NULL,
+    original_name VARCHAR(1000) NOT NULL,
+    format VARCHAR(40) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    previewable TINYINT(1) NOT NULL DEFAULT 0,
+    storage_key VARCHAR(500) NOT NULL,
+    content_sha256 CHAR(64) NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_document_file_document (document_id, version_id),
+    KEY idx_document_file_hash (content_sha256)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Controlled document-version files';

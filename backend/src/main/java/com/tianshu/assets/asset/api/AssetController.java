@@ -2,12 +2,12 @@ package com.tianshu.assets.asset.api;
 
 import com.tianshu.assets.asset.application.AssetQueryService;
 import com.tianshu.assets.asset.application.AssetWriteService;
-import com.tianshu.assets.asset.application.AssetFileStorage;
-import com.tianshu.assets.asset.infrastructure.InMemoryAssetFileStorage;
 import com.tianshu.assets.asset.domain.AssetFile;
 import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.domain.AssetSearchCriteria;
 import com.tianshu.assets.asset.domain.AssetStatus;
+import com.tianshu.assets.common.file.FileStorage;
+import com.tianshu.assets.common.file.InMemoryFileStorage;
 import com.tianshu.assets.asset.domain.AssetType;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -47,17 +47,17 @@ public class AssetController {
 
     private final AssetQueryService assetQueryService;
     private final AssetWriteService assetWriteService;
-    private final AssetFileStorage assetFileStorage;
+    private final FileStorage assetFileStorage;
 
     @Autowired
-    public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService, AssetFileStorage assetFileStorage) {
+    public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService, FileStorage assetFileStorage) {
         this.assetQueryService = assetQueryService;
         this.assetWriteService = assetWriteService;
         this.assetFileStorage = assetFileStorage;
     }
 
     public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService) {
-        this(assetQueryService, assetWriteService, new InMemoryAssetFileStorage());
+        this(assetQueryService, assetWriteService, new InMemoryFileStorage());
     }
 
     @GetMapping

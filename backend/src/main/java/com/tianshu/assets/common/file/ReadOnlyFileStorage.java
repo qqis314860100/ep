@@ -1,6 +1,5 @@
-package com.tianshu.assets.asset.infrastructure;
+package com.tianshu.assets.common.file;
 
-import com.tianshu.assets.asset.application.AssetFileStorage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
@@ -9,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Profile("oceanbase")
-public class ReadOnlyAssetFileStorage implements AssetFileStorage {
+public class ReadOnlyFileStorage implements FileStorage {
 
     @Override
     public String store(InputStream content, long size, String originalFilename, String contentType) throws IOException {
@@ -17,7 +16,7 @@ public class ReadOnlyAssetFileStorage implements AssetFileStorage {
     }
 
     @Override
-    public Optional<StoredAssetFile> open(String storageKey) {
+    public Optional<StoredFile> open(String storageKey) {
         return Optional.empty();
     }
 }
