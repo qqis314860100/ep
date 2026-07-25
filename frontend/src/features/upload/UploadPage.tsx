@@ -80,9 +80,9 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  min-height: 44px;
-  margin-bottom: 10px;
+  gap: 16px;
+  min-height: 38px;
+  margin-bottom: 8px;
 
   @media (max-width: 760px) {
     align-items: flex-start;
@@ -102,8 +102,8 @@ const Title = styled.h1`
 const StepNote = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  gap: 6px;
+  padding: 4px 8px;
   color: #53625b;
   font-size: 12px;
   background: #edf5f1;
@@ -112,8 +112,8 @@ const StepNote = styled.div`
 `
 
 const IntakeSteps = styled(Steps)`
-  margin: 0 0 10px;
-  padding: 8px 14px;
+  margin: 0 0 8px;
+  padding: 6px 12px;
   background: #ffffff;
   border: 1px solid #dce3df;
   border-radius: 6px;
@@ -141,23 +141,51 @@ const Workspace = styled.div`
 
 const Section = styled.section`
   min-width: 0;
-  padding: 12px;
+  padding: 10px;
   background: #ffffff;
   border: 1px solid #dce3df;
   border-radius: 6px;
 `
 
 const MetadataPanel = styled(Section)`
-  padding: 14px 16px 16px;
+  padding: 12px 14px 14px;
+
+  .ant-form-item {
+    margin-bottom: 12px;
+  }
+
+  .ant-form-item-label {
+    padding-bottom: 4px;
+  }
 `
 
 const UploadPanel = styled(Section)`
   position: sticky;
   top: 64px;
-  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 430px;
+  min-height: 0;
+  padding: 10px;
+
+  > .ant-form-item {
+    flex: 0 0 auto;
+    margin-bottom: 8px;
+  }
+
+  > .ant-alert {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+  }
+
+  > .ant-btn-block {
+    flex: 0 0 auto;
+  }
 
   @media (max-width: 980px) {
     position: static;
+    height: auto;
+    min-height: 0;
   }
 `
 
@@ -165,8 +193,8 @@ const SectionHeader = styled.div`
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 8px;
 `
 
 const SectionTitle = styled.div`
@@ -183,11 +211,11 @@ const SectionHint = styled.div`
 `
 
 const FormSection = styled.div`
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid #e7ece9;
 
   & + & {
-    margin-top: 8px;
+    margin-top: 6px;
   }
 `
 
@@ -195,7 +223,7 @@ const FormSectionTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: #20332c;
   font-size: 14px;
   font-weight: 650;
@@ -204,12 +232,14 @@ const FormSectionTitle = styled.div`
 const ScopeGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 12px;
+  gap: 0 10px;
 `
 
 const FilesTable = styled.div`
-  margin: 14px -8px 0;
-  padding: 0 0 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 8px -6px;
+  overflow: hidden;
 
   .ant-table {
     font-size: 12px;
@@ -222,32 +252,52 @@ const FilesTable = styled.div`
 `
 
 const Dropzone = styled(Dragger)`
-  .ant-upload-drag {
-    min-height: 116px;
+  && .ant-upload-drag {
+    height: 88px;
+    min-height: 88px;
     border-color: #bcd8cd;
     background: #f6faf8;
+  }
+
+  && .ant-upload-drag .ant-upload-btn {
+    height: 86px;
+    padding: 6px 12px;
   }
 
   .ant-upload-drag:hover {
     border-color: #2f7567;
   }
 
-  .ant-upload-drag-icon {
-    margin-bottom: 10px;
+  &&& .ant-upload-drag p.ant-upload-drag-icon {
+    margin: 0 0 2px;
+    line-height: 1;
   }
 
-  .ant-upload-drag-icon .anticon {
+  &&& .ant-upload-drag p.ant-upload-drag-icon .anticon {
     color: #2f7567;
-    font-size: 38px;
+    font-size: 24px;
+  }
+
+  &&& .ant-upload-drag p.ant-upload-text {
+    margin: 0 0 1px;
+    font-size: 13px;
+    line-height: 17px;
+  }
+
+  &&& .ant-upload-drag p.ant-upload-hint {
+    margin: 0;
+    font-size: 11px;
+    line-height: 15px;
   }
 `
 
 const QueueSummary = styled.div`
   display: flex;
+  flex: 0 0 auto;
   justify-content: space-between;
   align-items: center;
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid #e7ece9;
 `
 
@@ -270,8 +320,8 @@ const ActionBar = styled.div`
   flex: 0 0 auto;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 8px;
-  padding: 10px 0 0;
+  margin-top: 6px;
+  padding: 8px 0 0;
   background: #f4f6f5;
   border-top: 1px solid #dfe7e2;
   box-shadow: 0 -7px 14px rgba(34, 53, 45, 0.06);
@@ -677,7 +727,7 @@ export function UploadPage() {
               dataSource={fileList}
               pagination={false}
               size="small"
-              scroll={{ y: 250 }}
+              scroll={{ y: 90 }}
               locale={{ emptyText: '选择文件后显示处理队列' }}
             />
           </FilesTable>
