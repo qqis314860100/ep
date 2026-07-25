@@ -41,6 +41,20 @@ Java 21, Spring Boot, Spring JDBC, and OceanBase in MySQL-compatible mode.
 - Do not commit credentials, local environment files, uploaded data, generated
   browser artifacts, or build output.
 
+## Git Commits
+
+- Every completed, independently verifiable version must be committed after its
+  required checks pass; do not leave a completed version only in the worktree.
+- Keep backend and frontend changes in separate commits, even when they belong
+  to the same product version. Contract or documentation changes use their own
+  commit when they are independently reviewable.
+- Use Chinese Conventional Commit messages, for example
+  `feat(后端): 实现文档首次发布` and `feat(前端): 实现文档检索工作台`.
+- Stage only files belonging to the current version and layer. Never include
+  unrelated user changes or generated artifacts in a version commit.
+- Do not commit before verification. Record the product version in the commit
+  body when one version contains multiple frontend/backend commits.
+
 ## Verification
 
 Run the smallest relevant check first. Broaden verification for shared

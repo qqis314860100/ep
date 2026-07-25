@@ -9,6 +9,7 @@ frontend/dist/
 # Local browser traces and generated visual verification artifacts.
 .playwright-cli/
 output/playwright/
+.superpowers/
 
 backend/target/
 .data/
