@@ -1,8 +1,8 @@
 package com.tianshu.assets.governance.api;
 
-import com.tianshu.assets.governance.application.GovernanceTaskService;
 import com.tianshu.assets.governance.domain.GovernanceEmployee;
-import com.tianshu.assets.governance.domain.GovernancePlan;
+import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
+import com.tianshu.assets.governance.task.domain.GovernancePlan;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -25,22 +25,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/governance/tasks")
 public class GovernanceTaskController {
 
-    private final GovernanceTaskService service;
+    private final GovernanceTaskApplicationService service;
 
-    public GovernanceTaskController(GovernanceTaskService service) {
+    public GovernanceTaskController(GovernanceTaskApplicationService service) {
         this.service = service;
     }
 
     @GetMapping
     public List<GovernanceTaskResponse> list() {
-        return service.list().stream().map(task -> GovernanceTaskResponse.from(task, service.assigneeId(task.id()))).toList();
+        return service.list().stream().map(GovernanceTaskResponse::from).toList();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public GovernanceTaskResponse create(@Valid @RequestBody CreateTaskRequest request) {
-        var task = service.create(request.name(), request.scope(), request.owner(), request.total(), request.dueDate(), request.assigneeId());
-        return GovernanceTaskResponse.from(task, service.assigneeId(task.id()));
+        return GovernanceTaskResponse.from(service.rejectTaskCreation());
     }
 
     @GetMapping("/employees")
@@ -58,7 +57,7 @@ public class GovernanceTaskController {
             @PathVariable long taskId,
             @PathVariable long planId,
             @Valid @RequestBody UpdatePlanRequest request) {
-        return service.updatePlan(taskId, planId, request.status());
+        return service.rejectPlanMutation(taskId);
     }
 
     @PostMapping("/{taskId}/plans")
@@ -66,27 +65,21 @@ public class GovernanceTaskController {
     public GovernancePlan createPlan(
             @PathVariable long taskId,
             @Valid @RequestBody CreatePlanRequest request) {
-        return service.createPlan(taskId, request.title(), request.plannedStart(), request.plannedEnd(),
-                request.plannedQuantity(), request.quantityUnit(), request.assigneeId(), request.dependencyIds());
+        return service.rejectPlanMutation(taskId);
     }
 
     @PatchMapping("/{taskId}/progress")
     public GovernanceTaskResponse updateProgress(
             @PathVariable long taskId,
             @Valid @RequestBody UpdateProgressRequest request) {
-        var task = service.updateProgress(taskId, request.completed());
-        return GovernanceTaskResponse.from(task, service.assigneeId(task.id()));
+        return GovernanceTaskResponse.from(service.rejectTaskMutation(taskId));
     }
 
     @PatchMapping("/{taskId}/status")
     public GovernanceTaskResponse updateStatus(
             @PathVariable long taskId,
             @Valid @RequestBody UpdateTaskStatusRequest request) {
-        if (!"IN_PROGRESS".equals(request.status())) {
-            throw new IllegalArgumentException("当前仅支持将草稿任务开始执行");
-        }
-        var task = service.start(taskId);
-        return GovernanceTaskResponse.from(task, service.assigneeId(task.id()));
+        return GovernanceTaskResponse.from(service.rejectTaskMutation(taskId));
     }
 
     public record CreateTaskRequest(
