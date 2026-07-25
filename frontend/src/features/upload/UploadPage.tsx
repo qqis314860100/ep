@@ -36,6 +36,26 @@ import type { AssetDraftInput, AssetFile, AssetType } from '../../types/asset'
 const { Dragger } = Upload
 const emptyUploadFiles: UploadFile[] = []
 
+const UploadFrame = styled.div`
+  height: 100%;
+  min-height: 0;
+
+  > .ant-form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+`
+
+const UploadScrollArea = styled.div`
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 4px 2px 0;
+  scrollbar-gutter: stable;
+`
+
 type FileStage = '待上传' | '上传中' | '校验中' | '可用' | '失败'
 type UploadFormValues = {
   assetNumber: string
@@ -61,7 +81,8 @@ const Header = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 18px;
+  min-height: 44px;
+  margin-bottom: 10px;
 
   @media (max-width: 760px) {
     align-items: flex-start;
@@ -71,9 +92,9 @@ const Header = styled.div`
 `
 
 const Title = styled.h1`
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   color: #202824;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 650;
   letter-spacing: 0;
 `
@@ -82,7 +103,7 @@ const StepNote = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 12px;
+  padding: 6px 10px;
   color: #53625b;
   font-size: 12px;
   background: #edf5f1;
@@ -91,8 +112,8 @@ const StepNote = styled.div`
 `
 
 const IntakeSteps = styled(Steps)`
-  margin: 0 0 18px;
-  padding: 14px 18px;
+  margin: 0 0 10px;
+  padding: 8px 14px;
   background: #ffffff;
   border: 1px solid #dce3df;
   border-radius: 6px;
@@ -109,8 +130,8 @@ const IntakeSteps = styled(Steps)`
 
 const Workspace = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 10px;
   align-items: start;
 
   @media (max-width: 980px) {
@@ -120,21 +141,20 @@ const Workspace = styled.div`
 
 const Section = styled.section`
   min-width: 0;
-  padding: 18px;
+  padding: 12px;
   background: #ffffff;
   border: 1px solid #dce3df;
   border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(28, 48, 40, 0.035);
 `
 
 const MetadataPanel = styled(Section)`
-  padding: 20px 22px 22px;
+  padding: 14px 16px 16px;
 `
 
 const UploadPanel = styled(Section)`
   position: sticky;
-  top: 88px;
-  padding: 18px;
+  top: 64px;
+  padding: 12px;
 
   @media (max-width: 980px) {
     position: static;
@@ -146,7 +166,7 @@ const SectionHeader = styled.div`
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 `
 
 const SectionTitle = styled.div`
@@ -163,7 +183,7 @@ const SectionHint = styled.div`
 `
 
 const FormSection = styled.div`
-  padding-top: 18px;
+  padding-top: 12px;
   border-top: 1px solid #e7ece9;
 
   & + & {
@@ -175,7 +195,7 @@ const FormSectionTitle = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   color: #20332c;
   font-size: 14px;
   font-weight: 650;
@@ -203,7 +223,7 @@ const FilesTable = styled.div`
 
 const Dropzone = styled(Dragger)`
   .ant-upload-drag {
-    min-height: 158px;
+    min-height: 116px;
     border-color: #bcd8cd;
     background: #f6faf8;
   }
@@ -244,12 +264,17 @@ const QueueHint = styled.div`
 `
 
 const ActionBar = styled.div`
+  position: relative;
+  z-index: 4;
   display: flex;
+  flex: 0 0 auto;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 18px;
-  padding: 14px 0 0;
+  margin-top: 8px;
+  padding: 10px 0 0;
+  background: #f4f6f5;
   border-top: 1px solid #dfe7e2;
+  box-shadow: 0 -7px 14px rgba(34, 53, 45, 0.06);
 `
 
 const fallbackAssetTypeOptions = [
@@ -322,7 +347,7 @@ export function UploadPage() {
   const selectedPlatform = platformFamilies.find((item) => item.name === platform)
   const platformVariants = dictionaryItems.filter((item) => item.category === 'PLATFORM_VARIANT' && item.parentId === selectedPlatform?.id)
   const selectedVariant = platformVariants.find((item) => item.name === platformVariant)
-  const productLines = dictionaryItems.filter((item) => item.category === 'PRODUCT_LINE' && item.parentId === selectedVariant?.id)
+  const blueprints = dictionaryItems.filter((item) => item.category === 'PRODUCT_LINE' && item.parentId === selectedVariant?.id)
   const bases = dictionaryItems.filter((item) => item.category === 'BASE')
   const selectedBase = bases.find((item) => item.name === base)
   const productionLines = dictionaryItems.filter((item) => item.category === 'PRODUCTION_LINE' && item.parentId === selectedBase?.id)
@@ -509,32 +534,34 @@ export function UploadPage() {
   ]
 
   return (
-    <Form<UploadFormValues>
-      form={form}
-      layout="vertical"
-      initialValues={{ assetType: 'MIXED_ASSET', specialties: [], standardEquipmentModule: false, files: [] }}
-      onFinish={(values) => void submit(values)}
-      requiredMark="optional"
-    >
-      <Header>
-        <div>
-          <Title>资料入库</Title>
-          <Typography.Text type="secondary">将已确定的产线图纸、数模和预览资料沉淀为可检索资产。</Typography.Text>
-        </div>
-        <StepNote><CheckCircleOutlined />草稿可随时保存，提交前只需补齐带 * 的字段</StepNote>
-      </Header>
+    <UploadFrame>
+      <Form<UploadFormValues>
+        form={form}
+        layout="vertical"
+        initialValues={{ assetType: 'MIXED_ASSET', specialties: [], standardEquipmentModule: false, files: [] }}
+        onFinish={(values) => void submit(values)}
+        requiredMark="optional"
+      >
+        <Header>
+          <div>
+            <Title>资料入库</Title>
+            <Typography.Text type="secondary">将已确定的产线图纸、数模和预览资料沉淀为可检索资产。</Typography.Text>
+          </div>
+          <StepNote><CheckCircleOutlined />草稿可随时保存，提交前只需补齐带 * 的字段</StepNote>
+        </Header>
 
-      <IntakeSteps
-        size="small"
-        current={draftId ? 2 : fileList.length > 0 ? 1 : 0}
-        items={[
-          { title: '选择文件', description: fileList.length > 0 ? `${fileList.length} 个待入库文件` : '支持文件夹批量选择' },
-          { title: '补充信息', description: '编号、范围和专业' },
-          { title: '提交整理', description: draftId ? `草稿 #${draftId}` : '提交后进入待整理' },
-        ]}
-      />
+        <IntakeSteps
+          size="small"
+          current={draftId ? 2 : fileList.length > 0 ? 1 : 0}
+          items={[
+            { title: '选择文件', description: fileList.length > 0 ? `${fileList.length} 个待入库文件` : '支持文件夹批量选择' },
+            { title: '补充信息', description: '编号、范围和专业' },
+            { title: '提交整理', description: draftId ? `草稿 #${draftId}` : '提交后进入待整理' },
+          ]}
+        />
 
-      <Workspace>
+        <UploadScrollArea>
+          <Workspace>
         <MetadataPanel>
           <SectionHeader>
             <div><SectionTitle>资产元数据</SectionTitle><SectionHint>先填写工程师最熟悉的信息，后台整理人员可继续补充字典和关联关系。</SectionHint></div>
@@ -577,8 +604,8 @@ export function UploadPage() {
               <Form.Item name="platformVariant" label="平台子类" rules={[{ required: true, message: '请选择平台子类' }]}>
                 <Select disabled={!selectedPlatform} placeholder="请选择子类" options={platformVariants.map((item) => ({ value: item.name, label: item.name }))} onChange={() => form.setFieldValue('productLine', undefined)} />
               </Form.Item>
-              <Form.Item name="productLine" label="产品线" rules={[{ required: true, message: '请选择产品线' }]}>
-                <Select disabled={!selectedVariant} placeholder="选择产品线" options={productLines.map((item) => ({ value: item.name, label: item.name }))} />
+              <Form.Item name="productLine" label="蓝本" rules={[{ required: true, message: '请选择蓝本' }]}>
+                <Select disabled={!selectedVariant} placeholder="选择蓝本" options={blueprints.map((item) => ({ value: item.name, label: item.name }))} />
               </Form.Item>
               <Form.Item name="base" label="基地" rules={[{ required: true, message: '请选择基地' }]}>
                 <Select placeholder="选择基地" options={bases.map((item) => ({ value: item.name, label: item.name }))} onChange={() => form.setFieldsValue({ productionLine: undefined, processSection: undefined })} />
@@ -656,13 +683,15 @@ export function UploadPage() {
           </FilesTable>
           <Button block size="small" disabled={fileList.length === 0} onClick={autoGroup}>自动归组</Button>
         </UploadPanel>
-      </Workspace>
+          </Workspace>
+        </UploadScrollArea>
 
-      <ActionBar>
-        <Button icon={<ReloadOutlined />} onClick={() => form.resetFields()}>清空</Button>
-        <Button loading={saving || uploading} disabled={fileList.length === 0} onClick={() => void saveDraft()}>保存草稿</Button>
-        <Button type="primary" htmlType="submit" loading={saving || uploading} icon={<CloudUploadOutlined />}>提交待整理</Button>
-      </ActionBar>
-    </Form>
+        <ActionBar>
+          <Button icon={<ReloadOutlined />} onClick={() => form.resetFields()}>清空</Button>
+          <Button loading={saving || uploading} disabled={fileList.length === 0} onClick={() => void saveDraft()}>保存草稿</Button>
+          <Button type="primary" htmlType="submit" loading={saving || uploading} icon={<CloudUploadOutlined />}>提交待整理</Button>
+        </ActionBar>
+      </Form>
+    </UploadFrame>
   )
 }

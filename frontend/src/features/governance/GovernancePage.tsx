@@ -39,26 +39,37 @@ const planStatusConfig = {
 
 const Header = styled.div`
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  min-height: 44px;
+  margin-bottom: 10px;
+  padding: 0 2px;
 `
 
 const Intro = styled(Alert)`
-  margin-bottom: 18px;
+  margin-bottom: 10px;
+
+  &.ant-alert-with-description {
+    padding: 8px 12px;
+  }
+
+  .ant-alert-description {
+    font-size: 11px;
+    line-height: 17px;
+  }
 `
 
 const Title = styled.h1`
-  margin: 0 0 3px;
+  margin: 0 0 2px;
   color: #202824;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
 `
 
 const Metrics = styled.div`
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin-bottom: 18px;
+  margin-bottom: 10px;
   background: #ffffff;
   border: 1px solid #dce3df;
   border-radius: 6px;
@@ -66,20 +77,20 @@ const Metrics = styled.div`
 
 const Metric = styled.div`
   min-width: 0;
-  padding: 14px 16px;
+  padding: 8px 12px;
   border-right: 1px solid #e3e8e5;
   &:last-child { border-right: 0; }
 `
 
 const MetricLabel = styled.div`
-  margin-bottom: 6px;
+  margin-bottom: 3px;
   color: #68746f;
   font-size: 12px;
 `
 
 const MetricValue = styled.div`
   color: #26312d;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
 `
 
@@ -463,7 +474,7 @@ const processOptions = [
 ]
 
 const targetOptions = [
-  { value: '适用范围', label: '平台、产品线、基地、拉线和工序段', shortLabel: '适用范围' },
+  { value: '适用范围', label: '平台、蓝本、基地、拉线和工序段', shortLabel: '适用范围' },
   { value: '平台子类', label: '八大平台及平台子类', shortLabel: '平台分类' },
   { value: '专业类别', label: '机械、电气、液压、气动、工装等专业', shortLabel: '专业分类' },
   { value: '文件资产', label: '文件格式、预览文件、失效引用和重复文件', shortLabel: '文件资产' },
@@ -645,7 +656,7 @@ export function GovernancePage() {
         description="新建任务先保存为草稿；完成计划、责任人和排期后再开始执行。执行开始后计划结构锁定，只更新状态和完成量。"
       />
       <Metrics>{metrics.map(([label, value]) => <Metric key={label}><MetricLabel>{label}</MetricLabel><MetricValue>{value}</MetricValue></Metric>)}</Metrics>
-      <TableSurface><Table rowKey="id" columns={columns} dataSource={tasks} loading={tasksQuery.isLoading} pagination={false} locale={{ emptyText: '暂无治理任务' }} /></TableSurface>
+      <TableSurface><Table rowKey="id" size="small" columns={columns} dataSource={tasks} loading={tasksQuery.isLoading} pagination={false} locale={{ emptyText: '暂无治理任务' }} /></TableSurface>
       <Drawer
         title="新建治理任务"
         width={560}

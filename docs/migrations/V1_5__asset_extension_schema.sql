@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS asset_scope_ext (
     drawing_id BIGINT NOT NULL,
     platform_family VARCHAR(100) NOT NULL,
     platform_variant VARCHAR(100) NULL,
-    product_line VARCHAR(100) NULL,
+    product_line VARCHAR(100) NULL COMMENT 'Legacy-compatible field storing blueprint code or name',
     base_name VARCHAR(200) NULL,
     production_line VARCHAR(200) NULL,
     process_section VARCHAR(200) NULL,

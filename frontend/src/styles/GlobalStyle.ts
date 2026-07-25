@@ -4,7 +4,7 @@ export const GlobalStyle = createGlobalStyle`
   :root {
     font-family: Aptos, "PingFang SC", "Microsoft YaHei", sans-serif;
     color: #202824;
-    background: #f3f5f3;
+    background: #f4f6f5;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -19,7 +19,7 @@ export const GlobalStyle = createGlobalStyle`
     margin: 0;
     min-width: 960px;
     min-height: 100vh;
-    background: #f3f5f3;
+    background: #f4f6f5;
   }
 
   button,
@@ -31,6 +31,36 @@ export const GlobalStyle = createGlobalStyle`
 
   #root {
     min-height: 100vh;
+  }
+
+  * {
+    scrollbar-color: #c2ccc7 transparent;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #c2ccc7;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background-clip: content-box;
+  }
+
+  .ant-btn,
+  .ant-input,
+  .ant-select-selector,
+  .ant-segmented,
+  .ant-tag {
+    letter-spacing: 0;
+  }
+
+  .ant-table-wrapper .ant-table-thead > tr > th {
+    font-size: 12px;
+    font-weight: 650;
   }
 
   .sr-only {

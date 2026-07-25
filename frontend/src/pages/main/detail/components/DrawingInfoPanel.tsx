@@ -12,14 +12,14 @@ const Panel = styled.aside`
   max-height: 477px;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  padding: 18px;
+  padding: 14px;
   background: #fff;
   border: 1px solid #dce3df;
   border-radius: 6px;
 `
 
 const PanelTitle = styled.h2`
-  margin: 0 0 12px;
+  margin: 0 0 9px;
   color: #2a3b34;
   font-size: 14px;
   font-weight: 650;
@@ -29,7 +29,7 @@ const Tags = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 
   .ant-tag {
     margin: 0;
@@ -45,7 +45,7 @@ const Description = styled.p`
 
 const Divider = styled.div`
   height: 1px;
-  margin: 16px 0;
+  margin: 12px 0;
   background: #e8ece9;
 `
 

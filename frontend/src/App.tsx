@@ -38,20 +38,29 @@ export default function App() {
       theme={{
         token: {
           colorPrimary: '#2f7567',
-          colorInfo: '#2f7567',
-          colorBgLayout: '#f3f5f3',
-          colorBorder: '#dce3df',
-          borderRadius: 6,
+          colorInfo: '#3578c9',
+          colorBgLayout: '#f4f6f5',
+          colorBorder: '#dfe5e2',
+          colorText: '#26322d',
+          controlHeight: 32,
+          fontSize: 13,
+          borderRadius: 4,
           fontFamily: 'Aptos, PingFang SC, Microsoft YaHei, sans-serif',
         },
         components: {
-          Layout: { headerBg: '#ffffff', siderBg: '#182421' },
+          Layout: { headerBg: '#102b3d', siderBg: '#ffffff' },
           Menu: {
-            darkItemBg: '#182421',
+            darkItemBg: '#102b3d',
             darkItemSelectedBg: '#2c5f54',
             darkItemHoverBg: '#243b35',
           },
-          Table: { headerBg: '#f2f5f3', rowHoverBg: '#f0f6f3' },
+          Table: {
+            headerBg: '#f2f5f3',
+            headerColor: '#46534d',
+            rowHoverBg: '#edf4f1',
+            cellPaddingBlockSM: 7,
+            cellPaddingInlineSM: 10,
+          },
         },
       }}
     >

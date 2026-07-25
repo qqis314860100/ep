@@ -10,28 +10,31 @@ import { AssetStatusTag, AssetTypeTag } from '../../../features/assets/AssetTags
 
 const Header = styled.header`
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 22px;
+  min-height: 44px;
+  margin-bottom: 10px;
+  padding: 0 2px;
 `
 
 const Title = styled.h1`
-  margin: 0 0 6px;
+  margin: 0 0 2px;
   color: #21322c;
-  font-size: 26px;
+  font-size: 18px;
   font-weight: 650;
 `
 
 const Surface = styled.div`
-  padding: 4px 18px;
+  padding: 0 12px;
   background: #fff;
   border: 1px solid #e4e8e3;
-  border-radius: 8px;
+  border-radius: 5px;
 `
 
 const Item = styled(List.Item)`
-  padding: 18px 0 !important;
+  min-height: 58px;
+  padding: 10px 0 !important;
   cursor: pointer;
 
   &:hover .favorite-title {

@@ -16,7 +16,7 @@ public class DictionaryService {
     private static final List<DictionaryCategory> CATEGORIES = List.of(
             new DictionaryCategory("PLATFORM_FAMILY", "平台族", "产品体系", null, "产品平台的上层业务分组", 10),
             new DictionaryCategory("PLATFORM_VARIANT", "平台子类", "产品体系", "PLATFORM_FAMILY", "八个标准平台原子值", 20),
-            new DictionaryCategory("PRODUCT_LINE", "产品线", "产品体系", "PLATFORM_VARIANT", "平台子类下的具体业务型号", 30),
+            new DictionaryCategory("PRODUCT_LINE", "蓝本", "产品体系", "PLATFORM_VARIANT", "平台子类下可复用的标准产品及产线设计方案", 30),
             new DictionaryCategory("BASE", "基地", "生产体系", null, "资产实际应用的生产基地", 40),
             new DictionaryCategory("PRODUCTION_LINE", "拉线", "生产体系", "BASE", "基地内的生产拉线", 50),
             new DictionaryCategory("PROCESS_SECTION", "工序段", "生产体系", "PRODUCTION_LINE", "拉线内的工艺区段", 60),

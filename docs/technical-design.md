@@ -135,6 +135,7 @@ pages/
 - 后端单元测试覆盖搜索规则和异常分支，接口测试覆盖分页响应、参数校验和统一错误结构。
 - 搜索中的产品和生产维度必须在同一个 `AssetScope` 中命中，禁止跨适用范围拼接。
 - `AssetScope` 同时保留兼容用 `platform`、标准 `platformFamily` 和 `platformVariant`；八个平台子类通过平台族与子类组合筛选，历史数据缺失子类时不自动猜测。
+- 业务统一使用“蓝本”表示 H03、P02 等可复用标准方案；为兼容既有数据，API 字段 `productLine`、数据库列 `product_line` 和字典分类编码 `PRODUCT_LINE` 暂不重命名，界面及需求文档不得继续称其为“产品线”。
 - 模组相关属性使用受控 `moduleTags`、`standardEquipmentModule`、`linkedModuleAssetIds` 和 `equipmentInterconnectCode`，模块超链接只引用资产 ID，不复制文件。
 - 字典编码在分类内唯一；父子分类由应用服务校验，包含启用子项的父项不能停用或合并，字典写入必须校验乐观锁版本。
 - 资产检索和上传表单从字典 API 读取启用的资产类型、专业类别、文件角色、模组标签、产品体系和生产体系；产品与生产父子项分别联动，不使用前端硬编码选项。

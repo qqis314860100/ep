@@ -31,7 +31,9 @@ class DictionaryControllerTest {
     void listsCategoriesAndPlatformHierarchy() throws Exception {
         mockMvc.perform(get("/api/v1/dictionaries/categories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].code").value("PLATFORM_FAMILY"));
+                .andExpect(jsonPath("$[0].code").value("PLATFORM_FAMILY"))
+                .andExpect(jsonPath("$[2].code").value("PRODUCT_LINE"))
+                .andExpect(jsonPath("$[2].name").value("蓝本"));
 
         mockMvc.perform(get("/api/v1/dictionaries/items")
                         .param("category", "PLATFORM_VARIANT")

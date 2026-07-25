@@ -24,11 +24,11 @@ const Page = styled.div`
 
 const Header = styled.header`
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 14px;
-  padding-bottom: 14px;
+  margin-bottom: 10px;
+  padding: 0 2px 10px;
   border-bottom: 1px solid #dfe5e1;
 `
 
@@ -37,7 +37,7 @@ const HeaderMain = styled.div`
 `
 
 const BackButton = styled(Button)`
-  margin: 0 0 6px -8px;
+  margin: 0 0 3px -8px;
   color: #64736c;
 `
 
@@ -51,7 +51,7 @@ const Title = styled.h1`
   margin: 0;
   overflow: hidden;
   color: #20312a;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 680;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -66,14 +66,14 @@ const AssetNumber = styled.span`
 
 const PrimaryGrid = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 296px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 304px;
+  gap: 10px;
   align-items: start;
 `
 
 const InfoColumn = styled.div`
   position: sticky;
-  top: 82px;
+  top: 64px;
   min-width: 0;
 `
 
@@ -98,7 +98,7 @@ const SectionMeta = styled.span`
 `
 
 const RelationSection = styled.section`
-  margin-top: 18px;
+  margin-top: 12px;
 `
 
 const RelationGrid = styled.div`
@@ -164,8 +164,8 @@ const RelationMeta = styled.div`
 `
 
 const CommentArea = styled.div`
-  margin-top: 18px;
-  padding-top: 18px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid #dfe5e1;
 `
 

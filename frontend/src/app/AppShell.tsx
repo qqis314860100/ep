@@ -1,76 +1,91 @@
 import {
+  BellOutlined,
+  BookOutlined,
   CloudUploadOutlined,
   DatabaseOutlined,
   FileSearchOutlined,
   HeartOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  QuestionCircleOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
-import { Avatar, Button, Layout, Space, Typography } from 'antd'
-import { type ReactNode } from 'react'
+import { Avatar, Button, Layout, Tooltip } from 'antd'
+import { type ReactNode, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 
-const { Header, Content } = Layout
+const { Header, Sider, Content } = Layout
+const expandedWidth = 184
+const collapsedWidth = 56
 
 const Shell = styled(Layout)`
   min-height: 100vh;
-  background: #f7f8f6;
+  background: #f4f6f5;
 `
 
 const TopBar = styled(Header)`
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 30;
   display: flex;
   align-items: center;
-  gap: 42px;
-  height: 68px;
-  padding: 0 max(28px, calc((100vw - 1320px) / 2));
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid #e5e8e3;
-  backdrop-filter: blur(12px);
+  height: 50px;
+  padding: 0 12px 0 14px;
+  color: #fff;
+  background: #102b3d;
+  border-bottom: 1px solid #17384f;
+  line-height: normal;
+`
 
-  @media (max-width: 1100px) {
-    gap: 24px;
-    padding: 0 22px;
+const CollapseButton = styled(Button)`
+  width: 30px;
+  height: 30px;
+  margin-right: 8px;
+  color: #c6d3dc !important;
+
+  &:hover,
+  &:focus-visible {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.09) !important;
   }
 `
 
 const Brand = styled.button`
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
-  gap: 10px;
-  height: auto;
+  gap: 9px;
+  min-width: 0;
   padding: 0;
-  color: #1f302a;
+  color: #fff;
   background: transparent;
   border: 0;
   cursor: pointer;
-  line-height: normal;
   text-align: left;
 `
 
 const Mark = styled.span`
   position: relative;
   display: inline-block;
-  width: 28px;
-  height: 28px;
-  background: #214f43;
-  border-radius: 8px;
+  flex: 0 0 auto;
+  width: 27px;
+  height: 27px;
+  background: #2f7567;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
 
   &::before,
   &::after {
     position: absolute;
     content: '';
     background: #e3b36a;
-    border-radius: 2px;
+    border-radius: 1px;
   }
 
   &::before {
     top: 7px;
     left: 7px;
-    width: 14px;
+    width: 13px;
     height: 2px;
     box-shadow: 0 6px 0 #e3b36a;
   }
@@ -84,112 +99,235 @@ const Mark = styled.span`
 `
 
 const BrandName = styled.div`
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 18px;
-`
-
-const BrandMeta = styled.div`
-  margin-top: 2px;
-  color: #849089;
-  font-size: 11px;
-  font-weight: 400;
-`
-
-const Nav = styled.nav`
-  display: flex;
-  align-self: stretch;
-  gap: 26px;
-
-  @media (max-width: 1100px) {
-    gap: 16px;
-  }
-`
-
-const NavItem = styled.button<{ $active: boolean }>`
-  position: relative;
-  padding: 0;
-  color: ${({ $active }) => ($active ? '#214f43' : '#66736d')};
+  overflow: hidden;
   font-size: 14px;
-  font-weight: ${({ $active }) => ($active ? 600 : 400)};
-  background: transparent;
-  border: 0;
-  cursor: pointer;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
 
-  &::after {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 3px;
-    content: '';
-    background: ${({ $active }) => ($active ? '#d49a4c' : 'transparent')};
-    border-radius: 3px 3px 0 0;
-  }
+const ModuleName = styled.div`
+  margin-left: 20px;
+  padding-left: 20px;
+  color: #c6d3dc;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 12px;
 `
 
 const HeaderSpacer = styled.div`
   flex: 1;
 `
 
-const Main = styled(Content)`
-  width: min(1320px, calc(100% - 56px));
-  margin: 0 auto;
-  padding: 30px 0 56px;
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 3px;
 
-  @media (max-width: 1100px) {
-    width: calc(100% - 44px);
+  .ant-btn {
+    color: #c6d3dc;
   }
+
+  .ant-btn:hover,
+  .ant-btn:focus-visible {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.09) !important;
+  }
+`
+
+const User = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+`
+
+const UserName = styled.div`
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+`
+
+const UserRole = styled.div`
+  margin-top: 1px;
+  color: #9fb1bd;
+  font-size: 10px;
+`
+
+const Body = styled(Layout)`
+  min-height: calc(100vh - 50px);
+  background: #f4f6f5;
+`
+
+const Navigation = styled(Sider)`
+  position: sticky !important;
+  top: 50px;
+  align-self: flex-start;
+  height: calc(100vh - 50px);
+  overflow: hidden auto;
+  background: #fff !important;
+  border-right: 1px solid #dfe5e2;
+`
+
+const NavSection = styled.div`
+  padding: 10px 8px 4px;
+`
+
+const NavLabel = styled.div<{ $collapsed: boolean }>`
+  height: ${({ $collapsed }) => ($collapsed ? '4px' : '24px')};
+  padding: ${({ $collapsed }) => ($collapsed ? '0' : '5px 10px 4px')};
+  overflow: hidden;
+  color: #97a29d;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+`
+
+const NavItem = styled.button<{ $active: boolean; $collapsed: boolean }>`
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 38px;
+  margin-bottom: 2px;
+  padding: 0 ${({ $collapsed }) => ($collapsed ? '3px' : '8px')};
+  overflow: hidden;
+  color: ${({ $active }) => ($active ? '#245f54' : '#475650')};
+  text-align: left;
+  background: ${({ $active }) => ($active ? '#eaf2ef' : 'transparent')};
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: ${({ $active }) => ($active ? 650 : 400)};
+  white-space: nowrap;
+
+  &::before {
+    position: absolute;
+    top: 7px;
+    bottom: 7px;
+    left: 0;
+    width: 3px;
+    content: '';
+    background: ${({ $active }) => ($active ? '#2f7567' : 'transparent')};
+    border-radius: 0 2px 2px 0;
+  }
+
+  .anticon {
+    justify-self: center;
+    color: ${({ $active }) => ($active ? '#2f7567' : '#68756f')};
+    font-size: 16px;
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: #245f54;
+    background: ${({ $active }) => ($active ? '#eaf2ef' : '#f1f5f3')};
+    outline: none;
+  }
+`
+
+const Main = styled(Content)<{ $fixed?: boolean }>`
+  min-width: 0;
+  padding: 14px 16px 28px;
+  background: #f4f6f5;
+  height: ${({ $fixed }) => ($fixed ? 'calc(100vh - 50px)' : 'auto')};
+  overflow: ${({ $fixed }) => ($fixed ? 'hidden' : 'visible')};
 `
 
 interface AppShellProps {
   children: ReactNode
 }
 
+interface NavigationItem {
+  key: string
+  label: string
+  path: string
+  icon: ReactNode
+  active: (pathname: string) => boolean
+}
+
+const primaryItems: NavigationItem[] = [
+  { key: 'search', label: '资料检索', path: '/', icon: <FileSearchOutlined />, active: (path) => path === '/' || path.startsWith('/assets') },
+  { key: 'upload', label: '上传资料', path: '/upload', icon: <CloudUploadOutlined />, active: (path) => path === '/upload' || path === '/sys/file' },
+  { key: 'favorites', label: '我的收藏', path: '/favorites', icon: <HeartOutlined />, active: (path) => path === '/favorites' },
+  { key: 'my-uploads', label: '我的上传', path: '/my-uploads', icon: <BookOutlined />, active: (path) => path === '/my-uploads' },
+]
+
+const managementItems: NavigationItem[] = [
+  { key: 'governance', label: '数据治理', path: '/sys/drawing', icon: <DatabaseOutlined />, active: (path) => path === '/governance' || path === '/sys/drawing' },
+  { key: 'dictionaries', label: '基础数据', path: '/sys/dictionaries', icon: <BookOutlined />, active: (path) => path === '/dictionaries' || path === '/sys/dictionaries' },
+  { key: 'settings', label: '系统管理', path: '/sys/settings', icon: <SettingOutlined />, active: (path) => path === '/settings' || path === '/sys/settings' },
+]
+
 export function AppShell({ children }: AppShellProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const isSearch = location.pathname === '/' || location.pathname.startsWith('/assets')
-  const isSystem = location.pathname.startsWith('/sys') || location.pathname === '/governance' || location.pathname === '/dictionaries'
+  const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem('workspace-nav-collapsed') === 'true')
+  const allItems = useMemo(() => [...primaryItems, ...managementItems], [])
+  const currentModule = allItems.find((item) => item.active(location.pathname))?.label ?? '生产知识资产平台'
+  const isUploadRoute = location.pathname === '/upload' || location.pathname === '/sys/file'
+
+  const toggleCollapsed = () => {
+    setCollapsed((current) => {
+      window.localStorage.setItem('workspace-nav-collapsed', String(!current))
+      return !current
+    })
+  }
+
+  const renderItem = (item: NavigationItem) => (
+    <Tooltip key={item.key} title={collapsed ? item.label : undefined} placement="right">
+      <NavItem
+        type="button"
+        $active={item.active(location.pathname)}
+        $collapsed={collapsed}
+        aria-label={item.label}
+        onClick={() => navigate(item.path)}
+      >
+        {item.icon}
+        {!collapsed && <span>{item.label}</span>}
+      </NavItem>
+    </Tooltip>
+  )
 
   return (
     <Shell>
       <TopBar>
-        <Brand onClick={() => navigate('/')} aria-label="返回搜索首页">
+        <CollapseButton type="text" icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} aria-label={collapsed ? '展开导航' : '收起导航'} onClick={toggleCollapsed} />
+        <Brand onClick={() => navigate('/')} aria-label="返回资料检索">
           <Mark aria-hidden="true" />
-          <div>
-            <BrandName>图纸资料库</BrandName>
-            <BrandMeta>生产知识资产平台</BrandMeta>
-          </div>
+          <BrandName>数模资产中心</BrandName>
         </Brand>
-        <Nav aria-label="主导航">
-          <NavItem $active={isSearch} onClick={() => navigate('/')}>
-            <FileSearchOutlined style={{ marginRight: 6 }} />检索资料
-          </NavItem>
-          <NavItem $active={location.pathname === '/upload'} onClick={() => navigate('/upload')}>
-            <CloudUploadOutlined style={{ marginRight: 6 }} />上传资料
-          </NavItem>
-          <NavItem $active={location.pathname === '/favorites'} onClick={() => navigate('/favorites')}>
-            <HeartOutlined style={{ marginRight: 6 }} />我的收藏
-          </NavItem>
-          <NavItem $active={location.pathname === '/my-uploads'} onClick={() => navigate('/my-uploads')}>
-            <CloudUploadOutlined style={{ marginRight: 6 }} />我的上传
-          </NavItem>
-          <NavItem $active={isSystem} onClick={() => navigate('/sys/drawing')}>
-            <DatabaseOutlined style={{ marginRight: 6 }} />系统管理
-          </NavItem>
-        </Nav>
+        <ModuleName>{currentModule}</ModuleName>
         <HeaderSpacer />
-        <Space size={10}>
-          <Avatar size={32} style={{ background: '#2f7567' }}>陈</Avatar>
-          <div>
-            <Typography.Text strong style={{ fontSize: 13 }}>陈工</Typography.Text>
-            <Typography.Text type="secondary" style={{ display: 'block', fontSize: 11 }}>内容管理员</Typography.Text>
-          </div>
-          <Button type="text" icon={<SettingOutlined />} aria-label="设置" onClick={() => navigate('/sys/settings')} />
-        </Space>
+        <HeaderActions>
+          <Tooltip title="帮助"><Button type="text" icon={<QuestionCircleOutlined />} aria-label="帮助" /></Tooltip>
+          <Tooltip title="通知"><Button type="text" icon={<BellOutlined />} aria-label="通知" /></Tooltip>
+          <User>
+            <Avatar size={28} style={{ background: '#2f7567' }}>陈</Avatar>
+            <div>
+              <UserName>陈工</UserName>
+              <UserRole>内容管理员</UserRole>
+            </div>
+          </User>
+        </HeaderActions>
       </TopBar>
-      <Main>{children}</Main>
+      <Body>
+        <Navigation width={expandedWidth} collapsedWidth={collapsedWidth} collapsed={collapsed} trigger={null}>
+          <NavSection>
+            <NavLabel $collapsed={collapsed}>资产工作台</NavLabel>
+            {primaryItems.map(renderItem)}
+          </NavSection>
+          <NavSection>
+            <NavLabel $collapsed={collapsed}>管理与治理</NavLabel>
+            {managementItems.map(renderItem)}
+          </NavSection>
+        </Navigation>
+        <Main $fixed={isUploadRoute}>{children}</Main>
+      </Body>
     </Shell>
   )
 }

@@ -46,17 +46,18 @@ const Page = styled.div`
 
 const Header = styled.header`
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding-bottom: 16px;
+  min-height: 44px;
+  padding: 0 2px 10px;
   border-bottom: 1px solid #dfe5e1;
 `
 
 const Title = styled.h1`
   margin: 0;
   color: #20312a;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 680;
 `
 
@@ -77,8 +78,8 @@ const HeaderMeta = styled.div`
 const Workspace = styled.div`
   display: grid;
   grid-template-columns: 222px minmax(0, 1fr);
-  min-height: 640px;
-  margin-top: 18px;
+  min-height: calc(100vh - 118px);
+  margin-top: 10px;
   overflow: hidden;
   background: #fff;
   border: 1px solid #dce3df;
@@ -127,7 +128,7 @@ const CategoryCount = styled.span`
 
 const Content = styled.section`
   min-width: 0;
-  padding: 18px;
+  padding: 14px;
 `
 
 const ContentHeader = styled.div`

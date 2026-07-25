@@ -9,7 +9,7 @@ import type { AssetFile } from '../../../../types/asset'
 
 const Workbench = styled.section`
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 216px minmax(0, 1fr);
   min-height: 472px;
   overflow: hidden;
   background: #fff;
@@ -30,8 +30,8 @@ const ViewerToolbar = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 54px;
-  padding: 8px 12px 8px 16px;
+  min-height: 48px;
+  padding: 6px 9px 6px 13px;
   background: #fff;
   border-bottom: 1px solid #dce3df;
 `
@@ -65,7 +65,7 @@ const Stage = styled.div`
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 418px;
+  min-height: 424px;
   overflow: hidden;
   background-color: #edf1ef;
   background-image:
@@ -119,7 +119,7 @@ const RailHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 54px;
+  height: 48px;
   padding: 0 14px;
   color: #405149;
   border-bottom: 1px solid #dce3df;
@@ -128,7 +128,7 @@ const RailHeader = styled.div`
 `
 
 const FileList = styled.div`
-  max-height: 418px;
+  max-height: 424px;
   overflow-y: auto;
   padding: 6px;
 `
@@ -138,7 +138,7 @@ const FileRow = styled.button<{ $active: boolean }>`
   grid-template-columns: 34px minmax(0, 1fr);
   gap: 9px;
   width: 100%;
-  padding: 10px 9px;
+  padding: 8px;
   color: inherit;
   text-align: left;
   background: ${({ $active }) => ($active ? '#e7f0ed' : 'transparent')};
