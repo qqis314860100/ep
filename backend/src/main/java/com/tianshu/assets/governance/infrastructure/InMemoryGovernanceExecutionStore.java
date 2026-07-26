@@ -139,6 +139,26 @@ public class InMemoryGovernanceExecutionStore implements GovernanceExecutionStor
     }
 
     @Override
+    public synchronized GovernanceResultVersion markApplied(long resultVersionId, long expectedVersion) {
+        var current = results.get(resultVersionId);
+        if (current == null || current.version() != expectedVersion) {
+            throw new GovernanceVersionConflictException("治理结果已变化，请刷新后重试");
+        }
+        if (current.status() == GovernanceResultStatus.APPLIED) return current;
+        if (current.status() != GovernanceResultStatus.SUBMITTED) {
+            throw new GovernanceConflictException("只有已提交结果可以正式应用");
+        }
+        var applied = new GovernanceResultVersion(
+                current.id(), current.itemId(), current.governanceRound(), current.resultVersion(),
+                current.field(), current.originalValueJson(), current.proposedValueJson(),
+                current.standardVersion(), current.dictionaryVersions(), GovernanceResultStatus.APPLIED,
+                current.reworkReason(), current.actorUserId(), current.savedAt(), current.submittedAt(),
+                current.version() + 1);
+        results.put(applied.id(), applied);
+        return applied;
+    }
+
+    @Override
     public synchronized GovernanceItem updateItemStatus(
             long itemId, GovernanceItemStatus status, String reason) {
         var item = item(itemId);

@@ -169,6 +169,25 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
         }
     }
 
+    @Override
+    @Transactional
+    public GovernanceIssue resolve(long issueId, long expectedVersion) {
+        requireWritable();
+        var current = findByIds(List.of(issueId)).stream().findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("治理问题不存在"));
+        if (current.status() == GovernanceIssueStatus.RESOLVED) return current;
+        var updated = jdbcClient.sql("""
+                UPDATE governance_issue
+                SET status = 'RESOLVED', version = version + 1
+                WHERE id = :id AND status = 'CLAIMED' AND version = :expectedVersion
+                """)
+                .param("id", issueId)
+                .param("expectedVersion", expectedVersion)
+                .update();
+        if (updated != 1) throw new GovernanceConflictException("治理问题已变化，请刷新后重试");
+        return findByIds(List.of(issueId)).getFirst();
+    }
+
     private List<GovernanceIssue> findByFingerprintsInRequestOrder(List<GovernanceIssue> requested) {
         var fingerprints = requested.stream().map(GovernanceIssue::fingerprint).toList();
         var found = jdbcClient.sql(issueSelect() + " WHERE fingerprint IN (:fingerprints)")

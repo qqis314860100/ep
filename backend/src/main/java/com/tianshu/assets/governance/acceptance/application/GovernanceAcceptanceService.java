@@ -28,14 +28,16 @@ public class GovernanceAcceptanceService {
     private final GovernanceAcceptanceStore acceptanceStore;
     private final GovernanceExecutionStore executionStore;
     private final GovernanceTaskStore taskStore;
+    private final GovernanceJobDispatcher jobDispatcher;
     private final Clock clock;
 
     @Autowired
     public GovernanceAcceptanceService(
             GovernanceAcceptanceStore acceptanceStore,
             GovernanceExecutionStore executionStore,
-            GovernanceTaskStore taskStore) {
-        this(acceptanceStore, executionStore, taskStore, Clock.systemUTC());
+            GovernanceTaskStore taskStore,
+            GovernanceJobDispatcher jobDispatcher) {
+        this(acceptanceStore, executionStore, taskStore, jobDispatcher, Clock.systemUTC());
     }
 
     public GovernanceAcceptanceService(
@@ -43,9 +45,19 @@ public class GovernanceAcceptanceService {
             GovernanceExecutionStore executionStore,
             GovernanceTaskStore taskStore,
             Clock clock) {
+        this(acceptanceStore, executionStore, taskStore, GovernanceJobDispatcher.noOp(), clock);
+    }
+
+    public GovernanceAcceptanceService(
+            GovernanceAcceptanceStore acceptanceStore,
+            GovernanceExecutionStore executionStore,
+            GovernanceTaskStore taskStore,
+            GovernanceJobDispatcher jobDispatcher,
+            Clock clock) {
         this.acceptanceStore = acceptanceStore;
         this.executionStore = executionStore;
         this.taskStore = taskStore;
+        this.jobDispatcher = jobDispatcher;
         this.clock = clock;
     }
 
@@ -121,6 +133,7 @@ public class GovernanceAcceptanceService {
                     round, GovernanceAcceptanceRound.Status.PASSED, expectedRoundVersion);
             var job = acceptanceStore.createApplicationJob(
                     taskId, roundId, resultVersionIds, operatorUserId, Instant.now(clock));
+            jobDispatcher.dispatch(job.id());
             return new CompletionResult(
                     taskId, roundId, completedRound.status(), task.status(), List.of(), job.id());
         }

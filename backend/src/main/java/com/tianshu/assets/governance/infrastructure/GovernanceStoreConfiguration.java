@@ -1,6 +1,7 @@
 package com.tianshu.assets.governance.infrastructure;
 
 import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptanceStore;
+import com.tianshu.assets.governance.acceptance.application.GovernanceAssetPort;
 import com.tianshu.assets.governance.task.application.GovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStore;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionStore;
@@ -105,5 +106,15 @@ public class GovernanceStoreConfiguration {
             matchIfMissing = true)
     GovernanceAcceptanceStore inMemoryGovernanceAcceptanceStore() {
         return new InMemoryGovernanceAcceptanceStore();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(GovernanceAssetPort.class)
+    @ConditionalOnProperty(
+            name = "asset.governance-schema-enabled",
+            havingValue = "false",
+            matchIfMissing = true)
+    GovernanceAssetPort inMemoryGovernanceAssetPort() {
+        return new InMemoryGovernanceAssetAdapter();
     }
 }

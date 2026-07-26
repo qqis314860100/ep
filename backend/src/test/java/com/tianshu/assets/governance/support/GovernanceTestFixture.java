@@ -5,6 +5,8 @@ import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.governance.acceptance.application.GovernanceQualityService;
 import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptanceService;
+import com.tianshu.assets.governance.acceptance.application.GovernanceApplicationJobService;
+import com.tianshu.assets.governance.acceptance.domain.GovernanceOperationJob;
 import com.tianshu.assets.governance.acceptance.application.GovernanceQualityService.QualityFact;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceQualityMetric;
@@ -28,6 +30,7 @@ import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore
 import com.tianshu.assets.governance.infrastructure.InMemoryAssetResponsibilityAdapter;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceConfirmationStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAcceptanceStore;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAssetAdapter;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceRuleCatalog;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceWorkflowStore;
@@ -64,7 +67,10 @@ public final class GovernanceTestFixture {
     private final GovernanceQualityService qualityService;
     private final GovernanceAcceptanceService acceptanceService;
     private final GovernanceReworkService reworkService;
+    private final InMemoryGovernanceAssetAdapter governanceAssetAdapter;
+    private final GovernanceApplicationJobService applicationJobService;
     private GovernanceTask draft;
+    private GovernanceOperationJob acceptedJob;
     private InMemoryGovernanceExecutionStore executionStore;
     private InMemoryAssetRepository assetRepository;
     private GovernanceExecutionService executionService;
@@ -114,6 +120,9 @@ public final class GovernanceTestFixture {
         reworkService = new GovernanceReworkService(
                 taskStore, executionStore,
                 Clock.fixed(Instant.parse("2026-07-26T10:00:00Z"), ZoneOffset.UTC));
+        governanceAssetAdapter = new InMemoryGovernanceAssetAdapter();
+        applicationJobService = new GovernanceApplicationJobService(
+                acceptanceStore, executionStore, issueStore, taskStore, governanceAssetAdapter);
     }
 
     public static GovernanceTestFixture fieldClosure() {
@@ -215,6 +224,45 @@ public final class GovernanceTestFixture {
 
     public GovernanceReworkService reworkService() {
         return reworkService;
+    }
+
+    public GovernanceApplicationJobService applicationJobService() {
+        return applicationJobService;
+    }
+
+    public InMemoryGovernanceAssetAdapter assetPort() {
+        return governanceAssetAdapter;
+    }
+
+    public GovernanceOperationJob acceptedTaskWithTwoItems() {
+        if (acceptedJob != null) return acceptedJob;
+        var round = pendingAcceptance();
+        passAllSamples(round.id());
+        round = acceptanceService.current(round.taskId());
+        var completion = acceptanceService.complete(round.taskId(), round.id(), round.version(), "qa-1");
+        var job = acceptanceStore.applicationJob(completion.applicationJobId()).orElseThrow();
+        executionStore.items(job.taskId()).forEach(item ->
+                governanceAssetAdapter.seed(item.assetId(), item.assetVersion()));
+        acceptedJob = job;
+        return job;
+    }
+
+    public GovernanceOperationJob acceptedJobFor(long assetId) {
+        var job = acceptedTaskWithTwoItems();
+        if (job.items().stream().map(item -> executionStore.item(item.itemId()).assetId())
+                .noneMatch(id -> id == assetId)) {
+            throw new IllegalArgumentException("验收作业不包含资产：" + assetId);
+        }
+        return job;
+    }
+
+    public void addOpenBlockingIssue(long assetId, String issueType) {
+        var assetVersion = governanceAssetAdapter.snapshot(assetId).version();
+        issueStore.insertAll(List.of(new GovernanceIssue(
+                0, assetId, GovernanceField.DESCRIPTION, issueType, "/files/primary",
+                "CONTINUOUS_GOVERNANCE", 1, "null", assetVersion,
+                "asset:" + assetId + ":blocking", "HIGH", true,
+                GovernanceIssueStatus.OPEN, null, 0)));
     }
 
     public InMemoryGovernanceAcceptanceStore acceptanceStore() {

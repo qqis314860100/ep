@@ -24,6 +24,8 @@ public interface GovernanceExecutionStore {
 
     GovernanceResultVersion openRework(OpenRework command);
 
+    GovernanceResultVersion markApplied(long resultVersionId, long expectedVersion);
+
     GovernanceItem updateItemStatus(long itemId, GovernanceItemStatus status, String reason);
 
     List<GovernanceItem> updateItemStatuses(Map<Long, GovernanceItemStatus> statuses);

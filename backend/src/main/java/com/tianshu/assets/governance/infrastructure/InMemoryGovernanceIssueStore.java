@@ -99,6 +99,26 @@ public class InMemoryGovernanceIssueStore implements GovernanceIssueStore {
                 .toList();
     }
 
+    @Override
+    public synchronized GovernanceIssue resolve(long issueId, long expectedVersion) {
+        var current = issues.get(issueId);
+        if (current == null) throw new IllegalArgumentException("治理问题不存在");
+        if (current.version() != expectedVersion) {
+            throw new GovernanceConflictException("治理问题已变化，请刷新后重试");
+        }
+        if (current.status() == GovernanceIssueStatus.RESOLVED) return current;
+        if (current.status() != GovernanceIssueStatus.CLAIMED) {
+            throw new GovernanceConflictException("只有已领取问题可以解决");
+        }
+        var resolved = new GovernanceIssue(
+                current.id(), current.assetId(), current.targetField(), current.issueType(), current.targetPath(),
+                current.ruleCode(), current.ruleVersion(), current.originalFactJson(), current.assetVersion(),
+                current.scopeFingerprint(), current.severity(), current.blocking(), GovernanceIssueStatus.RESOLVED,
+                current.taskId(), current.version() + 1);
+        issues.put(resolved.id(), resolved);
+        return resolved;
+    }
+
     private static GovernanceIssue issue(
             long id, long assetId, GovernanceField field, String issueType, String targetPath,
             String originalFactJson, String severity, boolean blocking) {

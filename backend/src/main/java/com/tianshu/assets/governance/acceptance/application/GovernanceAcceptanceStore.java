@@ -1,6 +1,7 @@
 package com.tianshu.assets.governance.acceptance.application;
 
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
+import com.tianshu.assets.governance.acceptance.domain.GovernanceOperationJob;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -15,24 +16,16 @@ public interface GovernanceAcceptanceStore {
 
     GovernanceAcceptanceRound updateRound(GovernanceAcceptanceRound round, long expectedVersion);
 
-    ApplicationJobRequest createApplicationJob(
+    GovernanceOperationJob createApplicationJob(
             long taskId,
             long acceptanceRoundId,
             Map<Long, Long> resultVersionIds,
             String requestedBy,
             Instant requestedAt);
 
-    Optional<ApplicationJobRequest> applicationJob(long jobId);
+    Optional<GovernanceOperationJob> applicationJob(long jobId);
 
-    record ApplicationJobRequest(
-            long id,
-            long taskId,
-            long acceptanceRoundId,
-            Map<Long, Long> resultVersionIds,
-            String requestedBy,
-            Instant requestedAt) {
-        public ApplicationJobRequest {
-            resultVersionIds = Map.copyOf(resultVersionIds);
-        }
-    }
+    GovernanceOperationJob claimApplicationJob(long jobId, long expectedVersion);
+
+    GovernanceOperationJob updateApplicationJob(GovernanceOperationJob job, long expectedVersion);
 }

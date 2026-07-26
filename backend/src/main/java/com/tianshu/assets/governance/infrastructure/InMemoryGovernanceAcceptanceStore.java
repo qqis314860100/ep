@@ -4,6 +4,8 @@ import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptance
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceMetricResult;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceSample;
+import com.tianshu.assets.governance.acceptance.domain.GovernanceOperationJob;
+import com.tianshu.assets.governance.acceptance.domain.GovernanceOperationJobItem;
 import com.tianshu.assets.governance.application.GovernanceConflictException;
 import com.tianshu.assets.governance.application.GovernanceVersionConflictException;
 import java.util.Comparator;
@@ -15,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class InMemoryGovernanceAcceptanceStore implements GovernanceAcceptanceStore {
 
     private final Map<Long, GovernanceAcceptanceRound> rounds = new LinkedHashMap<>();
-    private final Map<Long, ApplicationJobRequest> applicationJobs = new LinkedHashMap<>();
+    private final Map<Long, GovernanceOperationJob> applicationJobs = new LinkedHashMap<>();
     private final AtomicLong nextRoundId = new AtomicLong(1);
     private final AtomicLong nextMetricId = new AtomicLong(1);
     private final AtomicLong nextSampleId = new AtomicLong(1);
@@ -71,7 +73,7 @@ public class InMemoryGovernanceAcceptanceStore implements GovernanceAcceptanceSt
     }
 
     @Override
-    public synchronized ApplicationJobRequest createApplicationJob(
+    public synchronized GovernanceOperationJob createApplicationJob(
             long taskId,
             long acceptanceRoundId,
             Map<Long, Long> resultVersionIds,
@@ -81,15 +83,49 @@ public class InMemoryGovernanceAcceptanceStore implements GovernanceAcceptanceSt
                 .filter(job -> job.acceptanceRoundId() == acceptanceRoundId)
                 .findFirst();
         if (existing.isPresent()) return existing.orElseThrow();
-        var created = new ApplicationJobRequest(
-                nextJobId.getAndIncrement(), taskId, acceptanceRoundId,
-                resultVersionIds, requestedBy, requestedAt);
+        var items = resultVersionIds.entrySet().stream()
+                .map(entry -> new GovernanceOperationJobItem(
+                        entry.getKey(), entry.getValue(), GovernanceOperationJobItem.Status.PENDING, ""))
+                .toList();
+        var created = new GovernanceOperationJob(
+                nextJobId.getAndIncrement(), taskId, acceptanceRoundId, items,
+                requestedBy, requestedAt, GovernanceOperationJob.Status.PENDING, 0);
         applicationJobs.put(created.id(), created);
         return created;
     }
 
     @Override
-    public synchronized Optional<ApplicationJobRequest> applicationJob(long jobId) {
+    public synchronized Optional<GovernanceOperationJob> applicationJob(long jobId) {
         return Optional.ofNullable(applicationJobs.get(jobId));
+    }
+
+    @Override
+    public synchronized GovernanceOperationJob claimApplicationJob(long jobId, long expectedVersion) {
+        var current = applicationJob(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("治理应用作业不存在"));
+        if (current.version() != expectedVersion || current.status() == GovernanceOperationJob.Status.RUNNING) {
+            throw new GovernanceVersionConflictException("治理应用作业已被其他请求处理");
+        }
+        var claimed = new GovernanceOperationJob(
+                current.id(), current.taskId(), current.acceptanceRoundId(), current.items(),
+                current.requestedBy(), current.requestedAt(), GovernanceOperationJob.Status.RUNNING,
+                current.version() + 1);
+        applicationJobs.put(jobId, claimed);
+        return claimed;
+    }
+
+    @Override
+    public synchronized GovernanceOperationJob updateApplicationJob(
+            GovernanceOperationJob requested, long expectedVersion) {
+        var current = applicationJob(requested.id())
+                .orElseThrow(() -> new IllegalArgumentException("治理应用作业不存在"));
+        if (current.version() != expectedVersion) {
+            throw new GovernanceVersionConflictException("治理应用作业已变化，请刷新后重试");
+        }
+        var updated = new GovernanceOperationJob(
+                current.id(), current.taskId(), current.acceptanceRoundId(), requested.items(),
+                current.requestedBy(), current.requestedAt(), requested.status(), current.version() + 1);
+        applicationJobs.put(updated.id(), updated);
+        return updated;
     }
 }

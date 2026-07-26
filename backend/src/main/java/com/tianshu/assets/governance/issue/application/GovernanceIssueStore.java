@@ -16,4 +16,8 @@ public interface GovernanceIssueStore {
     void claimOpen(List<GovernanceIssue> expectedIssues, long taskId);
 
     List<GovernanceIssue> findClaimedByTask(long taskId);
+
+    default GovernanceIssue resolve(long issueId, long expectedVersion) {
+        throw new UnsupportedOperationException("当前治理问题存储不支持解决问题");
+    }
 }
