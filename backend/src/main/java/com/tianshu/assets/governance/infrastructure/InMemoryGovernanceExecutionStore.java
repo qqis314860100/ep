@@ -110,6 +110,15 @@ public class InMemoryGovernanceExecutionStore implements GovernanceExecutionStor
         return changed;
     }
 
+    @Override
+    public synchronized List<GovernanceItem> updateItemStatuses(
+            Map<Long, GovernanceItemStatus> statuses) {
+        var current = statuses.keySet().stream().map(this::item).toList();
+        return current.stream()
+                .map(item -> updateItemStatus(item.id(), statuses.get(item.id()), null))
+                .toList();
+    }
+
     private void requireItemVersion(GovernanceItem item, long expectedVersion) {
         if (item.version() != expectedVersion) {
             throw new GovernanceVersionConflictException("治理项已变化，请刷新后重试");

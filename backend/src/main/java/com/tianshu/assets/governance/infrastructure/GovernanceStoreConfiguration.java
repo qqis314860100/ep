@@ -3,6 +3,8 @@ package com.tianshu.assets.governance.infrastructure;
 import com.tianshu.assets.governance.task.application.GovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStore;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionStore;
+import com.tianshu.assets.governance.confirmation.application.AssetResponsibilityPort;
+import com.tianshu.assets.governance.confirmation.application.GovernanceConfirmationStore;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueStore;
 import com.tianshu.assets.governance.task.application.GovernanceRuleCatalog;
 import com.tianshu.assets.governance.task.application.GovernanceWorkflowStore;
@@ -72,5 +74,25 @@ public class GovernanceStoreConfiguration {
             matchIfMissing = true)
     GovernanceRuleCatalog inMemoryGovernanceRuleCatalog() {
         return new InMemoryGovernanceRuleCatalog();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(GovernanceConfirmationStore.class)
+    @ConditionalOnProperty(
+            name = "asset.governance-schema-enabled",
+            havingValue = "false",
+            matchIfMissing = true)
+    GovernanceConfirmationStore inMemoryGovernanceConfirmationStore() {
+        return new InMemoryGovernanceConfirmationStore();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AssetResponsibilityPort.class)
+    @ConditionalOnProperty(
+            name = "asset.governance-schema-enabled",
+            havingValue = "false",
+            matchIfMissing = true)
+    AssetResponsibilityPort inMemoryAssetResponsibilityAdapter() {
+        return new InMemoryAssetResponsibilityAdapter();
     }
 }

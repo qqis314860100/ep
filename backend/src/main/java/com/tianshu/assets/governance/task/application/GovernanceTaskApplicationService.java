@@ -7,6 +7,9 @@ import com.tianshu.assets.governance.issue.application.GovernanceIssueStore;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssueStatus;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionStore;
+import com.tianshu.assets.governance.confirmation.application.GovernanceConfirmationStore;
+import com.tianshu.assets.governance.confirmation.domain.GovernanceConfirmationRound;
+import com.tianshu.assets.governance.application.GovernanceConflictException;
 import com.tianshu.assets.governance.execution.domain.GovernanceItem;
 import com.tianshu.assets.governance.execution.domain.GovernanceItemStatus;
 import com.tianshu.assets.governance.task.domain.GovernancePlan;
@@ -18,6 +21,7 @@ import com.tianshu.assets.governance.task.domain.GovernanceTask;
 import com.tianshu.assets.governance.task.domain.GovernanceTaskStatus;
 import com.tianshu.assets.governance.task.domain.GovernanceWorkflowVersion;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,24 +38,35 @@ public class GovernanceTaskApplicationService {
     private final GovernanceIssueStore issueStore;
     private final GovernanceWorkflowStore workflowStore;
     private final GovernanceExecutionStore executionStore;
+    private final GovernanceConfirmationStore confirmationStore;
 
     @Autowired
     public GovernanceTaskApplicationService(
             GovernanceTaskStore store, GovernanceEmployeeDirectory employeeDirectory,
             GovernanceIssueStore issueStore,
             GovernanceWorkflowStore workflowStore,
-            GovernanceExecutionStore executionStore) {
+            GovernanceExecutionStore executionStore,
+            GovernanceConfirmationStore confirmationStore) {
         this.store = store;
         this.employeeDirectory = employeeDirectory;
         this.issueStore = issueStore;
         this.workflowStore = workflowStore;
         this.executionStore = executionStore;
+        this.confirmationStore = confirmationStore;
+    }
+
+    public GovernanceTaskApplicationService(
+            GovernanceTaskStore store, GovernanceEmployeeDirectory employeeDirectory,
+            GovernanceIssueStore issueStore,
+            GovernanceWorkflowStore workflowStore,
+            GovernanceExecutionStore executionStore) {
+        this(store, employeeDirectory, issueStore, workflowStore, executionStore, null);
     }
 
     public GovernanceTaskApplicationService(
             GovernanceTaskStore store, GovernanceEmployeeDirectory employeeDirectory,
             GovernanceIssueStore issueStore) {
-        this(store, employeeDirectory, issueStore, null, null);
+        this(store, employeeDirectory, issueStore, null, null, null);
     }
 
     public GovernanceTaskApplicationService(
@@ -102,22 +117,75 @@ public class GovernanceTaskApplicationService {
     @Transactional
     public GovernanceTask submitForConfirmation(long taskId, long expectedVersion) {
         synchronized (store) {
+            var confirmations = requireConfirmationStore();
             var task = requireClosedLoop(taskId);
-            if (task.status() != GovernanceTaskStatus.IN_PROGRESS) {
+            if (task.status() != GovernanceTaskStatus.IN_PROGRESS
+                    && task.status() != GovernanceTaskStatus.PENDING_CONFIRMATION) {
                 throw new GovernanceTaskStateException("只有进行中的治理任务可以提交确认");
+            }
+            var items = requireExecutionStore().items(taskId);
+            if (items.isEmpty() || items.stream().anyMatch(
+                    item -> item.status() != GovernanceItemStatus.SUBMITTED)) {
+                throw new GovernanceValidationException("仍有阻塞或未提交治理项");
+            }
+            var resultVersionIds = items.stream().collect(
+                    java.util.stream.Collectors.toMap(
+                            GovernanceItem::id,
+                            item -> requireSubmittedResultId(item.id()),
+                            (first, second) -> first,
+                            LinkedHashMap::new));
+            var currentRound = confirmations.currentRound(taskId);
+            if (task.status() == GovernanceTaskStatus.PENDING_CONFIRMATION) {
+                if (currentRound.filter(round -> matchesRound(round, task, resultVersionIds)).isPresent()) {
+                    return task;
+                }
+                throw new GovernanceConflictException("待确认任务缺少匹配的确认轮次");
             }
             if (task.version() != expectedVersion) {
                 throw new GovernanceTaskStateException("治理任务已被其他用户更新，请刷新后重试");
             }
-            var items = requireExecutionStore().items(taskId);
-            if (items.isEmpty() || items.stream().anyMatch(item -> !item.status().countsAsSubmitted()
-                    || item.status() == GovernanceItemStatus.BLOCKED
-                    || item.status() == GovernanceItemStatus.REWORK_REQUIRED)) {
-                throw new GovernanceValidationException("仍有阻塞或未提交治理项");
+
+            GovernanceConfirmationRound round;
+            var created = false;
+            if (currentRound.filter(existing -> matchesRound(existing, task, resultVersionIds)).isPresent()) {
+                round = currentRound.orElseThrow();
+            } else {
+                if (currentRound.filter(existing -> existing.governanceRound() >= task.currentRound()).isPresent()) {
+                    throw new GovernanceConflictException("当前治理轮次已有不匹配的确认记录");
+                }
+                round = confirmations.createRound(
+                        taskId, task.currentRound(), resultVersionIds, Instant.now());
+                created = true;
             }
             var requested = copyWithStatus(task, task.status().moveTo(GovernanceTaskStatus.PENDING_CONFIRMATION));
-            return store.update(requested, expectedVersion);
+            try {
+                return store.update(requested, expectedVersion);
+            } catch (RuntimeException exception) {
+                if (created) confirmations.discardPendingRound(round.id());
+                throw exception;
+            }
         }
+    }
+
+    private boolean matchesRound(
+            GovernanceConfirmationRound round, GovernanceTask task, Map<Long, Long> resultVersionIds) {
+        return round.status() == GovernanceConfirmationRound.Status.PENDING
+                && round.governanceRound() == task.currentRound()
+                && round.resultVersionIds().equals(resultVersionIds);
+    }
+
+    private GovernanceConfirmationStore requireConfirmationStore() {
+        if (confirmationStore == null) throw new IllegalStateException("治理确认存储未配置");
+        return confirmationStore;
+    }
+
+    private long requireSubmittedResultId(long itemId) {
+        var result = requireExecutionStore().currentResult(itemId);
+        if (result == null || result.status()
+                != com.tianshu.assets.governance.execution.domain.GovernanceResultStatus.SUBMITTED) {
+            throw new GovernanceValidationException("仍有未提交治理结果");
+        }
+        return result.id();
     }
 
     private TaskProjection projection(GovernanceTask task) {

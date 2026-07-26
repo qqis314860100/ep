@@ -22,6 +22,8 @@ public interface GovernanceExecutionStore {
 
     GovernanceItem updateItemStatus(long itemId, GovernanceItemStatus status, String reason);
 
+    List<GovernanceItem> updateItemStatuses(Map<Long, GovernanceItemStatus> statuses);
+
     record SaveDraft(
             long itemId,
             long expectedItemVersion,

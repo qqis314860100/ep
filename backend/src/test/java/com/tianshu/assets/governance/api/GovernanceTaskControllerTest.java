@@ -8,20 +8,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.common.api.ApiExceptionHandler;
+import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
+import com.tianshu.assets.governance.confirmation.application.GovernanceConfirmationStore;
+import com.tianshu.assets.governance.execution.application.FieldSupplementActionHandler;
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionService;
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.SaveResultDraftCommand;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceConfirmationStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceRuleCatalog;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceWorkflowStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceExecutionStore;
-import com.tianshu.assets.governance.execution.domain.GovernanceItemStatus;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStartService;
 import com.tianshu.assets.governance.task.domain.GovernanceTask;
 import com.tianshu.assets.governance.task.domain.GovernanceTaskStatus;
 import com.tianshu.assets.governance.task.domain.GovernanceWorkflowVersion;
+import java.time.Clock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -35,6 +43,7 @@ class GovernanceTaskControllerTest {
     private InMemoryGovernanceIssueStore issueStore;
     private InMemoryGovernanceWorkflowStore workflowStore;
     private InMemoryGovernanceExecutionStore executionStore;
+    private GovernanceExecutionService executionService;
 
     @BeforeEach
     void setUp() {
@@ -42,12 +51,17 @@ class GovernanceTaskControllerTest {
         issueStore = InMemoryGovernanceIssueStore.withFieldSeeds();
         workflowStore = new InMemoryGovernanceWorkflowStore();
         executionStore = new InMemoryGovernanceExecutionStore(workflowStore);
+        GovernanceConfirmationStore confirmationStore = new InMemoryGovernanceConfirmationStore();
+        var employees = new InMemoryGovernanceEmployeeDirectory();
+        var ruleCatalog = new InMemoryGovernanceRuleCatalog();
         service = new GovernanceTaskApplicationService(
-                taskStore, new InMemoryGovernanceEmployeeDirectory(), issueStore,
-                workflowStore, executionStore);
+                taskStore, employees, issueStore, workflowStore, executionStore, confirmationStore);
+        executionService = new GovernanceExecutionService(
+                executionStore, workflowStore, ruleCatalog, new InMemoryAssetRepository(),
+                new FieldSupplementActionHandler(
+                        new ObjectMapper(), new InMemoryDictionaryStore(), employees), Clock.systemUTC());
         var startService = new GovernanceTaskStartService(
-                taskStore, issueStore, workflowStore,
-                new InMemoryGovernanceRuleCatalog());
+                taskStore, issueStore, workflowStore, ruleCatalog);
         mockMvc = standaloneSetup(new GovernanceTaskController(
                         service, new GovernanceIssueService(issueStore, taskStore), startService))
                 .setControllerAdvice(new ApiExceptionHandler())
@@ -224,8 +238,17 @@ class GovernanceTaskControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"version\":0,\"actorUserId\":\"emp-admin\"}"))
                 .andExpect(status().isOk());
-        workflowStore.items(4).forEach(item ->
-                executionStore.updateItemStatus(item.id(), GovernanceItemStatus.SUBMITTED, null));
+        workflowStore.items(4).forEach(item -> {
+            var proposedValue = switch (item.targetField()) {
+                case DESCRIPTION -> "{\"description\":\"补充后的功能说明\"}";
+                case SPECIALTIES -> "{\"specialtyItemIds\":[201]}";
+                case OWNER -> "{\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\"}";
+                case SCOPE -> throw new IllegalStateException("测试不包含适用范围治理项");
+            };
+            var draft = executionService.saveDraft(item.id(), new SaveResultDraftCommand(
+                    item.version(), item.assetVersion(), proposedValue, "emp-chen"));
+            executionService.submit(item.id(), draft.id(), draft.version(), "emp-chen");
+        });
 
         mockMvc.perform(get("/api/v1/governance/tasks/4"))
                 .andExpect(status().isOk())
