@@ -9,6 +9,7 @@ import com.tianshu.assets.governance.application.GovernanceConflictException;
 import com.tianshu.assets.governance.application.GovernanceVersionConflictException;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -22,10 +23,15 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
 
     private final JdbcClient jdbcClient;
     private final ObjectMapper objectMapper;
+    private final boolean databaseWritesEnabled;
 
-    public JdbcGovernanceAssetAdapter(JdbcClient jdbcClient, ObjectMapper objectMapper) {
+    public JdbcGovernanceAssetAdapter(
+            JdbcClient jdbcClient,
+            ObjectMapper objectMapper,
+            @Value("${asset.database-writes-enabled:false}") boolean databaseWritesEnabled) {
         this.jdbcClient = jdbcClient;
         this.objectMapper = objectMapper;
+        this.databaseWritesEnabled = databaseWritesEnabled;
     }
 
     @Override
@@ -46,6 +52,7 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
             String proposedValueJson,
             long expectedAssetVersion,
             String actorUserId) {
+        requireWritable();
         var action = "GOVERNANCE_FIELD_APPLIED:" + itemId;
         var existing = jdbcClient.sql("""
                 SELECT COUNT(*) FROM asset_audit_ext
@@ -58,7 +65,7 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
                     assetId, expectedAssetVersion, "standard_description", text(root, "description"));
             case SPECIALTIES -> updatePackage(
                     assetId, expectedAssetVersion, "standard_specialties", json(root.get("specialtyItemIds")));
-            case OWNER -> applyOwner(assetId, expectedAssetVersion, root);
+            case OWNER -> applyOwner(assetId, expectedAssetVersion, root, itemId);
             case SCOPE -> applyScopes(assetId, expectedAssetVersion, root, itemId);
         };
         if (updated != 1) throw new GovernanceVersionConflictException("资产版本已变化，无法正式应用");
@@ -88,6 +95,7 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
 
     @Override
     public void markStandardized(long assetId, long expectedAssetVersion, String actorUserId) {
+        requireWritable();
         var updated = jdbcClient.sql("""
                 UPDATE asset_package_ext
                 SET status = 'STANDARDIZED', version = version + 1, updated_at = CURRENT_TIMESTAMP(6)
@@ -101,23 +109,25 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
             throw new IllegalArgumentException("不支持的资产扩展列");
         }
         return jdbcClient.sql("UPDATE asset_package_ext SET " + column + " = :value, "
-                        + "version = version + 1, updated_at = CURRENT_TIMESTAMP(6) "
+                        + "version = version + 1, standard_value_updated_at = CURRENT_TIMESTAMP(6), "
+                        + "updated_at = CURRENT_TIMESTAMP(6) "
                         + "WHERE drawing_id = :assetId AND version = :expectedVersion")
                 .param("value", value).param("assetId", assetId)
                 .param("expectedVersion", expectedVersion).update();
     }
 
-    private int applyOwner(long assetId, long expectedVersion, JsonNode root) {
+    private int applyOwner(long assetId, long expectedVersion, JsonNode root, long itemId) {
         var current = snapshot(assetId);
         if (current.version() != expectedVersion) return 0;
+        var resultVersionId = currentResultVersionId(itemId);
         jdbcClient.sql("UPDATE asset_responsibility_ext SET active = 0 WHERE drawing_id = :assetId AND active = 1")
                 .param("assetId", assetId).update();
         jdbcClient.sql("""
                 INSERT INTO asset_responsibility_ext
-                    (drawing_id, owner_user_id, owner_name, source, active)
-                VALUES (:assetId, :ownerUserId, :ownerName, 'GOVERNANCE', 1)
+                    (drawing_id, responsible_user_id, responsibility_scope, governance_result_version_id, active)
+                VALUES (:assetId, :ownerUserId, :ownerName, :resultVersionId, 1)
                 """).param("assetId", assetId).param("ownerUserId", text(root, "ownerUserId"))
-                .param("ownerName", text(root, "ownerName")).update();
+                .param("ownerName", text(root, "ownerName")).param("resultVersionId", resultVersionId).update();
         return incrementVersion(assetId, expectedVersion);
     }
 
@@ -128,13 +138,15 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
         if (scopes == null || !scopes.isArray() || scopes.isEmpty()) {
             throw new GovernanceConflictException("治理适用范围结果不合法");
         }
+        var resultVersionId = currentResultVersionId(itemId);
         for (var scope : scopes) {
             jdbcClient.sql("""
                     INSERT INTO asset_scope_ext
                         (drawing_id, platform_family, platform_variant, product_line, base_name,
-                         production_line, process_section, source_value_json)
+                         production_line, process_section, source_value_json, source_type,
+                         governance_result_version_id, active)
                     VALUES (:assetId, :platformFamily, :platformVariant, :productLine, :baseName,
-                            :productionLine, :processSection, :sourceValue)
+                            :productionLine, :processSection, :sourceValue, 'GOVERNANCE', :resultId, 1)
                     """).param("assetId", assetId)
                     .param("platformFamily", text(scope, "platformFamily"))
                     .param("platformVariant", text(scope, "platformVariant"))
@@ -142,6 +154,7 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
                     .param("baseName", text(scope, "base"))
                     .param("productionLine", text(scope, "productionLine"))
                     .param("processSection", text(scope, "processSection"))
+                    .param("resultId", resultVersionId)
                     .param("sourceValue", json(Map.of("source", "GOVERNANCE", "itemId", itemId)))
                     .update();
         }
@@ -174,6 +187,19 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("治理扩展值无法序列化", exception);
+        }
+    }
+
+    private long currentResultVersionId(long itemId) {
+        if (itemId <= 0) throw new GovernanceConflictException("治理项缺少当前结果版本");
+        return jdbcClient.sql("SELECT current_result_version_id FROM governance_item WHERE id = :itemId")
+                .param("itemId", itemId).query(Long.class).optional()
+                .orElseThrow(() -> new GovernanceConflictException("治理项缺少当前结果版本"));
+    }
+
+    private void requireWritable() {
+        if (!databaseWritesEnabled) {
+            throw new GovernanceConflictException("当前数据库配置为只读，禁止执行治理写入");
         }
     }
 }

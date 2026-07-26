@@ -6,10 +6,12 @@
 MYSQL_PWD=你的密码 mysql -h 127.0.0.1 -P 3306 -u root \
   < docs/migrations/local/V1_5__local_bootstrap.sql
 MYSQL_PWD=你的密码 mysql -h 127.0.0.1 -P 3306 -u root \
+  < docs/migrations/local/V1_7__local_governance_closed_loop.sql
+MYSQL_PWD=你的密码 mysql -h 127.0.0.1 -P 3306 -u root \
   < docs/migrations/local/V1_5__local_seed.sql
 ```
 
-两个脚本均可重复执行，不会删除或清空已有数据。
+三个脚本必须按上述顺序执行，均可重复执行，不会删除或清空已有数据。V1.7 只增加治理闭环扩展列和新表；执行后应先完成只读核对，再在非生产环境开启治理结构读取。
 
 ## 2. 配置环境变量
 

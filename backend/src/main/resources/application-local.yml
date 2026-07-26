@@ -11,5 +11,6 @@ spring:
 
 asset:
   extension-schema-enabled: true
+  governance-schema-enabled: true
   database-writes-enabled: true
   file-storage-directory: ${ASSET_FILE_STORAGE_DIRECTORY:.data/files}

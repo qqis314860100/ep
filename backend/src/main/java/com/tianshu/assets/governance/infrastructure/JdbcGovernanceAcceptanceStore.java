@@ -1,0 +1,32 @@
+package com.tianshu.assets.governance.infrastructure;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptanceStore;
+import com.tianshu.assets.governance.acceptance.domain.*;
+import com.tianshu.assets.governance.application.*;
+import java.time.Instant;
+import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.stereotype.Repository;
+
+@Repository @Profile({"local","oceanbase"})
+@ConditionalOnProperty(name="asset.governance-schema-enabled",havingValue="true")
+public class JdbcGovernanceAcceptanceStore extends JdbcGovernanceSupport implements GovernanceAcceptanceStore {
+    public JdbcGovernanceAcceptanceStore(JdbcClient j,ObjectMapper o,@Value("${asset.database-writes-enabled:false}")boolean w){super(j,o,w);}
+    @Override public Optional<GovernanceAcceptanceRound> currentRound(long task){return rounds(task).stream().max(Comparator.comparingInt(GovernanceAcceptanceRound::governanceRound));}
+    @Override public List<GovernanceAcceptanceRound> rounds(long task){return jdbc.sql("SELECT payload_json FROM governance_acceptance_round WHERE task_id=:id ORDER BY governance_round").param("id",task).query(String.class).list().stream().map(v->decode(v,GovernanceAcceptanceRound.class)).toList();}
+    @Override public List<GovernanceOperationJob> applicationJobs(long task){return jdbc.sql("SELECT payload_json FROM governance_operation_job WHERE task_id=:id ORDER BY id").param("id",task).query(String.class).list().stream().map(v->decode(v,GovernanceOperationJob.class)).toList();}
+    @Override public GovernanceAcceptanceRound round(long id){return jdbc.sql("SELECT payload_json FROM governance_acceptance_round WHERE id=:id").param("id",id).query(String.class).optional().map(v->decode(v,GovernanceAcceptanceRound.class)).orElseThrow(()->new IllegalArgumentException("验收轮次不存在"));}
+    @Override public GovernanceAcceptanceRound createRound(GovernanceAcceptanceRound r){requireWritable();if(currentRound(r.taskId()).filter(v->v.governanceRound()==r.governanceRound()).isPresent())throw new GovernanceConflictException("当前治理轮次已存在验收记录");var k=new GeneratedKeyHolder();jdbc.sql("INSERT INTO governance_acceptance_round(task_id,governance_round,status,version,payload_json) VALUES(:task,:round,:status,0,'{}')").param("task",r.taskId()).param("round",r.governanceRound()).param("status",r.status().name()).update(k,"id");var value=new GovernanceAcceptanceRound(k.getKeyAs(Long.class),r.taskId(),r.governanceRound(),r.policy(),r.metricResults(),r.samples(),r.status(),r.createdAt(),r.completedAt(),0);saveRound(value,0,false);return value;}
+    @Override public GovernanceAcceptanceRound updateRound(GovernanceAcceptanceRound r,long expected){requireWritable();var current=round(r.id());var value=new GovernanceAcceptanceRound(current.id(),current.taskId(),current.governanceRound(),current.policy(),r.metricResults(),r.samples(),r.status(),current.createdAt(),r.completedAt(),expected+1);saveRound(value,expected,true);return value;}
+    @Override public GovernanceOperationJob createApplicationJob(long task,long acceptance,Map<Long,Long> ids,String by,Instant at){requireWritable();var existing=jdbc.sql("SELECT payload_json FROM governance_operation_job WHERE acceptance_round_id=:id").param("id",acceptance).query(String.class).optional();if(existing.isPresent())return decode(existing.orElseThrow(),GovernanceOperationJob.class);var items=ids.entrySet().stream().map(e->new GovernanceOperationJobItem(e.getKey(),e.getValue(),GovernanceOperationJobItem.Status.PENDING,"")).toList();var k=new GeneratedKeyHolder();jdbc.sql("INSERT INTO governance_operation_job(task_id,acceptance_round_id,status,version,payload_json) VALUES(:task,:acceptance,'PENDING',0,'{}')").param("task",task).param("acceptance",acceptance).update(k,"id");var job=new GovernanceOperationJob(k.getKeyAs(Long.class),task,acceptance,items,by,at,GovernanceOperationJob.Status.PENDING,0);jdbc.sql("UPDATE governance_operation_job SET payload_json=:p WHERE id=:id").param("p",encode(job)).param("id",job.id()).update();return job;}
+    @Override public Optional<GovernanceOperationJob> applicationJob(long id){return jdbc.sql("SELECT payload_json FROM governance_operation_job WHERE id=:id").param("id",id).query(String.class).optional().map(v->decode(v,GovernanceOperationJob.class));}
+    @Override public GovernanceOperationJob claimApplicationJob(long id,long expected){var current=applicationJob(id).orElseThrow(()->new IllegalArgumentException("治理应用作业不存在"));if(current.status()==GovernanceOperationJob.Status.RUNNING)throw new GovernanceVersionConflictException("治理应用作业已被其他请求处理");return updateJob(new GovernanceOperationJob(current.id(),current.taskId(),current.acceptanceRoundId(),current.items(),current.requestedBy(),current.requestedAt(),GovernanceOperationJob.Status.RUNNING,expected+1),expected);}
+    @Override public GovernanceOperationJob updateApplicationJob(GovernanceOperationJob r,long expected){var current=applicationJob(r.id()).orElseThrow(()->new IllegalArgumentException("治理应用作业不存在"));return updateJob(new GovernanceOperationJob(current.id(),current.taskId(),current.acceptanceRoundId(),r.items(),current.requestedBy(),current.requestedAt(),r.status(),expected+1),expected);}
+    private void saveRound(GovernanceAcceptanceRound v,long expected,boolean locked){var sql=locked?"UPDATE governance_acceptance_round SET status=:status,version=version+1,payload_json=:p WHERE id=:id AND version=:v":"UPDATE governance_acceptance_round SET status=:status,payload_json=:p WHERE id=:id";var s=jdbc.sql(sql).param("status",v.status().name()).param("p",encode(v)).param("id",v.id());if(locked)s=s.param("v",expected);requireUpdated(s.update(),()->new GovernanceVersionConflictException("验收轮次已变化，请刷新后重试"));}
+    private GovernanceOperationJob updateJob(GovernanceOperationJob v,long expected){requireWritable();int n=jdbc.sql("UPDATE governance_operation_job SET status=:status,version=version+1,payload_json=:p WHERE id=:id AND version=:v").param("status",v.status().name()).param("p",encode(v)).param("id",v.id()).param("v",expected).update();requireUpdated(n,()->new GovernanceVersionConflictException("治理应用作业已变化，请刷新后重试"));return v;}
+}
