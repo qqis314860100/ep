@@ -2,6 +2,9 @@ package com.tianshu.assets.governance.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptanceStore;
+import com.tianshu.assets.governance.confirmation.application.AssetResponsibilityPort;
+import com.tianshu.assets.governance.confirmation.application.GovernanceConfirmationStore;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionStore;
 import com.tianshu.assets.governance.task.application.GovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStore;
@@ -26,6 +29,9 @@ class GovernanceStoreConfigurationTest {
             assertThat(context.getBeansOfType(GovernanceWorkflowStore.class)).hasSize(1);
             assertThat(context.getBeansOfType(GovernanceExecutionStore.class)).hasSize(1);
             assertThat(context.getBeansOfType(GovernanceRuleCatalog.class)).hasSize(1);
+            assertThat(context.getBeansOfType(GovernanceConfirmationStore.class)).hasSize(1);
+            assertThat(context.getBeansOfType(AssetResponsibilityPort.class)).hasSize(1);
+            assertThat(context.getBeansOfType(GovernanceAcceptanceStore.class)).hasSize(1);
         });
     }
 
@@ -69,6 +75,9 @@ class GovernanceStoreConfigurationTest {
             assertThat(context.getBeansOfType(GovernanceWorkflowStore.class)).isEmpty();
             assertThat(context.getBeansOfType(GovernanceExecutionStore.class)).isEmpty();
             assertThat(context.getBeansOfType(GovernanceRuleCatalog.class)).isEmpty();
+            assertThat(context.getBeansOfType(GovernanceConfirmationStore.class)).isEmpty();
+            assertThat(context.getBeansOfType(AssetResponsibilityPort.class)).isEmpty();
+            assertThat(context.getBeansOfType(GovernanceAcceptanceStore.class)).isEmpty();
         });
     }
 }

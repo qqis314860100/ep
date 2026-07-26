@@ -3,9 +3,16 @@ package com.tianshu.assets.governance.support;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
+import com.tianshu.assets.governance.acceptance.application.GovernanceQualityService;
+import com.tianshu.assets.governance.acceptance.application.GovernanceQualityService.QualityFact;
+import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
+import com.tianshu.assets.governance.acceptance.domain.GovernanceQualityMetric;
+import com.tianshu.assets.governance.acceptance.domain.GovernanceQualityPolicySnapshot;
 import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
 import com.tianshu.assets.governance.execution.application.FieldSupplementActionHandler;
 import com.tianshu.assets.governance.confirmation.application.GovernanceConfirmationService;
+import com.tianshu.assets.governance.confirmation.application.GovernanceConfirmationService.DecisionCommand;
+import com.tianshu.assets.governance.confirmation.domain.GovernanceConfirmationDecision.Decision;
 import com.tianshu.assets.governance.confirmation.domain.GovernanceConfirmationRound;
 import com.tianshu.assets.governance.execution.application.GovernanceActionHandler.ValidationContext;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService;
@@ -19,6 +26,7 @@ import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceExecutionS
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryAssetResponsibilityAdapter;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceConfirmationStore;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAcceptanceStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceRuleCatalog;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceWorkflowStore;
@@ -48,8 +56,10 @@ public final class GovernanceTestFixture {
     private final GovernanceTaskApplicationService taskService;
     private final GovernanceTaskStartService startService;
     private final InMemoryGovernanceConfirmationStore confirmationStore;
+    private final InMemoryGovernanceAcceptanceStore acceptanceStore;
     private final InMemoryAssetResponsibilityAdapter responsibilityAdapter;
     private final GovernanceConfirmationService confirmationService;
+    private final GovernanceQualityService qualityService;
     private GovernanceTask draft;
     private InMemoryGovernanceExecutionStore executionStore;
     private InMemoryAssetRepository assetRepository;
@@ -65,6 +75,7 @@ public final class GovernanceTestFixture {
         workflowStore = new InMemoryGovernanceWorkflowStore();
         executionStore = new InMemoryGovernanceExecutionStore(workflowStore);
         confirmationStore = new InMemoryGovernanceConfirmationStore();
+        acceptanceStore = new InMemoryGovernanceAcceptanceStore();
         responsibilityAdapter = new InMemoryAssetResponsibilityAdapter();
         var ruleCatalog = new InMemoryGovernanceRuleCatalog(new GovernanceRuleSnapshot(
                 0, "FIELD-COMPLETENESS", 3, 3,
@@ -90,6 +101,9 @@ public final class GovernanceTestFixture {
         confirmationService = new GovernanceConfirmationService(
                 confirmationStore, executionStore, taskStore, responsibilityAdapter,
                 Clock.fixed(Instant.parse("2026-07-26T07:00:00Z"), ZoneOffset.UTC));
+        qualityService = new GovernanceQualityService(
+                acceptanceStore,
+                Clock.fixed(Instant.parse("2026-07-26T08:00:00Z"), ZoneOffset.UTC));
     }
 
     public static GovernanceTestFixture fieldClosure() {
@@ -179,6 +193,43 @@ public final class GovernanceTestFixture {
 
     public GovernanceConfirmationService confirmationService() {
         return confirmationService;
+    }
+
+    public GovernanceQualityService qualityService() {
+        return qualityService;
+    }
+
+    public GovernanceQualityPolicySnapshot policyAllowingNotApplicable() {
+        return new GovernanceQualityPolicySnapshot(
+                1, "FIELD-QUALITY", 2,
+                java.util.Arrays.stream(GovernanceQualityMetric.values()).collect(
+                        java.util.stream.Collectors.toMap(metric -> metric, metric -> 0.8)),
+                true, true, 1);
+    }
+
+    public GovernanceAcceptanceRound openAcceptanceRound() {
+        var existing = acceptanceStore.currentRound(validStartedTask().id());
+        if (existing.isPresent()) return existing.orElseThrow();
+        var confirmationRound = pendingConfirmationWithTwoItems();
+        var confirmationItems = confirmationService.current(confirmationRound.taskId()).items();
+        confirmationItems.forEach(item -> confirmationService.decide(
+                confirmationRound.id(), item.itemId(),
+                new DecisionCommand(Decision.APPROVED, "", 0, item.responsibleUserId())));
+        confirmationService.complete(
+                confirmationRound.taskId(), confirmationRound.id(), confirmationRound.version());
+        var task = taskStore.findById(confirmationRound.taskId()).orElseThrow();
+        var facts = executionStore.items(task.id()).stream().map(item -> {
+            var asset = assetRepository.findById(item.assetId()).orElseThrow();
+            var scopeValid = asset.scopes().stream().anyMatch(scope ->
+                    !scope.platformFamily().isBlank() && !scope.productLine().isBlank()
+                            && !scope.base().isBlank() && !scope.productionLine().isBlank());
+            return new QualityFact(
+                    item.id(), executionStore.currentResult(item.id()) != null, scopeValid,
+                    item.targetField() == GovernanceField.SPECIALTIES ? Boolean.TRUE : null,
+                    responsibilityAdapter.currentResponsibility(item.assetId()).isPresent());
+        }).toList();
+        return qualityService.openRound(
+                task.id(), task.currentRound(), policyAllowingNotApplicable(), facts);
     }
 
     public List<GovernanceItem> batchItems() {
