@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 
 class JdbcGovernanceTaskStoreTest {
 
@@ -76,7 +77,16 @@ class JdbcGovernanceTaskStoreTest {
                     UNIQUE (task_id, sequence_number)
                 )
                 """);
-        store = new JdbcGovernanceTaskStore(JdbcClient.create(dataSource), new ObjectMapper(), true);
+        jdbcTemplate.execute("""
+                CREATE TABLE governance_plan_item (
+                    plan_id BIGINT NOT NULL,
+                    issue_id BIGINT NOT NULL,
+                    PRIMARY KEY (plan_id, issue_id)
+                )
+                """);
+        store = new JdbcGovernanceTaskStore(
+                JdbcClient.create(dataSource), new ObjectMapper(), true,
+                new DataSourceTransactionManager(dataSource));
     }
 
     @Test
@@ -126,10 +136,49 @@ class JdbcGovernanceTaskStoreTest {
         var second = store.insertPlan(planFor(task.id(), "补充缺失字段"));
 
         assertThat(first.id()).isPositive();
+        assertThat(first.sequence()).isEqualTo(1);
+        assertThat(first.issueIds()).containsExactly(1001L, 1002L);
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT issue_id FROM governance_plan_item WHERE plan_id = ? ORDER BY issue_id",
+                Long.class, first.id())).containsExactly(1001L, 1002L);
         assertThat(second.id()).isNotEqualTo(first.id());
         assertThat(jdbcTemplate.queryForList(
                 "SELECT sequence_number FROM governance_plan ORDER BY id", Integer.class))
                 .containsExactly(1, 2);
+    }
+
+    @Test
+    void readsLegacyPlanWithoutJoinRowsAsEmptyIssueList() {
+        var task = insertClosedLoopTask("GOV-PLAN-LEGACY");
+        jdbcTemplate.update("""
+                INSERT INTO governance_plan
+                    (task_id, sequence_number, name, responsible_user_id, start_date, due_date,
+                     target_quantity, completed_quantity, quantity_unit, status, dependency_ids, version)
+                VALUES (?, 1, '旧计划', 'emp-chen', '2026-08-20', '2026-08-21',
+                        2, 0, '个字段', 'TODO', '[]', 0)
+                """, task.id());
+
+        assertThat(store.findPlans(task.id())).singleElement()
+                .extracting(GovernancePlan::issueIds)
+                .isEqualTo(List.of());
+    }
+
+    @Test
+    void rollsBackPlanWhenJoinInsertionFails() {
+        var task = insertClosedLoopTask("GOV-PLAN-ROLLBACK");
+        jdbcTemplate.execute("""
+                ALTER TABLE governance_plan_item
+                ADD CONSTRAINT reject_issue_id CHECK (issue_id > 9999)
+                """);
+
+        assertThatThrownBy(() -> store.insertPlan(planFor(task.id(), "关联写入失败")))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM governance_plan WHERE task_id = ?", Integer.class, task.id()))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM governance_plan_item", Integer.class))
+                .isZero();
     }
 
     @Test
@@ -203,8 +252,8 @@ class JdbcGovernanceTaskStoreTest {
     }
 
     private GovernancePlan planFor(long taskId, String title) {
-        return new GovernancePlan(
-                0, taskId, title, "TODO", null, LocalDate.of(2026, 8, 20),
-                LocalDate.of(2026, 8, 21), null, null, 2, 0, "个字段", "emp-chen", List.of(), 0);
+        return GovernancePlan.closedLoop(
+                0, taskId, 0, title, "emp-chen", LocalDate.of(2026, 8, 20),
+                LocalDate.of(2026, 8, 21), List.of(), List.of(1002L, 1001L), 0);
     }
 }

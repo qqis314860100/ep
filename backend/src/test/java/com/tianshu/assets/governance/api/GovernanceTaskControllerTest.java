@@ -12,8 +12,11 @@ import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceRuleCatalog;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceWorkflowStore;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
+import com.tianshu.assets.governance.task.application.GovernanceTaskStartService;
 import com.tianshu.assets.governance.task.domain.GovernanceTask;
 import com.tianshu.assets.governance.task.domain.GovernanceTaskStatus;
 import com.tianshu.assets.governance.task.domain.GovernanceWorkflowVersion;
@@ -33,9 +36,13 @@ class GovernanceTaskControllerTest {
     void setUp() {
         taskStore = InMemoryGovernanceTaskStore.withLegacySeed();
         issueStore = InMemoryGovernanceIssueStore.withFieldSeeds();
-        service = new GovernanceTaskApplicationService(taskStore, new InMemoryGovernanceEmployeeDirectory());
+        service = new GovernanceTaskApplicationService(
+                taskStore, new InMemoryGovernanceEmployeeDirectory(), issueStore);
+        var startService = new GovernanceTaskStartService(
+                taskStore, issueStore, new InMemoryGovernanceWorkflowStore(),
+                new InMemoryGovernanceRuleCatalog());
         mockMvc = standaloneSetup(new GovernanceTaskController(
-                        service, new GovernanceIssueService(issueStore, taskStore)))
+                        service, new GovernanceIssueService(issueStore, taskStore), startService))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
     }
@@ -98,6 +105,46 @@ class GovernanceTaskControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("governance_issue_conflict"))
                 .andExpect(jsonPath("$.error.message").value("问题已被其他治理任务纳入"));
+    }
+
+    @Test
+    void createsClosedLoopPlanAndStartsTaskWithFrozenVersion() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"平台字段补充\",\"issueIds\":[1001,1002],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/governance/tasks/4/plans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"补充字段\",\"plannedStart\":\"2026-08-13\",\"plannedEnd\":\"2026-08-14\",\"responsibleUserId\":\"emp-chen\",\"dependencyIds\":[],\"issueIds\":[1001,1002]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sequence").value(1))
+                .andExpect(jsonPath("$.status").value("NOT_STARTED"))
+                .andExpect(jsonPath("$.plannedQuantity").value(2))
+                .andExpect(jsonPath("$.completedQuantity").value(0));
+
+        mockMvc.perform(post("/api/v1/governance/tasks/4/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"actorUserId\":\"emp-admin\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.currentRound").value(1))
+                .andExpect(jsonPath("$.version").value(1));
+    }
+
+    @Test
+    void mapsStartValidationToStableUnprocessableEntity() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"平台字段补充\",\"issueIds\":[1001],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/governance/tasks/4/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"actorUserId\":\"emp-admin\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("governance_validation_failed"))
+                .andExpect(jsonPath("$.error.message").value("至少需要一个治理计划"));
     }
 
     @Test

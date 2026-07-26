@@ -8,6 +8,7 @@ import com.tianshu.assets.asset.application.ForbiddenOperationException;
 import com.tianshu.assets.asset.application.AssetFileValidationException;
 import com.tianshu.assets.governance.application.GovernanceTaskStateException;
 import com.tianshu.assets.governance.application.GovernanceConflictException;
+import com.tianshu.assets.governance.application.GovernanceValidationException;
 import com.tianshu.assets.dictionary.application.DictionaryConflictException;
 import com.tianshu.assets.dictionary.application.DictionaryNotFoundException;
 import com.tianshu.assets.document.application.DocumentNotFoundException;
@@ -69,6 +70,15 @@ public class ApiExceptionHandler {
     @ExceptionHandler(GovernanceConflictException.class)
     ResponseEntity<ApiError> handleGovernanceConflict(GovernanceConflictException exception) {
         return response(HttpStatus.CONFLICT, "governance_issue_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(GovernanceValidationException.class)
+    ResponseEntity<ApiError> handleGovernanceValidation(GovernanceValidationException exception) {
+        var details = exception.validationMessages().stream()
+                .map(message -> new ApiError.FieldError("governance", message, "invalid_state"))
+                .toList();
+        return response(HttpStatus.UNPROCESSABLE_ENTITY,
+                "governance_validation_failed", exception.getMessage(), details);
     }
 
     @ExceptionHandler(DictionaryNotFoundException.class)

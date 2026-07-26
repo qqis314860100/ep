@@ -63,27 +63,34 @@ public class InMemoryGovernanceTaskStore implements GovernanceTaskStore {
     }
 
     @Override
-    public List<GovernancePlan> findPlans(long taskId) {
-        return List.copyOf(plans.getOrDefault(taskId, List.of()));
+    public synchronized List<GovernancePlan> findPlans(long taskId) {
+        return plans.getOrDefault(taskId, List.of()).stream()
+                .sorted(Comparator.comparingInt(GovernancePlan::sequence).thenComparingLong(GovernancePlan::id))
+                .toList();
     }
 
     @Override
-    public GovernancePlan insertPlan(GovernancePlan plan) {
+    public synchronized GovernancePlan insertPlan(GovernancePlan plan) {
         var task = findById(plan.taskId())
                 .orElseThrow(() -> new IllegalArgumentException("治理任务不存在"));
         if (task.workflowVersion() == GovernanceWorkflowVersion.LEGACY_PROGRESS) {
             throw new GovernanceTaskStateException(GovernanceTaskStateException.LEGACY_READ_ONLY_MESSAGE);
         }
+        if (task.status() != GovernanceTaskStatus.DRAFT) {
+            throw new GovernanceTaskStateException("治理任务启动后计划已锁定");
+        }
         var id = plan.id() > 0 ? plan.id() : nextPlanId.getAndIncrement();
-        var created = copyPlan(plan, id, 0);
-        plans.compute(plan.taskId(), (taskId, current) -> {
-            var updated = new ArrayList<>(current == null ? List.<GovernancePlan>of() : current);
-            if (updated.stream().anyMatch(item -> item.id() == id)) {
-                throw new GovernanceTaskStateException("治理计划已存在");
-            }
-            updated.add(created);
-            return List.copyOf(updated);
-        });
+        var current = plans.getOrDefault(plan.taskId(), List.of());
+        if (current.stream().anyMatch(item -> item.id() == id)) {
+            throw new GovernanceTaskStateException("治理计划已存在");
+        }
+        var sequence = plan.sequence() > 0
+                ? plan.sequence()
+                : current.stream().mapToInt(GovernancePlan::sequence).max().orElse(0) + 1;
+        var created = copyPlan(plan, id, sequence, 0);
+        var updated = new ArrayList<>(current);
+        updated.add(created);
+        plans.put(plan.taskId(), List.copyOf(updated));
         nextPlanId.accumulateAndGet(id + 1, Math::max);
         return created;
     }
@@ -95,11 +102,11 @@ public class InMemoryGovernanceTaskStore implements GovernanceTaskStore {
                 task.legacyTotal(), task.legacyCompleted(), version);
     }
 
-    private GovernancePlan copyPlan(GovernancePlan plan, long id, long version) {
-        return new GovernancePlan(id, plan.taskId(), plan.title(), plan.status(), plan.completedAt(),
+    private GovernancePlan copyPlan(GovernancePlan plan, long id, int sequence, long version) {
+        return new GovernancePlan(id, plan.taskId(), sequence, plan.title(), plan.planStatus(), plan.status(), plan.completedAt(),
                 plan.plannedStart(), plan.plannedEnd(), plan.actualStart(), plan.actualEnd(),
                 plan.plannedQuantity(), plan.completedQuantity(), plan.quantityUnit(), plan.assigneeId(),
-                plan.dependencyIds(), version);
+                plan.responsibleUserId(), plan.dependencyIds(), plan.issueIds(), version);
     }
 
     private void seedLegacyData() {

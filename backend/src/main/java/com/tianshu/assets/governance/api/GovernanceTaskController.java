@@ -4,6 +4,9 @@ import com.tianshu.assets.governance.domain.GovernanceEmployee;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService.CreateGovernanceTaskCommand;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
+import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.CreatePlanCommand;
+import com.tianshu.assets.governance.task.application.GovernanceTaskStartService;
+import com.tianshu.assets.governance.application.GovernanceValidationException;
 import com.tianshu.assets.governance.task.domain.GovernancePlan;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -13,6 +16,7 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,11 +34,21 @@ public class GovernanceTaskController {
 
     private final GovernanceTaskApplicationService service;
     private final GovernanceIssueService issueService;
+    private final GovernanceTaskStartService startService;
+
+    @Autowired
+    public GovernanceTaskController(
+            GovernanceTaskApplicationService service,
+            GovernanceIssueService issueService,
+            GovernanceTaskStartService startService) {
+        this.service = service;
+        this.issueService = issueService;
+        this.startService = startService;
+    }
 
     public GovernanceTaskController(
             GovernanceTaskApplicationService service, GovernanceIssueService issueService) {
-        this.service = service;
-        this.issueService = issueService;
+        this(service, issueService, null);
     }
 
     @GetMapping
@@ -59,6 +73,11 @@ public class GovernanceTaskController {
         return service.plans(taskId);
     }
 
+    @GetMapping("/{taskId}")
+    public GovernanceTaskResponse get(@PathVariable long taskId) {
+        return GovernanceTaskResponse.from(service.get(taskId));
+    }
+
     @PatchMapping("/{taskId}/plans/{planId}")
     public GovernancePlan updatePlan(
             @PathVariable long taskId,
@@ -72,7 +91,27 @@ public class GovernanceTaskController {
     public GovernancePlan createPlan(
             @PathVariable long taskId,
             @Valid @RequestBody CreatePlanRequest request) {
-        return service.rejectPlanMutation(taskId);
+        service.requireClosedLoop(taskId);
+        if (request.plannedQuantity() != null || request.completedQuantity() != null
+                || request.quantityUnit() != null) {
+            throw new GovernanceValidationException("闭环治理计划数量由治理项自动计算");
+        }
+        var responsibleUserId = request.responsibleUserId() == null
+                || request.responsibleUserId().isBlank()
+                ? request.assigneeId()
+                : request.responsibleUserId();
+        return service.createPlan(taskId, new CreatePlanCommand(
+                0, request.title(), request.plannedStart(), request.plannedEnd(),
+                responsibleUserId, request.dependencyIds(), request.issueIds()));
+    }
+
+    @PostMapping("/{taskId}/start")
+    public GovernanceTaskResponse start(
+            @PathVariable long taskId,
+            @Valid @RequestBody StartTaskRequest request) {
+        if (startService == null) throw new IllegalStateException("治理启动服务未配置");
+        return GovernanceTaskResponse.from(
+                startService.start(taskId, request.version(), request.actorUserId()));
     }
 
     @PatchMapping("/{taskId}/progress")
@@ -102,10 +141,17 @@ public class GovernanceTaskController {
             @NotBlank String title,
             LocalDate plannedStart,
             LocalDate plannedEnd,
-            @Min(0) int plannedQuantity,
+            @Min(0) Integer plannedQuantity,
+            @Min(0) Integer completedQuantity,
             String quantityUnit,
             String assigneeId,
-            List<Long> dependencyIds) {}
+            String responsibleUserId,
+            List<Long> dependencyIds,
+            List<Long> issueIds) {}
+
+    public record StartTaskRequest(
+            @Min(0) long version,
+            @NotBlank String actorUserId) {}
 
     public record UpdateProgressRequest(@Min(0) int completed) {}
 
