@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService;
+import com.tianshu.assets.governance.application.GovernanceAuthorizationService;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.SaveResultDraftCommand;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.BatchExecutionResult;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.BatchResultCommand;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -35,44 +37,76 @@ public class GovernanceExecutionController {
 
     private final GovernanceExecutionService service;
     private final ObjectMapper objectMapper;
+    private final GovernanceAuthorizationService authorizationService;
 
     public GovernanceExecutionController(GovernanceExecutionService service) {
-        this(service, new ObjectMapper());
+        this(service, new ObjectMapper(), null);
+    }
+
+    public GovernanceExecutionController(GovernanceExecutionService service, ObjectMapper objectMapper) {
+        this(service, objectMapper, null);
     }
 
     @Autowired
-    public GovernanceExecutionController(GovernanceExecutionService service, ObjectMapper objectMapper) {
+    public GovernanceExecutionController(
+            GovernanceExecutionService service,
+            ObjectMapper objectMapper,
+            GovernanceAuthorizationService authorizationService) {
         this.service = service;
         this.objectMapper = objectMapper;
+        this.authorizationService = authorizationService;
     }
 
     @GetMapping("/tasks/{taskId}/items")
-    public List<ItemExecutionResponse> items(@PathVariable long taskId) {
+    public List<ItemExecutionResponse> items(
+            @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
+        authorizeTask(taskId, userId, roles);
         return service.items(taskId).stream().map(ItemExecutionResponse::from).toList();
     }
 
     @PutMapping("/items/{itemId}/result-draft")
     public GovernanceResultResponse saveDraft(
             @PathVariable long itemId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody SaveResultDraftRequest request) {
+        authorizeItem(itemId, userId, roles);
         return resultResponse(service.saveDraft(itemId, request.toCommand()));
     }
 
     @PostMapping("/items/{itemId}/submit")
     public GovernanceResultResponse submit(
             @PathVariable long itemId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody SubmitResultRequest request) {
+        authorizeItem(itemId, userId, roles);
         return resultResponse(service.submit(
                 itemId, request.resultVersionId(), request.resultVersion(), request.actorUserId()));
     }
 
     @PostMapping("/results/batch")
-    public BatchExecutionResult batchResults(@Valid @RequestBody BatchResultsRequest request) {
+    public BatchExecutionResult batchResults(
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
+            @Valid @RequestBody BatchResultsRequest request) {
+        if (authorizationService != null) request.commands().stream().filter(java.util.Objects::nonNull)
+                .forEach(command -> authorizationService.requireExecution(command.itemId(), userId, roles));
         return service.batchResults(
                 request.idempotencyKey(),
                 request.commands().stream()
                         .map(command -> command == null ? null : command.toCommand())
                         .toList());
+    }
+
+    private void authorizeItem(long itemId, String userId, String roles) {
+        if (authorizationService != null) authorizationService.requireExecution(itemId, userId, roles);
+    }
+
+    private void authorizeTask(long taskId, String userId, String roles) {
+        if (authorizationService != null) authorizationService.requireExecutionTask(taskId, userId, roles);
     }
 
     private GovernanceResultResponse resultResponse(GovernanceResultVersion result) {

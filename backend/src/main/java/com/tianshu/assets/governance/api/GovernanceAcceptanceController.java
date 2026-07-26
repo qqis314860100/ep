@@ -1,6 +1,7 @@
 package com.tianshu.assets.governance.api;
 
 import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptanceService;
+import com.tianshu.assets.governance.application.GovernanceAuthorizationService;
 import com.tianshu.assets.governance.acceptance.application.GovernanceQualityService;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceSample;
@@ -17,7 +18,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @RestController
 @RequestMapping("/api/v1/governance")
@@ -26,18 +29,32 @@ public class GovernanceAcceptanceController {
     private final GovernanceAcceptanceService acceptanceService;
     private final GovernanceQualityService qualityService;
     private final GovernanceReworkService reworkService;
+    private final GovernanceAuthorizationService authorizationService;
 
     public GovernanceAcceptanceController(
             GovernanceAcceptanceService acceptanceService,
             GovernanceQualityService qualityService,
             GovernanceReworkService reworkService) {
+        this(acceptanceService, qualityService, reworkService, null);
+    }
+
+    @Autowired
+    public GovernanceAcceptanceController(
+            GovernanceAcceptanceService acceptanceService,
+            GovernanceQualityService qualityService,
+            GovernanceReworkService reworkService,
+            GovernanceAuthorizationService authorizationService) {
         this.acceptanceService = acceptanceService;
         this.qualityService = qualityService;
         this.reworkService = reworkService;
+        this.authorizationService = authorizationService;
     }
 
     @GetMapping("/tasks/{taskId}/acceptance-rounds/current")
-    public GovernanceAcceptanceRound current(@PathVariable long taskId) {
+    public GovernanceAcceptanceRound current(
+            @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
+        authorizeAcceptance(roles);
         return acceptanceService.current(taskId);
     }
 
@@ -45,7 +62,9 @@ public class GovernanceAcceptanceController {
     public GovernanceAcceptanceSample saveSample(
             @PathVariable long roundId,
             @PathVariable long itemId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody SampleRequest request) {
+        authorizeAcceptance(roles);
         return qualityService.saveSample(
                 roundId, itemId, request.passed(), request.issueDescription(),
                 request.reviewerUserId(), request.sampleVersion());
@@ -55,7 +74,9 @@ public class GovernanceAcceptanceController {
     public GovernanceAcceptanceService.CompletionResult complete(
             @PathVariable long taskId,
             @PathVariable long roundId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody CompleteRequest request) {
+        authorizeAcceptance(roles);
         return acceptanceService.complete(
                 taskId, roundId, request.roundVersion(), request.operatorUserId());
     }
@@ -63,7 +84,9 @@ public class GovernanceAcceptanceController {
     @PostMapping("/tasks/{taskId}/rework")
     public GovernanceTask openRework(
             @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody ReworkRequest request) {
+        authorizeAcceptance(roles);
         return reworkService.open(
                 taskId, request.taskVersion(), request.reason(), request.actorUserId());
     }
@@ -88,4 +111,8 @@ public class GovernanceAcceptanceController {
             @Min(0) long taskVersion,
             @NotBlank String reason,
             @NotBlank String actorUserId) {}
+
+    private void authorizeAcceptance(String roles) {
+        if (authorizationService != null) authorizationService.requireAcceptance(roles);
+    }
 }

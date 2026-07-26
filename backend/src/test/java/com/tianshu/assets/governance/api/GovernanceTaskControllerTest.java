@@ -124,7 +124,7 @@ class GovernanceTaskControllerTest {
         mockMvc.perform(post("/api/v1/governance/tasks")
                         .contentType(MediaType.APPLICATION_JSON).content(request))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("governance_issue_conflict"))
+                .andExpect(jsonPath("$.error.code").value("governance_state_conflict"))
                 .andExpect(jsonPath("$.error.message").value("问题已被其他治理任务纳入"));
     }
 
@@ -198,13 +198,13 @@ class GovernanceTaskControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"DONE\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("governance_task_state_conflict"));
+                .andExpect(jsonPath("$.error.code").value("governance_state_conflict"));
 
         mockMvc.perform(post("/api/v1/governance/tasks/1/plans")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"补充验收抽样记录\",\"plannedStart\":\"2026-08-13\",\"plannedEnd\":\"2026-08-14\",\"plannedQuantity\":30,\"quantityUnit\":\"个资产\",\"assigneeId\":\"emp-wang\",\"dependencyIds\":[102]}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("governance_task_state_conflict"));
+                .andExpect(jsonPath("$.error.code").value("governance_state_conflict"));
     }
 
     @Test
@@ -213,7 +213,7 @@ class GovernanceTaskControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"IN_PROGRESS\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("governance_task_state_conflict"));
+                .andExpect(jsonPath("$.error.code").value("governance_state_conflict"));
     }
 
     @Test
