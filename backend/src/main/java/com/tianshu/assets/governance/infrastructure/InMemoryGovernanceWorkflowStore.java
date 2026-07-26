@@ -76,4 +76,31 @@ public class InMemoryGovernanceWorkflowStore implements GovernanceWorkflowStore 
                 .sorted(Comparator.comparingLong(GovernanceItem::id))
                 .toList();
     }
+
+    @Override
+    public synchronized GovernanceItem item(long itemId) {
+        return itemsByTask.values().stream()
+                .flatMap(List::stream)
+                .filter(item -> item.id() == itemId)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("治理项不存在"));
+    }
+
+    @Override
+    public synchronized GovernanceScopeSnapshot scopeSnapshotForTask(long taskId) {
+        return snapshots.values().stream()
+                .filter(snapshot -> snapshot.taskId() == taskId)
+                .findFirst()
+                .map(snapshot -> scopeSnapshot(snapshot.id()))
+                .orElseThrow(() -> new IllegalArgumentException("治理任务范围快照不存在"));
+    }
+
+    @Override
+    public synchronized List<GovernanceScopeItem> scopeItemsForTask(long taskId) {
+        var snapshot = snapshots.values().stream()
+                .filter(candidate -> candidate.taskId() == taskId)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("治理任务范围快照不存在"));
+        return scopeItems(snapshot.id());
+    }
 }

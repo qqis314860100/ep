@@ -2,6 +2,7 @@ package com.tianshu.assets.governance.infrastructure;
 
 import com.tianshu.assets.governance.task.application.GovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStore;
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionStore;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueStore;
 import com.tianshu.assets.governance.task.application.GovernanceRuleCatalog;
 import com.tianshu.assets.governance.task.application.GovernanceWorkflowStore;
@@ -51,6 +52,16 @@ public class GovernanceStoreConfiguration {
             matchIfMissing = true)
     GovernanceWorkflowStore inMemoryGovernanceWorkflowStore() {
         return new InMemoryGovernanceWorkflowStore();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(GovernanceExecutionStore.class)
+    @ConditionalOnProperty(
+            name = "asset.governance-schema-enabled",
+            havingValue = "false",
+            matchIfMissing = true)
+    GovernanceExecutionStore inMemoryGovernanceExecutionStore(GovernanceWorkflowStore workflowStore) {
+        return new InMemoryGovernanceExecutionStore(workflowStore);
     }
 
     @Bean

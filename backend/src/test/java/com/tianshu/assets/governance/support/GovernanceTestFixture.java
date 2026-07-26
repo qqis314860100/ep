@@ -1,6 +1,17 @@
 package com.tianshu.assets.governance.support;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tianshu.assets.asset.domain.AssetScope;
+import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
+import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
+import com.tianshu.assets.governance.execution.application.FieldSupplementActionHandler;
+import com.tianshu.assets.governance.execution.application.GovernanceActionHandler.ValidationContext;
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionService;
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.SaveResultDraftCommand;
+import com.tianshu.assets.governance.execution.domain.GovernanceItem;
+import com.tianshu.assets.governance.execution.domain.GovernanceResultVersion;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceEmployeeDirectory;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceExecutionStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceRuleCatalog;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
@@ -15,7 +26,10 @@ import com.tianshu.assets.governance.task.application.GovernanceTaskStartService
 import com.tianshu.assets.governance.task.domain.GovernancePlan;
 import com.tianshu.assets.governance.task.domain.GovernanceRuleSnapshot;
 import com.tianshu.assets.governance.task.domain.GovernanceTask;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
@@ -28,13 +42,17 @@ public final class GovernanceTestFixture {
     private final GovernanceTaskApplicationService taskService;
     private final GovernanceTaskStartService startService;
     private GovernanceTask draft;
+    private InMemoryGovernanceExecutionStore executionStore;
+    private InMemoryAssetRepository assetRepository;
+    private GovernanceExecutionService executionService;
 
     private GovernanceTestFixture() {
         taskStore = new InMemoryGovernanceTaskStore();
         issueStore = new InMemoryGovernanceIssueStore();
         workflowStore = new InMemoryGovernanceWorkflowStore();
         var ruleCatalog = new InMemoryGovernanceRuleCatalog(new GovernanceRuleSnapshot(
-                0, "FIELD-COMPLETENESS", 3, 3, Map.of("specialty", 5L), "FIELD-QUALITY", 2));
+                0, "FIELD-COMPLETENESS", 3, 3,
+                Map.of("specialty", 5L, "scope", 8L), "FIELD-QUALITY", 2));
         issueService = new GovernanceIssueService(issueStore, taskStore);
         taskService = new GovernanceTaskApplicationService(
                 taskStore, new InMemoryGovernanceEmployeeDirectory(), issueStore);
@@ -94,6 +112,69 @@ public final class GovernanceTestFixture {
 
     public GovernanceTaskApplicationService taskService() {
         return taskService;
+    }
+
+    public GovernanceItem descriptionItem() {
+        prepareExecution();
+        return executionService.items(draft.id()).stream()
+                .map(GovernanceExecutionService.ItemExecutionContext::item)
+                .filter(item -> item.targetField() == GovernanceField.DESCRIPTION)
+                .findFirst().orElseThrow();
+    }
+
+    public GovernanceExecutionService executionService() {
+        prepareExecution();
+        return executionService;
+    }
+
+    public InMemoryGovernanceExecutionStore executionStore() {
+        prepareExecution();
+        return executionStore;
+    }
+
+    public InMemoryAssetRepository assetRepository() {
+        prepareExecution();
+        return assetRepository;
+    }
+
+    public ValidationContext scopeContext() {
+        var rules = new GovernanceRuleSnapshot(
+                0, "FIELD-COMPLETENESS", 3, 3,
+                Map.of("specialty", 5L, "scope", 8L), "FIELD-QUALITY", 2);
+        return new ValidationContext(rules, rules, List.of(
+                new AssetScope("乘用车", "H03", "宁德基地", "A 拉线", "焊接段", "乘用车", "底部水冷"),
+                new AssetScope("商用车", "P02", "溧阳基地", "B 拉线", "PACK 段", "商用车", "商用车")));
+    }
+
+    public String mixedScopeJson() {
+        return "{\"scopes\":[{\"platformFamily\":\"乘用车\",\"platformVariant\":\"底部水冷\","
+                + "\"productLine\":\"H03\",\"base\":\"溧阳基地\","
+                + "\"productionLine\":\"B 拉线\",\"processSection\":\"PACK 段\"}]}";
+    }
+
+    public SaveResultDraftCommand commandFor(GovernanceResultVersion result) {
+        var item = executionStore().item(result.itemId());
+        return new SaveResultDraftCommand(
+                item.version(), item.assetVersion(), result.proposedValueJson(), "emp-chen");
+    }
+
+    private void prepareExecution() {
+        if (executionService != null) return;
+        var task = validDraft();
+        if (task.status() == com.tianshu.assets.governance.task.domain.GovernanceTaskStatus.DRAFT) {
+            startService.start(task.id(), task.version(), "emp-admin");
+        }
+        executionStore = new InMemoryGovernanceExecutionStore(workflowStore);
+        assetRepository = new InMemoryAssetRepository();
+        var ruleCatalog = new InMemoryGovernanceRuleCatalog(new GovernanceRuleSnapshot(
+                0, "FIELD-COMPLETENESS", 3, 3,
+                Map.of("specialty", 5L, "scope", 8L), "FIELD-QUALITY", 2));
+        executionService = new GovernanceExecutionService(
+                executionStore, workflowStore, ruleCatalog, assetRepository,
+                new FieldSupplementActionHandler(
+                        new ObjectMapper(), new InMemoryDictionaryStore(),
+                        new InMemoryGovernanceEmployeeDirectory()),
+                Clock.fixed(Instant.parse("2026-07-26T06:00:00Z"), ZoneOffset.UTC));
     }
 
     private GovernanceIssue issue(

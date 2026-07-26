@@ -19,6 +19,12 @@ public interface GovernanceWorkflowStore {
 
     List<GovernanceItem> items(long taskId);
 
+    GovernanceItem item(long itemId);
+
+    GovernanceScopeSnapshot scopeSnapshotForTask(long taskId);
+
+    List<GovernanceScopeItem> scopeItemsForTask(long taskId);
+
     record FreezeCommand(
             long taskId,
             List<Long> claimedIssueIds,

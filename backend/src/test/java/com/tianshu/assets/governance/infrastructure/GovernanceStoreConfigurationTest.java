@@ -2,6 +2,7 @@ package com.tianshu.assets.governance.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionStore;
 import com.tianshu.assets.governance.task.application.GovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStore;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueStore;
@@ -23,6 +24,7 @@ class GovernanceStoreConfigurationTest {
             assertThat(context.getBeansOfType(GovernanceEmployeeDirectory.class)).hasSize(1);
             assertThat(context.getBeansOfType(GovernanceIssueStore.class)).hasSize(1);
             assertThat(context.getBeansOfType(GovernanceWorkflowStore.class)).hasSize(1);
+            assertThat(context.getBeansOfType(GovernanceExecutionStore.class)).hasSize(1);
             assertThat(context.getBeansOfType(GovernanceRuleCatalog.class)).hasSize(1);
         });
     }
@@ -65,6 +67,7 @@ class GovernanceStoreConfigurationTest {
             assertThat(context.getBeansOfType(GovernanceTaskStore.class)).isEmpty();
             assertThat(context.getBeansOfType(GovernanceEmployeeDirectory.class)).isEmpty();
             assertThat(context.getBeansOfType(GovernanceWorkflowStore.class)).isEmpty();
+            assertThat(context.getBeansOfType(GovernanceExecutionStore.class)).isEmpty();
             assertThat(context.getBeansOfType(GovernanceRuleCatalog.class)).isEmpty();
         });
     }
