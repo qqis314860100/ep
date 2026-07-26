@@ -12,6 +12,12 @@ if [ -n "$(git status --short)" ]; then
   exit 1
 fi
 
+if grep -Fxq -- '- [x] 所有已编排任务完成' data-governance-progress.md; then
+  printf '%s\n' '<promise>COMPLETE</promise>' > "${RALPH_LAST_MESSAGE_FILE:-/tmp/ep-data-governance-ralph-last.md}"
+  echo "AFK Ralph stopped: all orchestrated tasks are complete."
+  exit 0
+fi
+
 for ((i=1; i<=$1; i++)); do
   echo "Starting Ralph iteration ${i}/$1"
   ./ralph-once.sh
