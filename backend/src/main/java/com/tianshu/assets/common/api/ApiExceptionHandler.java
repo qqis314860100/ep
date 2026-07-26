@@ -7,6 +7,11 @@ import com.tianshu.assets.asset.application.CommentValidationException;
 import com.tianshu.assets.asset.application.ForbiddenOperationException;
 import com.tianshu.assets.asset.application.AssetFileValidationException;
 import com.tianshu.assets.governance.application.GovernanceTaskStateException;
+import com.tianshu.assets.governance.application.GovernanceConflictException;
+import com.tianshu.assets.governance.application.GovernanceVersionConflictException;
+import com.tianshu.assets.governance.application.GovernanceValidationException;
+import com.tianshu.assets.governance.application.GovernanceAuthorizationException;
+import com.tianshu.assets.governance.application.GovernanceNotFoundException;
 import com.tianshu.assets.dictionary.application.DictionaryConflictException;
 import com.tianshu.assets.dictionary.application.DictionaryNotFoundException;
 import com.tianshu.assets.document.application.DocumentNotFoundException;
@@ -62,7 +67,36 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(GovernanceTaskStateException.class)
     ResponseEntity<ApiError> handleGovernanceStateConflict(GovernanceTaskStateException exception) {
-        return response(HttpStatus.CONFLICT, "governance_task_state_conflict", exception.getMessage(), List.of());
+        return response(HttpStatus.CONFLICT, "governance_state_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(GovernanceConflictException.class)
+    ResponseEntity<ApiError> handleGovernanceConflict(GovernanceConflictException exception) {
+        return response(HttpStatus.CONFLICT, "governance_state_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(GovernanceNotFoundException.class)
+    ResponseEntity<ApiError> handleGovernanceNotFound(GovernanceNotFoundException exception) {
+        return response(HttpStatus.NOT_FOUND, "governance_not_found", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(GovernanceAuthorizationException.class)
+    ResponseEntity<ApiError> handleGovernanceForbidden(GovernanceAuthorizationException exception) {
+        return response(HttpStatus.FORBIDDEN, "governance_forbidden", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(GovernanceVersionConflictException.class)
+    ResponseEntity<ApiError> handleGovernanceVersionConflict(GovernanceVersionConflictException exception) {
+        return response(HttpStatus.CONFLICT, "governance_version_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(GovernanceValidationException.class)
+    ResponseEntity<ApiError> handleGovernanceValidation(GovernanceValidationException exception) {
+        var details = exception.validationMessages().stream()
+                .map(message -> new ApiError.FieldError("governance", message, "invalid_state"))
+                .toList();
+        return response(HttpStatus.UNPROCESSABLE_ENTITY,
+                "governance_validation_failed", exception.getMessage(), details);
     }
 
     @ExceptionHandler(DictionaryNotFoundException.class)

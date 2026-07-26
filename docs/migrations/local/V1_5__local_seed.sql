@@ -73,6 +73,22 @@ VALUES
     (2, 'GOV-2026-002', '历史专业类别标准化', 'PENDING_CONFIRMATION', '机械、电气自由文本', 'emp-li', '李工', 'emp-li', '2026-07-31', 421, 421, '个字段'),
     (3, 'GOV-2026-003', '失效文件引用治理', 'COMPLETED', '无法访问的对象存储文件', 'emp-wang', '王工', 'emp-wang', '2026-07-25', 37, 37, '个文件');
 
+INSERT IGNORE INTO governance_task
+    (id, task_number, name, status, scope_description, issue_type, owner_user_id, owner_name,
+     assignee_id, due_date, target_quantity, completed_quantity, quantity_unit, workflow_version, current_round)
+VALUES
+    (12, 'GOV-2026-012', '历史说明字段闭环治理', 'DRAFT', 'FIELD_SUPPLEMENT', 'MISSING_FIELD',
+     'emp-chen', '陈工', 'emp-chen', '2026-08-31', 1, 0, '个字段', 'CLOSED_LOOP_V1', 1);
+
+INSERT IGNORE INTO governance_issue
+    (id, asset_id, target_field, issue_type, target_path, rule_code, rule_version,
+     original_fact_json, asset_version, scope_fingerprint, severity, blocking, status,
+     task_id, fingerprint, version)
+VALUES
+    (1201, 104, 'DESCRIPTION', 'MISSING_FIELD', '$.standardDescription', 'FIELD-COMPLETENESS', 1,
+     '{"drawingContent":"历史设备接口图"}', 0, 'asset:104:description', 'MEDIUM', 0,
+     'CLAIMED', 12, '104:DESCRIPTION:FIELD-COMPLETENESS:1', 1);
+
 INSERT IGNORE INTO governance_plan
     (id, task_id, sequence_number, name, responsible_user_id, start_date, due_date, target_quantity,
      completed_quantity, quantity_unit, status, completed_at, actual_start, actual_end, dependency_ids)
