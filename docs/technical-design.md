@@ -16,6 +16,7 @@
 - OceanBase profile 通过环境变量连接，首个版本只读兼容旧 `sys_drawing`。
 - 新结构采用扩展表和关系表，不改变旧主键，不覆盖旧原始值。
 - V1.5 扩展 DDL 位于 `docs/migrations/V1_5__asset_extension_schema.sql`，盘点/核对查询位于 `docs/migrations/V1_5__legacy_reconciliation_queries.sql`；两者仅作为受控迁移输入，不由应用启动自动执行。
+- V1.7 字段治理闭环 DDL 位于 `docs/migrations/V1_7__governance_field_closure.sql`，只新增治理问题、任务、计划、治理项、结果、确认、验收、作业和审计扩展表，不修改旧表主键或来源字段。
 - API 使用资源名词、标准 HTTP 状态码和统一错误结构。
 - 前端页面按业务功能组织，不按 Ant Design 组件类型组织。
 
@@ -29,6 +30,7 @@ controller -> application service -> domain repository -> infrastructure adapter
 - `asset.application`：查询用例、分页和业务校验。
 - `asset.infrastructure`：内存仓储和 OceanBase 读取适配器。
 - `common.api`：响应结构、错误处理和跨域配置。
+- `governance`：控制器只编排鉴权和 DTO；任务、执行、确认、验收、正式应用与审计应用服务依赖各自仓储端口，内存和 JDBC 适配器实现端口。
 
 ## 4. 前端页面结构
 
@@ -65,6 +67,11 @@ pages/
 - `POST/DELETE /api/v1/assets/{id}/favorite`：幂等添加或取消当前用户收藏。
 - `GET /api/v1/governance/tasks`：查询治理任务及进度。
 - `POST /api/v1/governance/tasks`：创建治理任务，初始状态为草稿。
+- `GET /api/v1/governance/issues`：查询字段问题池；任务只接受开放问题 ID 建单。
+- `GET /api/v1/governance/tasks/{taskId}/confirmation-rounds/current`、`PUT /api/v1/governance/confirmation-rounds/{roundId}/items/{itemId}/decision`、`POST /api/v1/governance/tasks/{taskId}/confirmation-rounds/{roundId}/complete`：逐项保存并完成业务确认轮次。
+- `GET /api/v1/governance/tasks/{taskId}/acceptance-rounds/current`、`PUT /api/v1/governance/acceptance-rounds/{roundId}/samples/{itemId}`、`POST /api/v1/governance/tasks/{taskId}/acceptance-rounds/{roundId}/complete`：读取固定指标与抽样、保存抽样决定并完成验收。
+- 任务首次进入待验收状态时，查询当前验收轮次会按启动时冻结的质量策略和已确认治理项事实幂等创建指标与固定抽样；后续查询只读取已固化轮次。
+- `GET /api/v1/governance/jobs/{jobId}` 和 `POST /api/v1/governance/jobs/{jobId}/retry`：查询正式应用逐项结果并重试失败项。
 - `POST /api/v1/governance/tasks/{taskId}/plans`：仅允许草稿任务新增计划项。
 - `PATCH /api/v1/governance/tasks/{taskId}/status`：计划完整后将草稿任务启动为进行中并锁定计划结构。
 - `PATCH /api/v1/governance/tasks/{taskId}/plans/{planId}`：仅允许进行中任务更新计划执行状态。
@@ -95,6 +102,7 @@ pages/
 - 首个 OceanBase 适配器只读旧字段，不执行建表、回填或更新。
 - `ASSET_EXTENSION_SCHEMA_ENABLED` 默认关闭；开启前必须完成 V1.5 扩展表和迁移核对，适配器才读取扩展字段，旧字段仍作为回退来源。
 - `local` profile 默认开启扩展结构和数据库写入；资产、范围、文件清单、收藏、评论、点赞与设备互联均读写本地 MySQL。
+- 字段治理在默认 `dev` profile 使用内存仓储完成全闭环；`local` profile 通过 V1.7 扩展表持久化；`oceanbase` profile 默认拒绝治理写入，未完成受控迁移和开关验证前不得启用。
 - 本地建表脚本为 `docs/migrations/local/V1_5__local_bootstrap.sql`，开发数据脚本为 `docs/migrations/local/V1_5__local_seed.sql`；两者均为幂等脚本，不删除已有数据。
 - `dictionary_item` 统一保存产品体系、生产体系、资产分类和关系类型字典；`parent_id` 表达层级，`status` 与 `merge_target_id` 保留停用和合并历史，`version` 防止并发覆盖。
 - 所有连接信息由环境变量提供。
@@ -125,6 +133,7 @@ pages/
 - 旧平台、旧拉线和旧分类只作为原始文本保留和搜索，不自动推断基地、标准拉线或工序段。
 - 收藏、评论、点赞和操作日志继续关联稳定资产 ID；孤立记录进入异常清单，不通过删除数据解决。
 - 正式切换采用“结构扩展 -> 只读核对 -> 小范围双读 -> 全量切换”的顺序，并准备只切回旧读链路的回退方案。
+- 字段正式应用只写资产扩展值并使用结果版本与资产版本保证幂等；验收通过前不得写入。后续映射治理、文件拆分合并和复杂治理动作不属于当前字段闭环切片。
 - 扩展表首先承接平台范围、模块标签、模块超链接、设备互联、文件清单和审计事件；旧收藏、评论、点赞和操作日志先保持原表读取，迁移报告逐项核对后再切换。
 - 当前开发 profile 的评论与点赞状态用于验证接口和交互；生产切换时必须将同一契约适配到既有 `sys_drawing_comment`、`sys_drawing_comment_like` 和 `comment_img` 字段，完成用户工号映射和对象存储适配后才能启用写入。
 - `local` profile 已使用既有评论、点赞和收藏表持久化协作数据；开发文件内容保存到被 Git 忽略的 `.data/files`，数据库仅保存文件键和摘要。
