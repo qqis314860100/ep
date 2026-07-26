@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App as AntdApp, ConfigProvider, Spin } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
 import { GlobalStyle } from './styles/GlobalStyle'
 
@@ -13,6 +13,11 @@ const MyUploadsPage = lazy(() => import('./pages/main/uploads'))
 const GovernancePage = lazy(() =>
   import('./pages/sys/drawing'),
 )
+const GovernanceIssuePoolPage = lazy(() => import('./features/governance/issues/GovernanceIssuePoolPage').then(module => ({ default: module.GovernanceIssuePoolPage })))
+const GovernanceTaskDetailPage = lazy(() => import('./features/governance/tasks/GovernanceTaskDetailPage').then(module => ({ default: module.GovernanceTaskDetailPage })))
+const GovernanceExecutionPage = lazy(() => import('./features/governance/execution/GovernanceExecutionPage').then(module => ({ default: module.GovernanceExecutionPage })))
+const GovernanceConfirmationPage = lazy(() => import('./features/governance/confirmation/GovernanceConfirmationPage').then(module => ({ default: module.GovernanceConfirmationPage })))
+const GovernanceAcceptancePage = lazy(() => import('./features/governance/acceptance/GovernanceAcceptancePage').then(module => ({ default: module.GovernanceAcceptancePage })))
 const UploadPage = lazy(() =>
   import('./pages/sys/file'),
 )
@@ -30,6 +35,11 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+function TaskRoute({ page: Page }: { page: React.ComponentType<{ taskId: number }> }) {
+  const taskId = Number(useParams().taskId)
+  return Number.isInteger(taskId) && taskId > 0 ? <Page taskId={taskId} /> : <Navigate to="/sys/drawing" replace />
+}
 
 export default function App() {
   return (
@@ -75,8 +85,13 @@ export default function App() {
                   <Route path="/assets" element={<SearchPage />} />
                   <Route path="/assets/:id" element={<DetailPage />} />
                   <Route path="/upload" element={<UploadPage />} />
-                  <Route path="/governance" element={<GovernancePage />} />
+                  <Route path="/governance" element={<Navigate to="/sys/drawing" replace />} />
                   <Route path="/sys/drawing" element={<GovernancePage />} />
+                  <Route path="/sys/drawing/issues" element={<GovernanceIssuePoolPage />} />
+                  <Route path="/sys/drawing/tasks/:taskId" element={<TaskRoute page={GovernanceTaskDetailPage} />} />
+                  <Route path="/sys/drawing/tasks/:taskId/execute" element={<TaskRoute page={GovernanceExecutionPage} />} />
+                  <Route path="/sys/drawing/tasks/:taskId/confirm" element={<TaskRoute page={GovernanceConfirmationPage} />} />
+                  <Route path="/sys/drawing/tasks/:taskId/accept" element={<TaskRoute page={GovernanceAcceptancePage} />} />
                   <Route path="/sys/file" element={<UploadPage />} />
                   <Route path="/favorites" element={<FavoritesPage />} />
                   <Route path="/my-uploads" element={<MyUploadsPage />} />

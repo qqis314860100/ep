@@ -145,12 +145,60 @@ export interface ConfirmationRound {
 
 export interface ConfirmationView {
   round: ConfirmationRound
-  items: JsonValue[]
-  decisions: JsonValue[]
+  items: ConfirmationItem[]
+  decisions: ConfirmationDecision[]
   coveredCount: number
   approvedCount: number
   coverageRate: number
   approvalRate: number
+}
+
+export interface ConfirmationItem {
+  itemId: number
+  assetId: number
+  resultVersionId: number
+  resultType: string
+  responsibleUserId: string
+  responsibilityScope: string
+}
+
+export interface ConfirmationDecision {
+  id: number
+  roundId: number
+  itemId: number
+  resultVersionId: number
+  decision: 'APPROVED' | 'REJECTED'
+  comment: string
+  confirmerUserId: string
+  decidedAt: string
+  version: number
+}
+
+export type GovernanceQualityMetric = 'REQUIRED_FIELD_COMPLETENESS' | 'ASSET_SCOPE_VALIDITY' | 'STANDARD_DICTIONARY_HIT_RATE' | 'OWNER_COVERAGE' | 'SAMPLE_ACCURACY'
+
+export interface AcceptanceMetricResult {
+  id: number
+  roundId: number
+  metric: GovernanceQualityMetric
+  numerator: number
+  denominator: number
+  value: number | null
+  threshold: number
+  applicability: 'APPLICABLE' | 'NOT_APPLICABLE'
+  passed: boolean
+  affectedItemIds: number[]
+  version: number
+}
+
+export interface AcceptanceSample {
+  id: number
+  roundId: number
+  itemId: number
+  passed: boolean | null
+  issueDescription: string
+  reviewerUserId: string
+  checkedAt: string | null
+  version: number
 }
 
 export interface AcceptanceRound {
@@ -158,8 +206,8 @@ export interface AcceptanceRound {
   taskId: number
   governanceRound: number
   policy: JsonValue
-  metricResults: JsonValue[]
-  samples: JsonValue[]
+  metricResults: AcceptanceMetricResult[]
+  samples: AcceptanceSample[]
   status: 'OPEN' | 'PASSED' | 'FAILED'
   createdAt: string
   completedAt: string | null

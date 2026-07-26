@@ -24,6 +24,10 @@ import { GovernanceApiError } from './types'
 export type * from './types'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
+const governanceIdentity = {
+  userId: 'demo-user',
+  roles: 'CONTENT_ADMIN,SYSTEM_ADMIN',
+}
 
 interface ErrorEnvelope {
   error?: {
@@ -38,6 +42,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       Accept: 'application/json',
+      'X-User-Id': governanceIdentity.userId,
+      'X-User-Roles': governanceIdentity.roles,
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
       ...init?.headers,
     },

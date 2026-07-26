@@ -258,7 +258,7 @@ const primaryItems: NavigationItem[] = [
 ]
 
 const managementItems: NavigationItem[] = [
-  { key: 'governance', label: '数据治理', path: '/sys/drawing', icon: <DatabaseOutlined />, active: (path) => path === '/governance' || path === '/sys/drawing' },
+  { key: 'governance', label: '数据治理', path: '/sys/drawing', icon: <DatabaseOutlined />, active: (path) => path === '/governance' || path.startsWith('/sys/drawing') },
   { key: 'dictionaries', label: '基础数据', path: '/sys/dictionaries', icon: <BookOutlined />, active: (path) => path === '/dictionaries' || path === '/sys/dictionaries' },
   { key: 'settings', label: '系统管理', path: '/sys/settings', icon: <SettingOutlined />, active: (path) => path === '/settings' || path === '/sys/settings' },
 ]

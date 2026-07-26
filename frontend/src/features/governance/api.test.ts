@@ -4,6 +4,21 @@ import { saveBatchResults } from './api'
 import type { BatchResultCommand } from './types'
 
 describe('governance api', () => {
+  it('sends the current governance identity on every request', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      results: [],
+    }), { status: 200 }))
+
+    await saveBatchResults('identity-check', [])
+
+    expect(fetchSpy).toHaveBeenCalledWith('/api/v1/governance/results/batch', expect.objectContaining({
+      headers: expect.objectContaining({
+        'X-User-Id': 'demo-user',
+        'X-User-Roles': 'CONTENT_ADMIN,SYSTEM_ADMIN',
+      }),
+    }))
+  })
+
   it('keeps per-item batch outcomes', async () => {
     const commands: BatchResultCommand[] = [
       {
