@@ -1,5 +1,6 @@
 package com.tianshu.assets.governance.confirmation.application;
 
+import com.tianshu.assets.governance.audit.application.GovernanceAuditService;
 import com.tianshu.assets.governance.application.GovernanceConflictException;
 import com.tianshu.assets.governance.application.GovernanceTaskStateException;
 import com.tianshu.assets.governance.application.GovernanceValidationException;
@@ -33,14 +34,24 @@ public class GovernanceConfirmationService {
     private final GovernanceTaskStore taskStore;
     private final AssetResponsibilityPort responsibilityPort;
     private final Clock clock;
+    private final GovernanceAuditService auditService;
 
     @Autowired
     public GovernanceConfirmationService(
             GovernanceConfirmationStore confirmationStore,
             GovernanceExecutionStore executionStore,
             GovernanceTaskStore taskStore,
+            AssetResponsibilityPort responsibilityPort,
+            GovernanceAuditService auditService) {
+        this(confirmationStore, executionStore, taskStore, responsibilityPort, Clock.systemUTC(), auditService);
+    }
+
+    public GovernanceConfirmationService(
+            GovernanceConfirmationStore confirmationStore,
+            GovernanceExecutionStore executionStore,
+            GovernanceTaskStore taskStore,
             AssetResponsibilityPort responsibilityPort) {
-        this(confirmationStore, executionStore, taskStore, responsibilityPort, Clock.systemUTC());
+        this(confirmationStore, executionStore, taskStore, responsibilityPort, Clock.systemUTC(), null);
     }
 
     public GovernanceConfirmationService(
@@ -49,11 +60,22 @@ public class GovernanceConfirmationService {
             GovernanceTaskStore taskStore,
             AssetResponsibilityPort responsibilityPort,
             Clock clock) {
+        this(confirmationStore, executionStore, taskStore, responsibilityPort, clock, null);
+    }
+
+    public GovernanceConfirmationService(
+            GovernanceConfirmationStore confirmationStore,
+            GovernanceExecutionStore executionStore,
+            GovernanceTaskStore taskStore,
+            AssetResponsibilityPort responsibilityPort,
+            Clock clock,
+            GovernanceAuditService auditService) {
         this.confirmationStore = confirmationStore;
         this.executionStore = executionStore;
         this.taskStore = taskStore;
         this.responsibilityPort = responsibilityPort;
         this.clock = clock;
+        this.auditService = auditService;
     }
 
     public ConfirmationView current(long taskId) {
@@ -145,10 +167,18 @@ public class GovernanceConfirmationService {
             confirmationStore.completeRound(roundId, expectedRoundVersion, Instant.now(clock));
             var approved = (int) decisions.stream()
                     .filter(decision -> decision.decision() == Decision.APPROVED).count();
-            return new CompletionResult(
+            var result = new CompletionResult(
                     taskId, roundId, updatedTask.status(), decisions.size(), approved,
                     rate(decisions.size(), round.resultVersionIds().size()),
                     rate(approved, round.resultVersionIds().size()), decisions);
+            if (auditService != null) {
+                auditService.record(taskId, null, "CONFIRMATION_ROUND", roundId, "CONFIRMATION_COMPLETED",
+                        round.governanceRound(), decisions.getFirst().confirmerUserId(),
+                        "{\"status\":\"PENDING\",\"version\":" + expectedRoundVersion + "}",
+                        "{\"status\":\"COMPLETED\",\"version\":" + (expectedRoundVersion + 1)
+                                + ",\"approved\":" + approved + ",\"total\":" + decisions.size() + "}");
+            }
+            return result;
         }
     }
 

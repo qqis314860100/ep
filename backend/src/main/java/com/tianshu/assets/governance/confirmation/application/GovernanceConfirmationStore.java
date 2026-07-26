@@ -11,6 +11,8 @@ public interface GovernanceConfirmationStore {
 
     Optional<GovernanceConfirmationRound> currentRound(long taskId);
 
+    List<GovernanceConfirmationRound> rounds(long taskId);
+
     GovernanceConfirmationRound round(long roundId);
 
     GovernanceConfirmationRound createRound(

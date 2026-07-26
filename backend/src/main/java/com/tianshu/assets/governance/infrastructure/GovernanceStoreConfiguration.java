@@ -1,6 +1,7 @@
 package com.tianshu.assets.governance.infrastructure;
 
 import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptanceStore;
+import com.tianshu.assets.governance.audit.application.GovernanceAuditStore;
 import com.tianshu.assets.governance.acceptance.application.GovernanceAssetPort;
 import com.tianshu.assets.governance.task.application.GovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStore;
@@ -17,6 +18,12 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class GovernanceStoreConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean(GovernanceAuditStore.class)
+    GovernanceAuditStore inMemoryGovernanceAuditStore() {
+        return new InMemoryGovernanceAuditStore();
+    }
 
     @Bean
     @ConditionalOnMissingBean(GovernanceTaskStore.class)

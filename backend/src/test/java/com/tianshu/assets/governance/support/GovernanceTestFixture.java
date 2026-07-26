@@ -11,6 +11,8 @@ import com.tianshu.assets.governance.acceptance.application.GovernanceQualitySer
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceQualityMetric;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceQualityPolicySnapshot;
+import com.tianshu.assets.governance.audit.application.GovernanceAuditService;
+import com.tianshu.assets.governance.audit.application.GovernanceReportService;
 import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
 import com.tianshu.assets.governance.execution.application.FieldSupplementActionHandler;
 import com.tianshu.assets.governance.confirmation.application.GovernanceConfirmationService;
@@ -31,6 +33,7 @@ import com.tianshu.assets.governance.infrastructure.InMemoryAssetResponsibilityA
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceConfirmationStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAcceptanceStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAssetAdapter;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAuditStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceRuleCatalog;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceWorkflowStore;
@@ -69,6 +72,8 @@ public final class GovernanceTestFixture {
     private final GovernanceReworkService reworkService;
     private final InMemoryGovernanceAssetAdapter governanceAssetAdapter;
     private final GovernanceApplicationJobService applicationJobService;
+    private final GovernanceAuditService auditService;
+    private final GovernanceReportService reportService;
     private GovernanceTask draft;
     private GovernanceOperationJob acceptedJob;
     private InMemoryGovernanceExecutionStore executionStore;
@@ -76,16 +81,23 @@ public final class GovernanceTestFixture {
     private GovernanceExecutionService executionService;
 
     private GovernanceTestFixture() {
-        this(false);
+        this(false, false);
     }
 
     private GovernanceTestFixture(boolean batch) {
+        this(batch, false);
+    }
+
+    private GovernanceTestFixture(boolean batch, boolean reportHistory) {
         taskStore = new InMemoryGovernanceTaskStore();
         issueStore = new InMemoryGovernanceIssueStore();
         workflowStore = new InMemoryGovernanceWorkflowStore();
         executionStore = new InMemoryGovernanceExecutionStore(workflowStore);
         confirmationStore = new InMemoryGovernanceConfirmationStore();
         acceptanceStore = new InMemoryGovernanceAcceptanceStore();
+        auditService = new GovernanceAuditService(
+                new InMemoryGovernanceAuditStore(),
+                Clock.fixed(Instant.parse("2026-07-26T11:00:00Z"), ZoneOffset.UTC));
         responsibilityAdapter = new InMemoryAssetResponsibilityAdapter();
         var ruleCatalog = new InMemoryGovernanceRuleCatalog(new GovernanceRuleSnapshot(
                 0, "FIELD-COMPLETENESS", 3, 3,
@@ -94,7 +106,8 @@ public final class GovernanceTestFixture {
         taskService = new GovernanceTaskApplicationService(
                 taskStore, new InMemoryGovernanceEmployeeDirectory(), issueStore,
                 workflowStore, executionStore, confirmationStore);
-        startService = new GovernanceTaskStartService(taskStore, issueStore, workflowStore, ruleCatalog);
+        startService = new GovernanceTaskStartService(
+                taskStore, issueStore, workflowStore, ruleCatalog, auditService);
         issueStore.insertAll(batch
                 ? List.of(
                         issue(1001, 101, GovernanceField.DESCRIPTION, "/description", "\"\"", 7, "scope-a"),
@@ -102,7 +115,8 @@ public final class GovernanceTestFixture {
                         issue(1003, 103, GovernanceField.DESCRIPTION, "/description", "\"\"", 2, "scope-a"),
                         issue(1004, 104, GovernanceField.DESCRIPTION, "/description", "\"\"", 4, "scope-a"))
                 : List.of(
-                        issue(1001, 101, GovernanceField.DESCRIPTION, "/description", "\"\"", 7),
+                        issue(1001, 101, GovernanceField.DESCRIPTION, "/description",
+                                reportHistory ? "\"旧说明\"" : "\"\"", 7),
                         issue(1002, 102, GovernanceField.SPECIALTIES, "/specialties", "[]", 9)));
         responsibilityAdapter.assign(101, "owner-1", "scope-owner-a");
         responsibilityAdapter.assign(102, "owner-1", batch ? "scope-owner-a" : "scope-owner-b");
@@ -110,23 +124,29 @@ public final class GovernanceTestFixture {
         responsibilityAdapter.assign(104, "owner-1", "scope-owner-a");
         confirmationService = new GovernanceConfirmationService(
                 confirmationStore, executionStore, taskStore, responsibilityAdapter,
-                Clock.fixed(Instant.parse("2026-07-26T07:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-07-26T07:00:00Z"), ZoneOffset.UTC), auditService);
         qualityService = new GovernanceQualityService(
                 acceptanceStore,
                 Clock.fixed(Instant.parse("2026-07-26T08:00:00Z"), ZoneOffset.UTC));
         acceptanceService = new GovernanceAcceptanceService(
                 acceptanceStore, executionStore, taskStore,
-                Clock.fixed(Instant.parse("2026-07-26T09:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-07-26T09:00:00Z"), ZoneOffset.UTC), auditService);
         reworkService = new GovernanceReworkService(
                 taskStore, executionStore,
-                Clock.fixed(Instant.parse("2026-07-26T10:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-07-26T10:00:00Z"), ZoneOffset.UTC), auditService);
         governanceAssetAdapter = new InMemoryGovernanceAssetAdapter();
         applicationJobService = new GovernanceApplicationJobService(
-                acceptanceStore, executionStore, issueStore, taskStore, governanceAssetAdapter);
+                acceptanceStore, executionStore, issueStore, taskStore, governanceAssetAdapter, auditService);
+        reportService = new GovernanceReportService(
+                taskStore, workflowStore, executionStore, confirmationStore, acceptanceStore);
     }
 
     public static GovernanceTestFixture fieldClosure() {
         return new GovernanceTestFixture();
+    }
+
+    public static GovernanceTestFixture reportFieldClosure() {
+        return new GovernanceTestFixture(false, true);
     }
 
     public static GovernanceTestFixture batchFieldClosure() {
@@ -230,6 +250,51 @@ public final class GovernanceTestFixture {
         return applicationJobService;
     }
 
+    public GovernanceReportService reportService() {
+        return reportService;
+    }
+
+    public GovernanceTask completedFieldTask() {
+        var firstRound = pendingConfirmationWithTwoItems();
+        var descriptionId = descriptionItem().id();
+        confirmationService.current(firstRound.taskId()).items().forEach(item -> confirmationService.decide(
+                firstRound.id(), item.itemId(), new DecisionCommand(
+                        item.itemId() == descriptionId ? Decision.REJECTED : Decision.APPROVED,
+                        item.itemId() == descriptionId ? "原说明需按标准重写" : "", 0,
+                        item.responsibleUserId())));
+        confirmationService.complete(firstRound.taskId(), firstRound.id(), firstRound.version());
+        var task = taskStore.findById(firstRound.taskId()).orElseThrow();
+        reworkService.open(task.id(), task.version(), "确认退回后重写说明", "emp-admin");
+
+        var description = executionStore.item(descriptionId);
+        var draftResult = executionService.saveDraft(description.id(), new SaveResultDraftCommand(
+                description.version(), description.assetVersion(),
+                "{\"description\":\"标准说明\"}", "emp-chen"));
+        executionService.submit(description.id(), draftResult.id(), draftResult.version(), "emp-chen");
+        task = taskStore.findById(task.id()).orElseThrow();
+        taskService.submitForConfirmation(task.id(), task.version());
+        var secondRound = confirmationService.current(task.id());
+        secondRound.items().forEach(item -> confirmationService.decide(
+                secondRound.round().id(), item.itemId(),
+                new DecisionCommand(Decision.APPROVED, "", 0, item.responsibleUserId())));
+        confirmationService.complete(task.id(), secondRound.round().id(), secondRound.round().version());
+
+        var acceptance = openAcceptanceRound();
+        passAllSamples(acceptance.id());
+        acceptance = acceptanceService.current(task.id());
+        var completion = acceptanceService.complete(task.id(), acceptance.id(), acceptance.version(), "qa-1");
+        var job = acceptanceStore.applicationJob(completion.applicationJobId()).orElseThrow();
+        executionStore.items(task.id()).forEach(item ->
+                governanceAssetAdapter.seed(item.assetId(), item.assetVersion()));
+        applicationJobService.run(job.id());
+
+        return taskStore.findById(task.id()).orElseThrow();
+    }
+
+    public GovernanceAuditService auditService() {
+        return auditService;
+    }
+
     public InMemoryGovernanceAssetAdapter assetPort() {
         return governanceAssetAdapter;
     }
@@ -278,16 +343,19 @@ public final class GovernanceTestFixture {
     }
 
     public GovernanceAcceptanceRound openAcceptanceRound() {
-        var existing = acceptanceStore.currentRound(validStartedTask().id());
+        var task = validStartedTask();
+        var existing = acceptanceStore.currentRound(task.id());
         if (existing.isPresent()) return existing.orElseThrow();
-        var confirmationRound = pendingConfirmationWithTwoItems();
-        var confirmationItems = confirmationService.current(confirmationRound.taskId()).items();
-        confirmationItems.forEach(item -> confirmationService.decide(
-                confirmationRound.id(), item.itemId(),
-                new DecisionCommand(Decision.APPROVED, "", 0, item.responsibleUserId())));
-        confirmationService.complete(
-                confirmationRound.taskId(), confirmationRound.id(), confirmationRound.version());
-        var task = taskStore.findById(confirmationRound.taskId()).orElseThrow();
+        if (task.status() != com.tianshu.assets.governance.task.domain.GovernanceTaskStatus.PENDING_ACCEPTANCE) {
+            var confirmationRound = pendingConfirmationWithTwoItems();
+            var confirmationItems = confirmationService.current(confirmationRound.taskId()).items();
+            confirmationItems.forEach(item -> confirmationService.decide(
+                    confirmationRound.id(), item.itemId(),
+                    new DecisionCommand(Decision.APPROVED, "", 0, item.responsibleUserId())));
+            confirmationService.complete(
+                    confirmationRound.taskId(), confirmationRound.id(), confirmationRound.version());
+            task = taskStore.findById(confirmationRound.taskId()).orElseThrow();
+        }
         var facts = executionStore.items(task.id()).stream().map(item -> {
             var asset = assetRepository.findById(item.assetId()).orElseThrow();
             var scopeValid = asset.scopes().stream().anyMatch(scope ->
@@ -446,7 +514,7 @@ public final class GovernanceTestFixture {
                 new FieldSupplementActionHandler(
                         new ObjectMapper(), new InMemoryDictionaryStore(),
                         new InMemoryGovernanceEmployeeDirectory()),
-                Clock.fixed(Instant.parse("2026-07-26T06:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-07-26T06:00:00Z"), ZoneOffset.UTC), auditService);
     }
 
     private GovernanceIssue issue(

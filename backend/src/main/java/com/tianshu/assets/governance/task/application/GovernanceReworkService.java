@@ -1,5 +1,6 @@
 package com.tianshu.assets.governance.task.application;
 
+import com.tianshu.assets.governance.audit.application.GovernanceAuditService;
 import com.tianshu.assets.governance.application.GovernanceTaskStateException;
 import com.tianshu.assets.governance.application.GovernanceValidationException;
 import com.tianshu.assets.governance.application.GovernanceVersionConflictException;
@@ -20,18 +21,33 @@ public class GovernanceReworkService {
     private final GovernanceTaskStore taskStore;
     private final GovernanceExecutionStore executionStore;
     private final Clock clock;
+    private final GovernanceAuditService auditService;
 
     @Autowired
     public GovernanceReworkService(
-            GovernanceTaskStore taskStore, GovernanceExecutionStore executionStore) {
-        this(taskStore, executionStore, Clock.systemUTC());
+            GovernanceTaskStore taskStore, GovernanceExecutionStore executionStore,
+            GovernanceAuditService auditService) {
+        this(taskStore, executionStore, Clock.systemUTC(), auditService);
     }
 
     public GovernanceReworkService(
-            GovernanceTaskStore taskStore, GovernanceExecutionStore executionStore, Clock clock) {
+            GovernanceTaskStore taskStore, GovernanceExecutionStore executionStore) {
+        this(taskStore, executionStore, Clock.systemUTC(), null);
+    }
+
+    public GovernanceReworkService(
+            GovernanceTaskStore taskStore, GovernanceExecutionStore executionStore,
+            Clock clock) {
+        this(taskStore, executionStore, clock, null);
+    }
+
+    public GovernanceReworkService(
+            GovernanceTaskStore taskStore, GovernanceExecutionStore executionStore,
+            Clock clock, GovernanceAuditService auditService) {
         this.taskStore = taskStore;
         this.executionStore = executionStore;
         this.clock = clock;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -64,12 +80,18 @@ public class GovernanceReworkService {
             var openedAt = Instant.now(clock);
             reworkItems.forEach(item -> executionStore.openRework(new OpenRework(
                     item.id(), item.version(), nextRound, reason, actorUserId, openedAt)));
-            return taskStore.update(new GovernanceTask(
+            var updated = taskStore.update(new GovernanceTask(
                     task.id(), task.taskNumber(), task.name(), task.actionType(), task.issueType(),
                     task.ownerUserId(), task.ownerName(), task.assigneeId(), task.dueDate(),
                     task.status().moveTo(GovernanceTaskStatus.IN_PROGRESS), nextRound,
                     task.workflowVersion(), task.scopeSnapshotId(), task.qualityPolicySnapshotId(),
                     task.legacyTotal(), task.legacyCompleted(), task.version()), expectedTaskVersion);
+            if (auditService != null) {
+                auditService.record(taskId, null, "TASK", taskId, "REWORK_OPENED", nextRound,
+                        actorUserId, "{\"status\":\"REWORK_REQUIRED\"}",
+                        "{\"status\":\"IN_PROGRESS\",\"reason\":\"返工\"}");
+            }
+            return updated;
         }
     }
 }

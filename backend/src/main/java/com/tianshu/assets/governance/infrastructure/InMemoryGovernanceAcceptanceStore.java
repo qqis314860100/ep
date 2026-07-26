@@ -11,6 +11,7 @@ import com.tianshu.assets.governance.application.GovernanceVersionConflictExcept
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -27,6 +28,18 @@ public class InMemoryGovernanceAcceptanceStore implements GovernanceAcceptanceSt
     public synchronized Optional<GovernanceAcceptanceRound> currentRound(long taskId) {
         return rounds.values().stream().filter(round -> round.taskId() == taskId)
                 .max(Comparator.comparingInt(GovernanceAcceptanceRound::governanceRound));
+    }
+
+    @Override
+    public synchronized List<GovernanceAcceptanceRound> rounds(long taskId) {
+        return rounds.values().stream().filter(round -> round.taskId() == taskId)
+                .sorted(Comparator.comparingInt(GovernanceAcceptanceRound::governanceRound)).toList();
+    }
+
+    @Override
+    public synchronized List<GovernanceOperationJob> applicationJobs(long taskId) {
+        return applicationJobs.values().stream().filter(job -> job.taskId() == taskId)
+                .sorted(Comparator.comparingLong(GovernanceOperationJob::id)).toList();
     }
 
     @Override

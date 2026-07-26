@@ -1,5 +1,6 @@
 package com.tianshu.assets.governance.acceptance.application;
 
+import com.tianshu.assets.governance.audit.application.GovernanceAuditService;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceQualityMetric;
 import com.tianshu.assets.governance.application.GovernanceConflictException;
@@ -30,14 +31,24 @@ public class GovernanceAcceptanceService {
     private final GovernanceTaskStore taskStore;
     private final GovernanceJobDispatcher jobDispatcher;
     private final Clock clock;
+    private final GovernanceAuditService auditService;
 
     @Autowired
     public GovernanceAcceptanceService(
             GovernanceAcceptanceStore acceptanceStore,
             GovernanceExecutionStore executionStore,
             GovernanceTaskStore taskStore,
+            GovernanceJobDispatcher jobDispatcher,
+            GovernanceAuditService auditService) {
+        this(acceptanceStore, executionStore, taskStore, jobDispatcher, Clock.systemUTC(), auditService);
+    }
+
+    public GovernanceAcceptanceService(
+            GovernanceAcceptanceStore acceptanceStore,
+            GovernanceExecutionStore executionStore,
+            GovernanceTaskStore taskStore,
             GovernanceJobDispatcher jobDispatcher) {
-        this(acceptanceStore, executionStore, taskStore, jobDispatcher, Clock.systemUTC());
+        this(acceptanceStore, executionStore, taskStore, jobDispatcher, Clock.systemUTC(), null);
     }
 
     public GovernanceAcceptanceService(
@@ -52,13 +63,33 @@ public class GovernanceAcceptanceService {
             GovernanceAcceptanceStore acceptanceStore,
             GovernanceExecutionStore executionStore,
             GovernanceTaskStore taskStore,
+            Clock clock,
+            GovernanceAuditService auditService) {
+        this(acceptanceStore, executionStore, taskStore, GovernanceJobDispatcher.noOp(), clock, auditService);
+    }
+
+    public GovernanceAcceptanceService(
+            GovernanceAcceptanceStore acceptanceStore,
+            GovernanceExecutionStore executionStore,
+            GovernanceTaskStore taskStore,
             GovernanceJobDispatcher jobDispatcher,
             Clock clock) {
+        this(acceptanceStore, executionStore, taskStore, jobDispatcher, clock, null);
+    }
+
+    private GovernanceAcceptanceService(
+            GovernanceAcceptanceStore acceptanceStore,
+            GovernanceExecutionStore executionStore,
+            GovernanceTaskStore taskStore,
+            GovernanceJobDispatcher jobDispatcher,
+            Clock clock,
+            GovernanceAuditService auditService) {
         this.acceptanceStore = acceptanceStore;
         this.executionStore = executionStore;
         this.taskStore = taskStore;
         this.jobDispatcher = jobDispatcher;
         this.clock = clock;
+        this.auditService = auditService;
     }
 
     public GovernanceAcceptanceRound current(long taskId) {
@@ -113,9 +144,16 @@ public class GovernanceAcceptanceService {
                         task.version());
                 var completedRound = completeRound(
                         round, GovernanceAcceptanceRound.Status.FAILED, expectedRoundVersion);
-                return new CompletionResult(
+                var completion = new CompletionResult(
                         taskId, roundId, completedRound.status(), updatedTask.status(),
                         List.copyOf(affectedItemIds), null);
+                if (auditService != null) {
+                    auditService.record(taskId, null, "ACCEPTANCE_ROUND", roundId, "ACCEPTANCE_COMPLETED",
+                            round.governanceRound(), operatorUserId,
+                            "{\"status\":\"OPEN\",\"version\":" + expectedRoundVersion + "}",
+                            "{\"status\":\"FAILED\",\"affectedItems\":" + affectedItemIds.size() + "}");
+                }
+                return completion;
             }
 
             var resultVersionIds = new LinkedHashMap<Long, Long>();
@@ -134,8 +172,15 @@ public class GovernanceAcceptanceService {
             var job = acceptanceStore.createApplicationJob(
                     taskId, roundId, resultVersionIds, operatorUserId, Instant.now(clock));
             jobDispatcher.dispatch(job.id());
-            return new CompletionResult(
+            var completion = new CompletionResult(
                     taskId, roundId, completedRound.status(), task.status(), List.of(), job.id());
+            if (auditService != null) {
+                auditService.record(taskId, null, "ACCEPTANCE_ROUND", roundId, "ACCEPTANCE_COMPLETED",
+                        round.governanceRound(), operatorUserId,
+                        "{\"status\":\"OPEN\",\"version\":" + expectedRoundVersion + "}",
+                        "{\"status\":\"PASSED\",\"applicationJobId\":" + job.id() + "}");
+            }
+            return completion;
         }
     }
 

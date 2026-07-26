@@ -4,11 +4,16 @@ import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound
 import com.tianshu.assets.governance.acceptance.domain.GovernanceOperationJob;
 import java.time.Instant;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 
 public interface GovernanceAcceptanceStore {
 
     Optional<GovernanceAcceptanceRound> currentRound(long taskId);
+
+    List<GovernanceAcceptanceRound> rounds(long taskId);
+
+    List<GovernanceOperationJob> applicationJobs(long taskId);
 
     GovernanceAcceptanceRound round(long roundId);
 

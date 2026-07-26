@@ -1,5 +1,6 @@
 package com.tianshu.assets.governance.execution.application;
 
+import com.tianshu.assets.governance.audit.application.GovernanceAuditService;
 import com.tianshu.assets.asset.domain.AssetRepository;
 import com.tianshu.assets.governance.application.GovernanceConflictException;
 import com.tianshu.assets.governance.application.GovernanceValidationException;
@@ -39,6 +40,7 @@ public class GovernanceExecutionService {
     private final GovernanceActionHandler actionHandler;
     private final Clock clock;
     private final TransactionTemplate itemTransaction;
+    private final GovernanceAuditService auditService;
     private final Map<String, SavedBatch> batches = new LinkedHashMap<>();
 
     @Autowired
@@ -48,9 +50,10 @@ public class GovernanceExecutionService {
             GovernanceRuleCatalog ruleCatalog,
             AssetRepository assetRepository,
             GovernanceActionHandler actionHandler,
-            ObjectProvider<PlatformTransactionManager> transactionManager) {
+            ObjectProvider<PlatformTransactionManager> transactionManager,
+            GovernanceAuditService auditService) {
         this(executionStore, workflowStore, ruleCatalog, assetRepository, actionHandler,
-                Clock.systemUTC(), transactionManager.getIfAvailable());
+                Clock.systemUTC(), transactionManager.getIfAvailable(), auditService);
     }
 
     public GovernanceExecutionService(
@@ -60,7 +63,18 @@ public class GovernanceExecutionService {
             AssetRepository assetRepository,
             GovernanceActionHandler actionHandler,
             Clock clock) {
-        this(executionStore, workflowStore, ruleCatalog, assetRepository, actionHandler, clock, null);
+        this(executionStore, workflowStore, ruleCatalog, assetRepository, actionHandler, clock, null, null);
+    }
+
+    public GovernanceExecutionService(
+            GovernanceExecutionStore executionStore,
+            GovernanceWorkflowStore workflowStore,
+            GovernanceRuleCatalog ruleCatalog,
+            AssetRepository assetRepository,
+            GovernanceActionHandler actionHandler,
+            Clock clock,
+            GovernanceAuditService auditService) {
+        this(executionStore, workflowStore, ruleCatalog, assetRepository, actionHandler, clock, null, auditService);
     }
 
     private GovernanceExecutionService(
@@ -70,13 +84,15 @@ public class GovernanceExecutionService {
             AssetRepository assetRepository,
             GovernanceActionHandler actionHandler,
             Clock clock,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            GovernanceAuditService auditService) {
         this.executionStore = executionStore;
         this.workflowStore = workflowStore;
         this.ruleCatalog = ruleCatalog;
         this.assetRepository = assetRepository;
         this.actionHandler = actionHandler;
         this.clock = clock;
+        this.auditService = auditService;
         itemTransaction = transactionManager == null ? null : new TransactionTemplate(transactionManager);
         if (itemTransaction != null) {
             itemTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -141,8 +157,18 @@ public class GovernanceExecutionService {
         if (actorUserId == null || actorUserId.isBlank()) {
             throw new GovernanceValidationException("操作人不能为空");
         }
-        return executionStore.submit(new GovernanceExecutionStore.Submit(
+        var item = executionStore.item(itemId);
+        var before = executionStore.currentResult(itemId);
+        var submitted = executionStore.submit(new GovernanceExecutionStore.Submit(
                 itemId, resultVersionId, resultVersion, actorUserId, Instant.now(clock)));
+        if (auditService != null) {
+            auditService.record(item.taskId(), item.id(), "RESULT", submitted.id(), "RESULT_SUBMITTED",
+                    item.governanceRound(), actorUserId,
+                    "{\"status\":\"" + before.status() + "\",\"version\":" + before.version() + "}",
+                    "{\"status\":\"" + submitted.status() + "\",\"version\":"
+                            + submitted.version() + ",\"proposedValue\":" + submitted.proposedValueJson() + "}");
+        }
+        return submitted;
     }
 
     public synchronized BatchExecutionResult batchResults(

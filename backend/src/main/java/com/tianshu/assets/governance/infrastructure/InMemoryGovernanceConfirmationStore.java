@@ -30,6 +30,14 @@ public class InMemoryGovernanceConfirmationStore implements GovernanceConfirmati
     }
 
     @Override
+    public synchronized List<GovernanceConfirmationRound> rounds(long taskId) {
+        return rounds.values().stream()
+                .filter(round -> round.taskId() == taskId)
+                .sorted(Comparator.comparingInt(GovernanceConfirmationRound::governanceRound))
+                .toList();
+    }
+
+    @Override
     public synchronized GovernanceConfirmationRound round(long roundId) {
         var round = rounds.get(roundId);
         if (round == null) throw new IllegalArgumentException("确认轮次不存在");

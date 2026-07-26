@@ -1,5 +1,6 @@
 package com.tianshu.assets.governance.task.application;
 
+import com.tianshu.assets.governance.audit.application.GovernanceAuditService;
 import com.tianshu.assets.governance.application.GovernanceTaskStateException;
 import com.tianshu.assets.governance.application.GovernanceValidationException;
 import com.tianshu.assets.governance.execution.domain.GovernanceItem;
@@ -25,6 +26,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -35,13 +37,24 @@ public class GovernanceTaskStartService {
     private final GovernanceWorkflowStore workflowStore;
     private final GovernanceRuleCatalog ruleCatalog;
     private final Clock clock;
+    private final GovernanceAuditService auditService;
+
+    @Autowired
+    public GovernanceTaskStartService(
+            GovernanceTaskStore taskStore,
+            GovernanceIssueStore issueStore,
+            GovernanceWorkflowStore workflowStore,
+            GovernanceRuleCatalog ruleCatalog,
+            GovernanceAuditService auditService) {
+        this(taskStore, issueStore, workflowStore, ruleCatalog, Clock.systemUTC(), auditService);
+    }
 
     public GovernanceTaskStartService(
             GovernanceTaskStore taskStore,
             GovernanceIssueStore issueStore,
             GovernanceWorkflowStore workflowStore,
             GovernanceRuleCatalog ruleCatalog) {
-        this(taskStore, issueStore, workflowStore, ruleCatalog, Clock.systemUTC());
+        this(taskStore, issueStore, workflowStore, ruleCatalog, Clock.systemUTC(), null);
     }
 
     public GovernanceTaskStartService(
@@ -50,11 +63,22 @@ public class GovernanceTaskStartService {
             GovernanceWorkflowStore workflowStore,
             GovernanceRuleCatalog ruleCatalog,
             Clock clock) {
+        this(taskStore, issueStore, workflowStore, ruleCatalog, clock, null);
+    }
+
+    private GovernanceTaskStartService(
+            GovernanceTaskStore taskStore,
+            GovernanceIssueStore issueStore,
+            GovernanceWorkflowStore workflowStore,
+            GovernanceRuleCatalog ruleCatalog,
+            Clock clock,
+            GovernanceAuditService auditService) {
         this.taskStore = taskStore;
         this.issueStore = issueStore;
         this.workflowStore = workflowStore;
         this.ruleCatalog = ruleCatalog;
         this.clock = clock;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -101,7 +125,17 @@ public class GovernanceTaskStartService {
                     rules, actorUserId, Instant.now(clock), scopeItems, items));
             try {
                 var requested = startedTask(task, frozen.scopeSnapshotId(), frozen.qualityPolicySnapshotId());
-                return taskStore.update(requested, expectedVersion);
+                var started = taskStore.update(requested, expectedVersion);
+                if (auditService != null) {
+                    auditService.record(taskId, null, "TASK", taskId, "TASK_STARTED",
+                            started.currentRound(), actorUserId,
+                            "{\"status\":\"DRAFT\",\"version\":" + task.version() + "}",
+                            "{\"status\":\"IN_PROGRESS\",\"version\":" + started.version() + "}");
+                    auditService.record(taskId, null, "SCOPE_SNAPSHOT", frozen.scopeSnapshotId(),
+                            "PLAN_LOCKED", started.currentRound(), actorUserId, "{}",
+                            "{\"status\":\"LOCKED\",\"version\":" + started.version() + "}");
+                }
+                return started;
             } catch (RuntimeException exception) {
                 workflowStore.discard(frozen.scopeSnapshotId());
                 throw exception;

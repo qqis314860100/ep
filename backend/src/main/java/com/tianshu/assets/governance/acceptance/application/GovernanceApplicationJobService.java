@@ -1,5 +1,6 @@
 package com.tianshu.assets.governance.acceptance.application;
 
+import com.tianshu.assets.governance.audit.application.GovernanceAuditService;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceOperationJob;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceOperationJobItem;
 import com.tianshu.assets.governance.application.GovernanceConflictException;
@@ -14,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -24,6 +26,23 @@ public class GovernanceApplicationJobService {
     private final GovernanceIssueStore issueStore;
     private final GovernanceTaskStore taskStore;
     private final GovernanceAssetPort assetPort;
+    private final GovernanceAuditService auditService;
+
+    @Autowired
+    public GovernanceApplicationJobService(
+            GovernanceAcceptanceStore acceptanceStore,
+            GovernanceExecutionStore executionStore,
+            GovernanceIssueStore issueStore,
+            GovernanceTaskStore taskStore,
+            GovernanceAssetPort assetPort,
+            GovernanceAuditService auditService) {
+        this.acceptanceStore = acceptanceStore;
+        this.executionStore = executionStore;
+        this.issueStore = issueStore;
+        this.taskStore = taskStore;
+        this.assetPort = assetPort;
+        this.auditService = auditService;
+    }
 
     public GovernanceApplicationJobService(
             GovernanceAcceptanceStore acceptanceStore,
@@ -31,11 +50,7 @@ public class GovernanceApplicationJobService {
             GovernanceIssueStore issueStore,
             GovernanceTaskStore taskStore,
             GovernanceAssetPort assetPort) {
-        this.acceptanceStore = acceptanceStore;
-        this.executionStore = executionStore;
-        this.issueStore = issueStore;
-        this.taskStore = taskStore;
-        this.assetPort = assetPort;
+        this(acceptanceStore, executionStore, issueStore, taskStore, assetPort, null);
     }
 
     public JobSummary run(long jobId) {
@@ -55,6 +70,12 @@ public class GovernanceApplicationJobService {
                 updated = jobItem.succeeded();
             } catch (RuntimeException exception) {
                 updated = jobItem.failed(errorMessage(exception));
+                if (auditService != null) {
+                    var failedItem = executionStore.item(itemId);
+                    auditService.record(job.taskId(), itemId, "RESULT", jobItem.resultVersionId(),
+                            "APPLICATION_FAILED", failedItem.governanceRound(), job.requestedBy(), "{}",
+                            "{\"errorCode\":\"" + errorMessage(exception) + "\"}");
+                }
             }
             job = replaceItem(job, updated, GovernanceOperationJob.Status.RUNNING);
             job = acceptanceStore.updateApplicationJob(job, job.version());
@@ -118,6 +139,12 @@ public class GovernanceApplicationJobService {
                 item.id(), item.assetId(), result.field(), result.proposedValueJson(),
                 expectedCurrentAssetVersion, job.requestedBy());
         executionStore.markApplied(result.id(), result.version());
+        if (auditService != null) {
+            auditService.record(item.taskId(), item.id(), "RESULT", result.id(), "APPLICATION_SUCCEEDED",
+                    item.governanceRound(), job.requestedBy(),
+                    "{\"status\":\"SUBMITTED\",\"version\":" + result.version() + "}",
+                    "{\"status\":\"APPLIED\"}");
+        }
         var issue = issueStore.findByIds(List.of(item.issueId())).stream().findFirst()
                 .orElseThrow(() -> new GovernanceConflictException("治理项关联问题不存在"));
         issueStore.resolve(issue.id(), issue.version());
@@ -143,6 +170,11 @@ public class GovernanceApplicationJobService {
                 throw new GovernanceConflictException("治理任务不在待正式应用状态");
             }
             taskStore.update(copyTask(task, GovernanceTaskStatus.COMPLETED), task.version());
+            if (auditService != null) {
+                auditService.record(job.taskId(), null, "TASK", job.taskId(), "TASK_COMPLETED",
+                        task.currentRound(), job.requestedBy(),
+                        "{\"status\":\"PENDING_ACCEPTANCE\"}", "{\"status\":\"COMPLETED\"}");
+            }
         }
     }
 
