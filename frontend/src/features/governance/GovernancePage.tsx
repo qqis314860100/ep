@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
-import { createGovernancePlan, createGovernanceTask, getGovernanceEmployees, getGovernancePlans, getGovernanceTasks, startGovernanceTask, updateGovernancePlan, updateGovernanceProgress, type CreateGovernancePlanInput, type GovernancePlan, type GovernanceTask, type GovernanceTaskStatus } from '../../services/governanceService'
+import { createGovernancePlan, createGovernanceTask, getGovernanceEmployees, getGovernancePlans, getGovernanceTasks, startGovernanceTask, updateGovernancePlan, updateGovernanceProgress, type CreateGovernancePlanInput, type GovernancePlan, type GovernanceTask, type GovernanceTaskStatus } from './api'
 
 type GovernanceTaskFormValues = {
   name: string
@@ -485,6 +485,8 @@ const statusConfig: Record<GovernanceTaskStatus, { label: string; color: string;
   DRAFT: { label: '草稿', color: 'default', icon: <FileTextOutlined /> },
   IN_PROGRESS: { label: '进行中', color: 'processing', icon: <ClockCircleOutlined /> },
   PENDING_CONFIRMATION: { label: '待确认', color: 'gold', icon: <ExclamationCircleOutlined /> },
+  PENDING_ACCEPTANCE: { label: '待验收', color: 'cyan', icon: <ExclamationCircleOutlined /> },
+  REWORK_REQUIRED: { label: '需返工', color: 'red', icon: <ExclamationCircleOutlined /> },
   COMPLETED: { label: '已完成', color: 'green', icon: <CheckCircleOutlined /> },
 }
 
@@ -502,7 +504,7 @@ export function GovernancePage() {
   const selectedTarget = Form.useWatch('target', form)
   const selectedScope = Form.useWatch('scope', form)
   const selectedOwner = Form.useWatch('owner', form)
-  const tasksQuery = useQuery({ queryKey: ['governance-tasks'], queryFn: getGovernanceTasks })
+  const tasksQuery = useQuery({ queryKey: ['governance-tasks'], queryFn: () => getGovernanceTasks() })
   const employeesQuery = useQuery({ queryKey: ['governance-employees'], queryFn: getGovernanceEmployees, staleTime: 5 * 60_000 })
   const plansQuery = useQuery({
     queryKey: ['governance-plans', detailTask?.id],
@@ -549,7 +551,7 @@ export function GovernancePage() {
     onError: (error) => message.error(error instanceof Error ? error.message : '计划项添加失败'),
   })
   const startMutation = useMutation({
-    mutationFn: startGovernanceTask,
+    mutationFn: (taskId: number) => startGovernanceTask(taskId),
     onSuccess: async (updated) => {
       setDetailTask(updated)
       setDetailMode('progress')
