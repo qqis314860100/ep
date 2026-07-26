@@ -5,9 +5,12 @@ import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService.CreateGovernanceTaskCommand;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.CreatePlanCommand;
+import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.TaskFilter;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStartService;
 import com.tianshu.assets.governance.application.GovernanceValidationException;
 import com.tianshu.assets.governance.task.domain.GovernancePlan;
+import com.tianshu.assets.governance.task.domain.GovernanceTaskStatus;
+import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -17,6 +20,7 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -52,8 +57,14 @@ public class GovernanceTaskController {
     }
 
     @GetMapping
-    public List<GovernanceTaskResponse> list() {
-        return service.list().stream().map(GovernanceTaskResponse::from).toList();
+    public List<GovernanceTaskResponse> list(
+            @RequestParam(required = false) GovernanceTaskStatus status,
+            @RequestParam(required = false) String ownerUserId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueBefore,
+            @RequestParam(required = false) GovernanceField field,
+            @RequestParam(required = false) String scopeFingerprint) {
+        return service.list(new TaskFilter(status, ownerUserId, dueBefore, field, scopeFingerprint))
+                .stream().map(GovernanceTaskResponse::from).toList();
     }
 
     @PostMapping
@@ -75,7 +86,7 @@ public class GovernanceTaskController {
 
     @GetMapping("/{taskId}")
     public GovernanceTaskResponse get(@PathVariable long taskId) {
-        return GovernanceTaskResponse.from(service.get(taskId));
+        return GovernanceTaskResponse.from(service.detail(taskId));
     }
 
     @PatchMapping("/{taskId}/plans/{planId}")
@@ -114,18 +125,18 @@ public class GovernanceTaskController {
                 startService.start(taskId, request.version(), request.actorUserId()));
     }
 
-    @PatchMapping("/{taskId}/progress")
-    public GovernanceTaskResponse updateProgress(
-            @PathVariable long taskId,
-            @Valid @RequestBody UpdateProgressRequest request) {
-        return GovernanceTaskResponse.from(service.rejectTaskMutation(taskId));
-    }
-
     @PatchMapping("/{taskId}/status")
     public GovernanceTaskResponse updateStatus(
             @PathVariable long taskId,
             @Valid @RequestBody UpdateTaskStatusRequest request) {
         return GovernanceTaskResponse.from(service.rejectTaskMutation(taskId));
+    }
+
+    @PostMapping("/{taskId}/submit-for-confirmation")
+    public GovernanceTaskResponse submitForConfirmation(
+            @PathVariable long taskId,
+            @Valid @RequestBody SubmitForConfirmationRequest request) {
+        return GovernanceTaskResponse.from(service.submitForConfirmation(taskId, request.version()));
     }
 
     public record CreateTaskRequest(
@@ -153,7 +164,7 @@ public class GovernanceTaskController {
             @Min(0) long version,
             @NotBlank String actorUserId) {}
 
-    public record UpdateProgressRequest(@Min(0) int completed) {}
-
     public record UpdateTaskStatusRequest(@NotBlank String status) {}
+
+    public record SubmitForConfirmationRequest(@Min(0) long version) {}
 }

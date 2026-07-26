@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.SaveResultDraftCommand;
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.BatchExecutionResult;
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.BatchResultCommand;
+import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.execution.domain.GovernanceItem;
 import com.tianshu.assets.governance.execution.domain.GovernanceResultStatus;
 import com.tianshu.assets.governance.execution.domain.GovernanceResultVersion;
@@ -63,6 +66,15 @@ public class GovernanceExecutionController {
                 itemId, request.resultVersionId(), request.resultVersion(), request.actorUserId()));
     }
 
+    @PostMapping("/results/batch")
+    public BatchExecutionResult batchResults(@Valid @RequestBody BatchResultsRequest request) {
+        return service.batchResults(
+                request.idempotencyKey(),
+                request.commands().stream()
+                        .map(command -> command == null ? null : command.toCommand())
+                        .toList());
+    }
+
     private GovernanceResultResponse resultResponse(GovernanceResultVersion result) {
         try {
             return GovernanceResultResponse.from(result, objectMapper.readTree(result.proposedValueJson()));
@@ -91,6 +103,31 @@ public class GovernanceExecutionController {
             @Min(1) long resultVersionId,
             @Min(0) long resultVersion,
             @NotBlank String actorUserId) {}
+
+    public record BatchResultsRequest(
+            @NotBlank String idempotencyKey,
+            @NotNull List<@Valid BatchResultRequest> commands) {
+        @AssertTrue(message = "批量治理结果不能为空")
+        public boolean hasCommands() {
+            return commands != null && !commands.isEmpty();
+        }
+    }
+
+    public record BatchResultRequest(
+            @Min(1) long itemId,
+            @Min(0) long itemVersion,
+            @Min(0) long assetVersion,
+            @NotNull GovernanceField targetField,
+            @Min(1) long standardVersion,
+            @NotBlank String scopeFingerprint,
+            @NotNull JsonNode proposedValue,
+            @NotBlank String actorUserId) {
+        BatchResultCommand toCommand() {
+            return new BatchResultCommand(
+                    itemId, itemVersion, assetVersion, targetField, standardVersion,
+                    scopeFingerprint, proposedValue.toString(), actorUserId);
+        }
+    }
 
     public record GovernanceResultResponse(
             long id,

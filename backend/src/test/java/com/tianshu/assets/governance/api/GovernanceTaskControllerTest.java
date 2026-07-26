@@ -14,6 +14,8 @@ import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceRuleCatalog;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceWorkflowStore;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceExecutionStore;
+import com.tianshu.assets.governance.execution.domain.GovernanceItemStatus;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStartService;
@@ -31,15 +33,20 @@ class GovernanceTaskControllerTest {
     private GovernanceTaskApplicationService service;
     private InMemoryGovernanceTaskStore taskStore;
     private InMemoryGovernanceIssueStore issueStore;
+    private InMemoryGovernanceWorkflowStore workflowStore;
+    private InMemoryGovernanceExecutionStore executionStore;
 
     @BeforeEach
     void setUp() {
         taskStore = InMemoryGovernanceTaskStore.withLegacySeed();
         issueStore = InMemoryGovernanceIssueStore.withFieldSeeds();
+        workflowStore = new InMemoryGovernanceWorkflowStore();
+        executionStore = new InMemoryGovernanceExecutionStore(workflowStore);
         service = new GovernanceTaskApplicationService(
-                taskStore, new InMemoryGovernanceEmployeeDirectory(), issueStore);
+                taskStore, new InMemoryGovernanceEmployeeDirectory(), issueStore,
+                workflowStore, executionStore);
         var startService = new GovernanceTaskStartService(
-                taskStore, issueStore, new InMemoryGovernanceWorkflowStore(),
+                taskStore, issueStore, workflowStore,
                 new InMemoryGovernanceRuleCatalog());
         mockMvc = standaloneSetup(new GovernanceTaskController(
                         service, new GovernanceIssueService(issueStore, taskStore), startService))
@@ -196,11 +203,42 @@ class GovernanceTaskControllerTest {
     }
 
     @Test
-    void rejectsLegacyTaskProgressMutation() throws Exception {
+    void doesNotExposeManualTaskProgressMutation() throws Exception {
         mockMvc.perform(patch("/api/v1/governance/tasks/1/progress")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"completed\":180}"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("governance_task_state_conflict"));
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returnsClosedLoopDetailAndSubmitsAllItemsForConfirmation() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"平台字段补充\",\"issueIds\":[1001,1002],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/governance/tasks/4/plans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"补充字段\",\"plannedStart\":\"2026-08-13\",\"plannedEnd\":\"2026-08-14\",\"responsibleUserId\":\"emp-chen\",\"dependencyIds\":[],\"issueIds\":[1001,1002]}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/governance/tasks/4/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"actorUserId\":\"emp-admin\"}"))
+                .andExpect(status().isOk());
+        workflowStore.items(4).forEach(item ->
+                executionStore.updateItemStatus(item.id(), GovernanceItemStatus.SUBMITTED, null));
+
+        mockMvc.perform(get("/api/v1/governance/tasks/4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.progress.total").value(2))
+                .andExpect(jsonPath("$.progress.submitted").value(2))
+                .andExpect(jsonPath("$.plans[0].status").value("DONE"))
+                .andExpect(jsonPath("$.scopeSnapshot.itemCount").value(2))
+                .andExpect(jsonPath("$.workbenchEntries.execution").isNotEmpty());
+
+        mockMvc.perform(post("/api/v1/governance/tasks/4/submit-for-confirmation")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_CONFIRMATION"));
     }
 }

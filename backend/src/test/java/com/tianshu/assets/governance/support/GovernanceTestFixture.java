@@ -8,7 +8,9 @@ import com.tianshu.assets.governance.execution.application.FieldSupplementAction
 import com.tianshu.assets.governance.execution.application.GovernanceActionHandler.ValidationContext;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.SaveResultDraftCommand;
+import com.tianshu.assets.governance.execution.application.GovernanceExecutionService.BatchResultCommand;
 import com.tianshu.assets.governance.execution.domain.GovernanceItem;
+import com.tianshu.assets.governance.execution.domain.GovernanceItemStatus;
 import com.tianshu.assets.governance.execution.domain.GovernanceResultVersion;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceExecutionStore;
@@ -47,29 +49,46 @@ public final class GovernanceTestFixture {
     private GovernanceExecutionService executionService;
 
     private GovernanceTestFixture() {
+        this(false);
+    }
+
+    private GovernanceTestFixture(boolean batch) {
         taskStore = new InMemoryGovernanceTaskStore();
         issueStore = new InMemoryGovernanceIssueStore();
         workflowStore = new InMemoryGovernanceWorkflowStore();
+        executionStore = new InMemoryGovernanceExecutionStore(workflowStore);
         var ruleCatalog = new InMemoryGovernanceRuleCatalog(new GovernanceRuleSnapshot(
                 0, "FIELD-COMPLETENESS", 3, 3,
                 Map.of("specialty", 5L, "scope", 8L), "FIELD-QUALITY", 2));
         issueService = new GovernanceIssueService(issueStore, taskStore);
         taskService = new GovernanceTaskApplicationService(
-                taskStore, new InMemoryGovernanceEmployeeDirectory(), issueStore);
+                taskStore, new InMemoryGovernanceEmployeeDirectory(), issueStore,
+                workflowStore, executionStore);
         startService = new GovernanceTaskStartService(taskStore, issueStore, workflowStore, ruleCatalog);
-        issueStore.insertAll(List.of(
-                issue(1001, 101, GovernanceField.DESCRIPTION, "/description", "\"\"", 7),
-                issue(1002, 102, GovernanceField.SPECIALTIES, "/specialties", "[]", 9)));
+        issueStore.insertAll(batch
+                ? List.of(
+                        issue(1001, 101, GovernanceField.DESCRIPTION, "/description", "\"\"", 7, "scope-a"),
+                        issue(1002, 102, GovernanceField.DESCRIPTION, "/description", "\"\"", 9, "scope-a"),
+                        issue(1003, 103, GovernanceField.DESCRIPTION, "/description", "\"\"", 2, "scope-a"),
+                        issue(1004, 104, GovernanceField.DESCRIPTION, "/description", "\"\"", 4, "scope-a"))
+                : List.of(
+                        issue(1001, 101, GovernanceField.DESCRIPTION, "/description", "\"\"", 7),
+                        issue(1002, 102, GovernanceField.SPECIALTIES, "/specialties", "[]", 9)));
     }
 
     public static GovernanceTestFixture fieldClosure() {
         return new GovernanceTestFixture();
     }
 
+    public static GovernanceTestFixture batchFieldClosure() {
+        return new GovernanceTestFixture(true);
+    }
+
     public GovernanceTask closedLoopDraftWithTwoIssues() {
         if (draft == null) {
+            var issueIds = issueStore.find(null, null, null).stream().map(GovernanceIssue::id).toList();
             draft = issueService.createTask(new GovernanceIssueService.CreateGovernanceTaskCommand(
-                    "字段治理范围固化", List.of(1001L, 1002L), "emp-chen", "陈工",
+                    "字段治理范围固化", issueIds, "emp-chen", "陈工",
                     LocalDate.of(2026, 9, 30)));
         }
         return taskStore.findById(draft.id()).orElseThrow();
@@ -81,7 +100,7 @@ public final class GovernanceTestFixture {
             taskService.createPlan(task.id(), new CreatePlanCommand(
                     0, "字段治理计划", LocalDate.of(2026, 9, 1),
                     LocalDate.of(2026, 9, 15), "emp-chen", List.of(),
-                    List.of(1001L, 1002L)));
+                    issueStore.findClaimedByTask(task.id()).stream().map(GovernanceIssue::id).toList()));
         }
         return taskStore.findById(task.id()).orElseThrow();
     }
@@ -127,6 +146,63 @@ public final class GovernanceTestFixture {
         return executionService;
     }
 
+    public GovernanceTask validStartedTask() {
+        prepareExecution();
+        return taskStore.findById(draft.id()).orElseThrow();
+    }
+
+    public List<GovernanceItem> batchItems() {
+        return executionService().items(validStartedTask().id()).stream()
+                .map(GovernanceExecutionService.ItemExecutionContext::item).toList();
+    }
+
+    public BatchResultCommand validDescriptionCommand(long itemId) {
+        return descriptionCommand(itemId, "补充后的功能说明");
+    }
+
+    public BatchResultCommand blankDescriptionCommand(long itemId) {
+        return descriptionCommand(itemId, " ");
+    }
+
+    public BatchResultCommand staleVersionCommand(long itemId) {
+        var item = executionStore().item(itemId);
+        return new BatchResultCommand(itemId, item.version() + 1, item.assetVersion(), item.targetField(),
+                3, item.scopeFingerprint(), "{\"description\":\"补充后的功能说明\"}", "emp-chen");
+    }
+
+    public BatchResultCommand descriptionCommand(long itemId, String description) {
+        var item = executionStore().item(itemId);
+        return new BatchResultCommand(itemId, item.version(), item.assetVersion(), item.targetField(),
+                3, item.scopeFingerprint(), "{\"description\":\"" + description + "\"}", "emp-chen");
+    }
+
+    public BatchResultCommand withTargetField(BatchResultCommand source, long itemId) {
+        var item = executionStore().item(itemId);
+        return new BatchResultCommand(itemId, item.version(), item.assetVersion(), GovernanceField.SPECIALTIES,
+                source.standardVersion(), source.scopeFingerprint(), source.proposedValueJson(), source.actorUserId());
+    }
+
+    public BatchResultCommand withStandardVersion(BatchResultCommand source, long itemId) {
+        var item = executionStore().item(itemId);
+        return new BatchResultCommand(itemId, item.version(), item.assetVersion(), source.targetField(),
+                source.standardVersion() + 1, source.scopeFingerprint(), source.proposedValueJson(), source.actorUserId());
+    }
+
+    public BatchResultCommand withScopeFingerprint(BatchResultCommand source, long itemId) {
+        var item = executionStore().item(itemId);
+        return new BatchResultCommand(itemId, item.version(), item.assetVersion(), source.targetField(),
+                source.standardVersion(), "other-scope", source.proposedValueJson(), source.actorUserId());
+    }
+
+    public void markSubmitted(long itemId) {
+        var result = executionService().saveDraft(itemId, validDescriptionCommand(itemId).toSaveCommand());
+        executionService().submit(itemId, result.id(), result.version(), "emp-chen");
+    }
+
+    public void markBlocked(long itemId, String reason) {
+        executionStore().updateItemStatus(itemId, GovernanceItemStatus.BLOCKED, reason);
+    }
+
     public InMemoryGovernanceExecutionStore executionStore() {
         prepareExecution();
         return executionStore;
@@ -164,7 +240,6 @@ public final class GovernanceTestFixture {
         if (task.status() == com.tianshu.assets.governance.task.domain.GovernanceTaskStatus.DRAFT) {
             startService.start(task.id(), task.version(), "emp-admin");
         }
-        executionStore = new InMemoryGovernanceExecutionStore(workflowStore);
         assetRepository = new InMemoryAssetRepository();
         var ruleCatalog = new InMemoryGovernanceRuleCatalog(new GovernanceRuleSnapshot(
                 0, "FIELD-COMPLETENESS", 3, 3,
@@ -180,9 +255,16 @@ public final class GovernanceTestFixture {
     private GovernanceIssue issue(
             long id, long assetId, GovernanceField field, String path, String originalFactJson,
             long assetVersion) {
+        return issue(id, assetId, field, path, originalFactJson, assetVersion,
+                "asset:" + assetId + ":v" + assetVersion);
+    }
+
+    private GovernanceIssue issue(
+            long id, long assetId, GovernanceField field, String path, String originalFactJson,
+            long assetVersion, String scopeFingerprint) {
         return new GovernanceIssue(
                 id, assetId, field, "MISSING_" + field.name(), path, "FIELD_REQUIRED", 3,
-                originalFactJson, assetVersion, "asset:" + assetId + ":v" + assetVersion,
+                originalFactJson, assetVersion, scopeFingerprint,
                 "HIGH", true, GovernanceIssueStatus.OPEN, null, 0);
     }
 }

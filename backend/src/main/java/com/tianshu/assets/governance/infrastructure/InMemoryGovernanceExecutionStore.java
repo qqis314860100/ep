@@ -97,6 +97,19 @@ public class InMemoryGovernanceExecutionStore implements GovernanceExecutionStor
         return submitted;
     }
 
+    @Override
+    public synchronized GovernanceItem updateItemStatus(
+            long itemId, GovernanceItemStatus status, String reason) {
+        var item = item(itemId);
+        var changed = new GovernanceItem(
+                item.id(), item.taskId(), item.planId(), item.issueId(), item.assetId(), item.targetField(),
+                item.actionType(), item.responsibleUserId(), status, item.assetVersion(), item.governanceRound(),
+                item.scopeFingerprint(), item.version() + 1, item.currentResultVersionId(), reason,
+                item.reworkSourceItemId());
+        changedItems.put(item.id(), changed);
+        return changed;
+    }
+
     private void requireItemVersion(GovernanceItem item, long expectedVersion) {
         if (item.version() != expectedVersion) {
             throw new GovernanceVersionConflictException("治理项已变化，请刷新后重试");

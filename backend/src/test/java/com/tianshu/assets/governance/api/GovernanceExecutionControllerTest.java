@@ -8,21 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.common.api.ApiExceptionHandler;
-import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
-import com.tianshu.assets.governance.execution.application.FieldSupplementActionHandler;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService;
-import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceEmployeeDirectory;
-import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceExecutionStore;
-import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceRuleCatalog;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.support.GovernanceTestFixture;
-import com.tianshu.assets.governance.task.domain.GovernanceRuleSnapshot;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -33,24 +22,15 @@ class GovernanceExecutionControllerTest {
     private MockMvc mockMvc;
     private long taskId;
     private long itemId;
+    private long secondItemId;
     private long assetVersion;
+    private long secondAssetVersion;
 
     @BeforeEach
     void setUp() {
-        var fixture = GovernanceTestFixture.fieldClosure();
-        var task = fixture.validDraft();
-        var started = fixture.startService().start(task.id(), task.version(), "emp-admin");
-        var rules = new GovernanceRuleSnapshot(
-                0, "FIELD-COMPLETENESS", 3, 3,
-                Map.of("specialty", 5L), "FIELD-QUALITY", 2);
-        var executionStore = new InMemoryGovernanceExecutionStore(fixture.workflowStore());
-        var service = new GovernanceExecutionService(
-                executionStore, fixture.workflowStore(), new InMemoryGovernanceRuleCatalog(rules),
-                new InMemoryAssetRepository(),
-                new FieldSupplementActionHandler(
-                        new ObjectMapper(), new InMemoryDictionaryStore(),
-                        new InMemoryGovernanceEmployeeDirectory()),
-                Clock.fixed(Instant.parse("2026-07-26T06:00:00Z"), ZoneOffset.UTC));
+        var fixture = GovernanceTestFixture.batchFieldClosure();
+        var started = fixture.validStartedTask();
+        var service = fixture.executionService();
         mockMvc = standaloneSetup(new GovernanceExecutionController(service))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
@@ -61,6 +41,9 @@ class GovernanceExecutionControllerTest {
                 .findFirst().orElseThrow();
         itemId = item.id();
         assetVersion = item.assetVersion();
+        var second = service.items(taskId).get(1).item();
+        secondItemId = second.id();
+        secondAssetVersion = second.assetVersion();
     }
 
     @Test
@@ -112,5 +95,34 @@ class GovernanceExecutionControllerTest {
                                 + ",\"proposedValue\":null,\"actorUserId\":\"emp-chen\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("validation_error"));
+    }
+
+    @Test
+    void executesBatchAndReturnsIndependentItemOutcomes() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/results/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idempotencyKey\":\"api-batch-001\",\"commands\":["
+                                + "{\"itemId\":" + itemId + ",\"itemVersion\":0,\"assetVersion\":" + assetVersion
+                                + ",\"targetField\":\"DESCRIPTION\",\"standardVersion\":3,\"scopeFingerprint\":\"scope-a\","
+                                + "\"proposedValue\":{\"description\":\"标准说明\"},\"actorUserId\":\"emp-chen\"},"
+                                + "{\"itemId\":" + secondItemId + ",\"itemVersion\":0,\"assetVersion\":" + secondAssetVersion
+                                + ",\"targetField\":\"DESCRIPTION\",\"standardVersion\":3,\"scopeFingerprint\":\"scope-a\","
+                                + "\"proposedValue\":{\"description\":\" \"},\"actorUserId\":\"emp-chen\"}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].outcome").value("SUCCESS"))
+                .andExpect(jsonPath("$.results[1].outcome").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    void mapsNullBatchElementToIndependentValidationFailure() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/results/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idempotencyKey\":\"api-null-item\",\"commands\":[null,"
+                                + "{\"itemId\":" + itemId + ",\"itemVersion\":0,\"assetVersion\":" + assetVersion
+                                + ",\"targetField\":\"DESCRIPTION\",\"standardVersion\":3,\"scopeFingerprint\":\"scope-a\","
+                                + "\"proposedValue\":{\"description\":\"标准说明\"},\"actorUserId\":\"emp-chen\"}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.results[0].outcome").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.results[1].outcome").value("SUCCESS"));
     }
 }

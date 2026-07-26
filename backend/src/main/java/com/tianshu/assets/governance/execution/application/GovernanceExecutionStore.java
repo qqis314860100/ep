@@ -1,6 +1,7 @@
 package com.tianshu.assets.governance.execution.application;
 
 import com.tianshu.assets.governance.execution.domain.GovernanceItem;
+import com.tianshu.assets.governance.execution.domain.GovernanceItemStatus;
 import com.tianshu.assets.governance.execution.domain.GovernanceResultVersion;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import java.time.Instant;
@@ -18,6 +19,8 @@ public interface GovernanceExecutionStore {
     GovernanceResultVersion saveDraft(SaveDraft command);
 
     GovernanceResultVersion submit(Submit command);
+
+    GovernanceItem updateItemStatus(long itemId, GovernanceItemStatus status, String reason);
 
     record SaveDraft(
             long itemId,
