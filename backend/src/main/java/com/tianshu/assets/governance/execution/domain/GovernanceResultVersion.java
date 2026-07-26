@@ -15,6 +15,7 @@ public record GovernanceResultVersion(
         long standardVersion,
         Map<String, Long> dictionaryVersions,
         GovernanceResultStatus status,
+        String reworkReason,
         String actorUserId,
         Instant savedAt,
         Instant submittedAt,
@@ -29,6 +30,7 @@ public record GovernanceResultVersion(
             throw new IllegalArgumentException("治理结果版本不合法");
         }
         dictionaryVersions = dictionaryVersions == null ? Map.of() : Map.copyOf(dictionaryVersions);
+        reworkReason = reworkReason == null ? "" : reworkReason;
         if (actorUserId == null || actorUserId.isBlank() || savedAt == null) {
             throw new IllegalArgumentException("治理结果操作信息不能为空");
         }

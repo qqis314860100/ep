@@ -45,6 +45,14 @@ public class InMemoryGovernanceExecutionStore implements GovernanceExecutionStor
     }
 
     @Override
+    public synchronized List<GovernanceResultVersion> resultsForItem(long itemId) {
+        return results.values().stream()
+                .filter(result -> result.itemId() == itemId)
+                .sorted(Comparator.comparingInt(GovernanceResultVersion::resultVersion))
+                .toList();
+    }
+
+    @Override
     public synchronized GovernanceResultVersion saveDraft(SaveDraft command) {
         var item = item(command.itemId());
         requireItemVersion(item, command.expectedItemVersion());
@@ -60,12 +68,12 @@ public class InMemoryGovernanceExecutionStore implements GovernanceExecutionStor
                         nextResultId.getAndIncrement(), item.id(), item.governanceRound(), 1,
                         command.field(), command.originalValueJson(), command.proposedValueJson(),
                         command.standardVersion(), command.dictionaryVersions(), GovernanceResultStatus.DRAFT,
-                        command.actorUserId(), command.savedAt(), null, 0)
+                        "", command.actorUserId(), command.savedAt(), null, 0)
                 : new GovernanceResultVersion(
                         current.id(), current.itemId(), current.governanceRound(), current.resultVersion(),
                         current.field(), current.originalValueJson(), command.proposedValueJson(),
                         current.standardVersion(), current.dictionaryVersions(), GovernanceResultStatus.DRAFT,
-                        command.actorUserId(), command.savedAt(), null, current.version() + 1);
+                        current.reworkReason(), command.actorUserId(), command.savedAt(), null, current.version() + 1);
         results.put(saved.id(), saved);
         changedItems.put(item.id(), copyItem(
                 item, GovernanceItemStatus.PROCESSING, item.version() + 1, saved.id()));
@@ -90,11 +98,44 @@ public class InMemoryGovernanceExecutionStore implements GovernanceExecutionStor
                 current.id(), current.itemId(), current.governanceRound(), current.resultVersion(),
                 current.field(), current.originalValueJson(), current.proposedValueJson(),
                 current.standardVersion(), current.dictionaryVersions(), GovernanceResultStatus.SUBMITTED,
-                command.actorUserId(), current.savedAt(), command.submittedAt(), current.version() + 1);
+                current.reworkReason(), command.actorUserId(), current.savedAt(), command.submittedAt(),
+                current.version() + 1);
         results.put(submitted.id(), submitted);
         changedItems.put(item.id(), copyItem(
                 item, GovernanceItemStatus.SUBMITTED, item.version() + 1, submitted.id()));
         return submitted;
+    }
+
+    @Override
+    public synchronized GovernanceResultVersion openRework(OpenRework command) {
+        var item = item(command.itemId());
+        requireItemVersion(item, command.expectedItemVersion());
+        if (item.status() != GovernanceItemStatus.REWORK_REQUIRED) {
+            throw new GovernanceConflictException("只有待返工治理项可以开启新轮次");
+        }
+        var current = currentResult(item.id());
+        if (current == null || current.status() != GovernanceResultStatus.SUBMITTED) {
+            throw new GovernanceConflictException("待返工治理项缺少已提交结果");
+        }
+        var superseded = new GovernanceResultVersion(
+                current.id(), current.itemId(), current.governanceRound(), current.resultVersion(),
+                current.field(), current.originalValueJson(), current.proposedValueJson(),
+                current.standardVersion(), current.dictionaryVersions(), GovernanceResultStatus.SUPERSEDED,
+                current.reworkReason(), current.actorUserId(), current.savedAt(), current.submittedAt(),
+                current.version() + 1);
+        results.put(superseded.id(), superseded);
+        var draft = new GovernanceResultVersion(
+                nextResultId.getAndIncrement(), item.id(), command.governanceRound(),
+                current.resultVersion() + 1, current.field(), current.originalValueJson(),
+                current.proposedValueJson(), current.standardVersion(), current.dictionaryVersions(),
+                GovernanceResultStatus.DRAFT, command.reason(), command.actorUserId(), command.openedAt(), null, 0);
+        results.put(draft.id(), draft);
+        changedItems.put(item.id(), new GovernanceItem(
+                item.id(), item.taskId(), item.planId(), item.issueId(), item.assetId(), item.targetField(),
+                item.actionType(), item.responsibleUserId(), GovernanceItemStatus.PROCESSING,
+                item.assetVersion(), command.governanceRound(), item.scopeFingerprint(), item.version() + 1,
+                draft.id(), null, item.reworkSourceItemId() == null ? item.id() : item.reworkSourceItemId()));
+        return draft;
     }
 
     @Override

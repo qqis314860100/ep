@@ -16,9 +16,13 @@ public interface GovernanceExecutionStore {
 
     GovernanceResultVersion currentResult(long itemId);
 
+    List<GovernanceResultVersion> resultsForItem(long itemId);
+
     GovernanceResultVersion saveDraft(SaveDraft command);
 
     GovernanceResultVersion submit(Submit command);
+
+    GovernanceResultVersion openRework(OpenRework command);
 
     GovernanceItem updateItemStatus(long itemId, GovernanceItemStatus status, String reason);
 
@@ -46,4 +50,12 @@ public interface GovernanceExecutionStore {
             long expectedResultVersion,
             String actorUserId,
             Instant submittedAt) {}
+
+    record OpenRework(
+            long itemId,
+            long expectedItemVersion,
+            int governanceRound,
+            String reason,
+            String actorUserId,
+            Instant openedAt) {}
 }

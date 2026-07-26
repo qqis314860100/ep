@@ -15,9 +15,11 @@ import java.util.concurrent.atomic.AtomicLong;
 public class InMemoryGovernanceAcceptanceStore implements GovernanceAcceptanceStore {
 
     private final Map<Long, GovernanceAcceptanceRound> rounds = new LinkedHashMap<>();
+    private final Map<Long, ApplicationJobRequest> applicationJobs = new LinkedHashMap<>();
     private final AtomicLong nextRoundId = new AtomicLong(1);
     private final AtomicLong nextMetricId = new AtomicLong(1);
     private final AtomicLong nextSampleId = new AtomicLong(1);
+    private final AtomicLong nextJobId = new AtomicLong(1);
 
     @Override
     public synchronized Optional<GovernanceAcceptanceRound> currentRound(long taskId) {
@@ -66,5 +68,28 @@ public class InMemoryGovernanceAcceptanceStore implements GovernanceAcceptanceSt
                 requested.completedAt(), expectedVersion + 1);
         rounds.put(updated.id(), updated);
         return updated;
+    }
+
+    @Override
+    public synchronized ApplicationJobRequest createApplicationJob(
+            long taskId,
+            long acceptanceRoundId,
+            Map<Long, Long> resultVersionIds,
+            String requestedBy,
+            java.time.Instant requestedAt) {
+        var existing = applicationJobs.values().stream()
+                .filter(job -> job.acceptanceRoundId() == acceptanceRoundId)
+                .findFirst();
+        if (existing.isPresent()) return existing.orElseThrow();
+        var created = new ApplicationJobRequest(
+                nextJobId.getAndIncrement(), taskId, acceptanceRoundId,
+                resultVersionIds, requestedBy, requestedAt);
+        applicationJobs.put(created.id(), created);
+        return created;
+    }
+
+    @Override
+    public synchronized Optional<ApplicationJobRequest> applicationJob(long jobId) {
+        return Optional.ofNullable(applicationJobs.get(jobId));
     }
 }

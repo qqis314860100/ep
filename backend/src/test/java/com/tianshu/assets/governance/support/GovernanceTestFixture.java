@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.governance.acceptance.application.GovernanceQualityService;
+import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptanceService;
 import com.tianshu.assets.governance.acceptance.application.GovernanceQualityService.QualityFact;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceQualityMetric;
@@ -37,6 +38,7 @@ import com.tianshu.assets.governance.issue.domain.GovernanceIssueStatus;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.CreatePlanCommand;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStartService;
+import com.tianshu.assets.governance.task.application.GovernanceReworkService;
 import com.tianshu.assets.governance.task.domain.GovernancePlan;
 import com.tianshu.assets.governance.task.domain.GovernanceRuleSnapshot;
 import com.tianshu.assets.governance.task.domain.GovernanceTask;
@@ -60,6 +62,8 @@ public final class GovernanceTestFixture {
     private final InMemoryAssetResponsibilityAdapter responsibilityAdapter;
     private final GovernanceConfirmationService confirmationService;
     private final GovernanceQualityService qualityService;
+    private final GovernanceAcceptanceService acceptanceService;
+    private final GovernanceReworkService reworkService;
     private GovernanceTask draft;
     private InMemoryGovernanceExecutionStore executionStore;
     private InMemoryAssetRepository assetRepository;
@@ -104,6 +108,12 @@ public final class GovernanceTestFixture {
         qualityService = new GovernanceQualityService(
                 acceptanceStore,
                 Clock.fixed(Instant.parse("2026-07-26T08:00:00Z"), ZoneOffset.UTC));
+        acceptanceService = new GovernanceAcceptanceService(
+                acceptanceStore, executionStore, taskStore,
+                Clock.fixed(Instant.parse("2026-07-26T09:00:00Z"), ZoneOffset.UTC));
+        reworkService = new GovernanceReworkService(
+                taskStore, executionStore,
+                Clock.fixed(Instant.parse("2026-07-26T10:00:00Z"), ZoneOffset.UTC));
     }
 
     public static GovernanceTestFixture fieldClosure() {
@@ -199,6 +209,18 @@ public final class GovernanceTestFixture {
         return qualityService;
     }
 
+    public GovernanceAcceptanceService acceptanceService() {
+        return acceptanceService;
+    }
+
+    public GovernanceReworkService reworkService() {
+        return reworkService;
+    }
+
+    public InMemoryGovernanceAcceptanceStore acceptanceStore() {
+        return acceptanceStore;
+    }
+
     public GovernanceQualityPolicySnapshot policyAllowingNotApplicable() {
         return new GovernanceQualityPolicySnapshot(
                 1, "FIELD-QUALITY", 2,
@@ -230,6 +252,44 @@ public final class GovernanceTestFixture {
         }).toList();
         return qualityService.openRound(
                 task.id(), task.currentRound(), policyAllowingNotApplicable(), facts);
+    }
+
+    public GovernanceAcceptanceRound pendingAcceptance() {
+        return openAcceptanceRound();
+    }
+
+    public GovernanceAcceptanceRound failMetric(
+            long roundId, GovernanceQualityMetric metric, List<Long> itemIds) {
+        var round = acceptanceStore.round(roundId);
+        var metrics = round.metricResults().stream().map(result ->
+                result.metric() == metric
+                        ? new com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceMetricResult(
+                                result.id(), result.roundId(), result.metric(),
+                                Math.max(0, result.denominator() - itemIds.size()), result.denominator(),
+                                result.denominator() == 0 ? null
+                                        : (double) Math.max(0, result.denominator() - itemIds.size())
+                                                / result.denominator(),
+                                result.threshold(), result.applicability(), false, itemIds,
+                                result.version() + 1)
+                        : result).toList();
+        return acceptanceStore.updateRound(new GovernanceAcceptanceRound(
+                round.id(), round.taskId(), round.governanceRound(), round.policy(), metrics, round.samples(),
+                round.status(), round.createdAt(), round.completedAt(), round.version()), round.version());
+    }
+
+    public void passAllSamples(long roundId) {
+        var round = acceptanceStore.round(roundId);
+        round.samples().forEach(sample -> qualityService.saveSample(
+                roundId, sample.itemId(), true, "", "qa-1", sample.version()));
+    }
+
+    public GovernanceTask reworkRequiredTask() {
+        var round = pendingAcceptance();
+        var affected = executionStore.items(round.taskId()).get(1).id();
+        passAllSamples(round.id());
+        round = failMetric(round.id(), GovernanceQualityMetric.OWNER_COVERAGE, List.of(affected));
+        acceptanceService.complete(round.taskId(), round.id(), round.version(), "qa-1");
+        return taskStore.findById(round.taskId()).orElseThrow();
     }
 
     public List<GovernanceItem> batchItems() {

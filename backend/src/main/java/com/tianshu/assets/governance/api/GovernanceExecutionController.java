@@ -140,6 +140,7 @@ public class GovernanceExecutionController {
             long standardVersion,
             Map<String, Long> dictionaryVersions,
             GovernanceResultStatus status,
+            String reworkReason,
             String actorUserId,
             Instant savedAt,
             Instant submittedAt,
@@ -149,7 +150,8 @@ public class GovernanceExecutionController {
                     result.id(), result.itemId(), result.governanceRound(), result.resultVersion(),
                     result.field().name(), result.originalValueJson(), proposedValue,
                     result.standardVersion(), result.dictionaryVersions(), result.status(),
-                    result.actorUserId(), result.savedAt(), result.submittedAt(), result.version());
+                    result.reworkReason(), result.actorUserId(), result.savedAt(),
+                    result.submittedAt(), result.version());
         }
     }
 

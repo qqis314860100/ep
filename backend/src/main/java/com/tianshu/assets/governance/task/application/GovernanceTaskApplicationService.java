@@ -124,11 +124,17 @@ public class GovernanceTaskApplicationService {
                 throw new GovernanceTaskStateException("只有进行中的治理任务可以提交确认");
             }
             var items = requireExecutionStore().items(taskId);
-            if (items.isEmpty() || items.stream().anyMatch(
-                    item -> item.status() != GovernanceItemStatus.SUBMITTED)) {
+            var currentRoundItems = items.stream()
+                    .filter(item -> item.governanceRound() == task.currentRound())
+                    .toList();
+            if (currentRoundItems.isEmpty()
+                    || currentRoundItems.stream().anyMatch(
+                            item -> item.status() != GovernanceItemStatus.SUBMITTED)
+                    || items.stream().filter(item -> item.governanceRound() < task.currentRound())
+                            .anyMatch(item -> item.status() != GovernanceItemStatus.CONFIRMED)) {
                 throw new GovernanceValidationException("仍有阻塞或未提交治理项");
             }
-            var resultVersionIds = items.stream().collect(
+            var resultVersionIds = currentRoundItems.stream().collect(
                     java.util.stream.Collectors.toMap(
                             GovernanceItem::id,
                             item -> requireSubmittedResultId(item.id()),
