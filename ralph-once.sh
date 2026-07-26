@@ -34,7 +34,7 @@ EOF
 codex exec \
   --cd "$(pwd)" \
   --sandbox danger-full-access \
-  --config 'model_reasoning_effort="medium"' \
+  --config 'model_reasoning_effort="low"' \
   --output-last-message "${LAST_MESSAGE_FILE}" \
   "${PROMPT}"
 
