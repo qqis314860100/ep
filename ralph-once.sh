@@ -17,12 +17,13 @@ PROMPT=$(cat <<'EOF'
 1. 阅读 AGENTS.md、计划中“下一任务”的完整章节和进度文件；仅按顺序完成进度文件中的下一项 Task。
 2. Task 1-8 已完成并已提交，不得重复实现、改写或重新评审。
 3. 用户明确要求控制 Token：不要调用任何 Superpowers 技能，不要创建子代理，不要做独立规格评审或质量评审；Ralph 已提供本轮所需执行流程，直接实现。
-4. 本轮只完成一个 Task。先做该 Task 的最小相关验证，再按 AGENTS.md 扩大必要验证。
-5. 使用 rtk 执行 Git、Maven、pnpm、构建和测试；前端只使用 pnpm。不要连接生产数据库。
-6. 验证失败时停止，不提交，不继续其他 Task，并在最后消息中说明失败原因。
-7. 验证通过后更新 data-governance-progress.md：勾选完成项、记录验证结果、把下一 Task 移到“下一任务”；提交号以 Git 历史为准。
-8. 将本轮 Task 的代码和进度记录合并为且仅为一个符合仓库规则的中文 Conventional Commit；不要提交生成物或无关文件。
-9. 提交后确认工作树干净。只有 Task 17 已完成且最终验证通过时，最后消息才可包含独占一行的 <promise>COMPLETE</promise>。
+4. 控制上下文：用 rg 定位后只读取最小文件区间；不要展示完整文件；验证前不要反复运行或输出 git diff，验证后只检查一次当前 Task 的相关 diff 和 diff --check。
+5. 本轮只完成一个 Task。先做该 Task 的最小相关验证，再按 AGENTS.md 扩大必要验证。
+6. 使用 rtk 执行 Git、Maven、pnpm、构建和测试；前端只使用 pnpm。不要连接生产数据库。
+7. 验证失败时停止，不提交，不继续其他 Task，并在最后消息中说明失败原因。
+8. 验证通过后更新 data-governance-progress.md：勾选完成项、记录验证结果、把下一 Task 移到“下一任务”；提交号以 Git 历史为准。
+9. 将本轮 Task 的代码和进度记录合并为且仅为一个符合仓库规则的中文 Conventional Commit；不要提交生成物或无关文件。
+10. 提交后确认工作树干净。只有 Task 17 已完成且最终验证通过时，最后消息才可包含独占一行的 <promise>COMPLETE</promise>。
 
 ONLY DO ONE TASK AT A TIME.
 DO NOT COMMIT BEFORE VERIFICATION PASSES.
@@ -33,6 +34,7 @@ EOF
 codex exec \
   --cd "$(pwd)" \
   --sandbox danger-full-access \
+  --config 'model_reasoning_effort="medium"' \
   --output-last-message "${LAST_MESSAGE_FILE}" \
   "${PROMPT}"
 
