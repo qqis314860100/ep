@@ -3,6 +3,7 @@ package com.tianshu.assets.governance.api;
 import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptanceService;
 import com.tianshu.assets.governance.application.GovernanceAuthorizationService;
 import com.tianshu.assets.governance.acceptance.application.GovernanceQualityService;
+import com.tianshu.assets.governance.acceptance.application.GovernanceAcceptancePreparationService;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceRound;
 import com.tianshu.assets.governance.acceptance.domain.GovernanceAcceptanceSample;
 import com.tianshu.assets.governance.task.application.GovernanceReworkService;
@@ -30,12 +31,13 @@ public class GovernanceAcceptanceController {
     private final GovernanceQualityService qualityService;
     private final GovernanceReworkService reworkService;
     private final GovernanceAuthorizationService authorizationService;
+    private final GovernanceAcceptancePreparationService preparationService;
 
     public GovernanceAcceptanceController(
             GovernanceAcceptanceService acceptanceService,
             GovernanceQualityService qualityService,
             GovernanceReworkService reworkService) {
-        this(acceptanceService, qualityService, reworkService, null);
+        this(acceptanceService, qualityService, reworkService, null, null);
     }
 
     @Autowired
@@ -43,11 +45,13 @@ public class GovernanceAcceptanceController {
             GovernanceAcceptanceService acceptanceService,
             GovernanceQualityService qualityService,
             GovernanceReworkService reworkService,
-            GovernanceAuthorizationService authorizationService) {
+            GovernanceAuthorizationService authorizationService,
+            GovernanceAcceptancePreparationService preparationService) {
         this.acceptanceService = acceptanceService;
         this.qualityService = qualityService;
         this.reworkService = reworkService;
         this.authorizationService = authorizationService;
+        this.preparationService = preparationService;
     }
 
     @GetMapping("/tasks/{taskId}/acceptance-rounds/current")
@@ -55,7 +59,9 @@ public class GovernanceAcceptanceController {
             @PathVariable long taskId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         authorizeAcceptance(roles);
-        return acceptanceService.current(taskId);
+        return preparationService == null
+                ? acceptanceService.current(taskId)
+                : preparationService.currentOrOpen(taskId);
     }
 
     @PutMapping("/acceptance-rounds/{roundId}/samples/{itemId}")

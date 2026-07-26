@@ -11,15 +11,15 @@ import java.util.List;
 @Configuration
 public class WebConfiguration implements WebMvcConfigurer {
 
-    private static final List<String> ORIGINS = List.of(
-            "http://localhost:5173", "http://127.0.0.1:5173");
+    private static final List<String> ORIGIN_PATTERNS = List.of(
+            "http://localhost:*", "http://127.0.0.1:*");
     private static final List<String> METHODS = List.of(
             "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(ORIGINS.toArray(String[]::new))
+                .allowedOriginPatterns(ORIGIN_PATTERNS.toArray(String[]::new))
                 .allowedMethods(METHODS.toArray(String[]::new))
                 .allowedHeaders("*")
                 .allowCredentials(true);
@@ -27,7 +27,7 @@ public class WebConfiguration implements WebMvcConfigurer {
 
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         var configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(ORIGINS);
+        configuration.setAllowedOriginPatterns(ORIGIN_PATTERNS);
         configuration.setAllowedMethods(METHODS);
         configuration.addAllowedHeader("*");
         configuration.setAllowCredentials(true);

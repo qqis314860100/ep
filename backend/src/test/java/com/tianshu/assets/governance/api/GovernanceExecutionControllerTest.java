@@ -66,6 +66,11 @@ class GovernanceExecutionControllerTest {
                 .andReturn().getResponse().getContentAsString();
         var result = new ObjectMapper().readTree(saved);
 
+        mockMvc.perform(get("/api/v1/governance/tasks/{taskId}/items", taskId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].currentResult.proposedValue.description").value("标准说明"))
+                .andExpect(jsonPath("$[0].currentResult.proposedValueJson").doesNotExist());
+
         mockMvc.perform(post("/api/v1/governance/items/{itemId}/submit", itemId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"resultVersionId\":" + result.get("id").asLong()

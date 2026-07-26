@@ -63,7 +63,7 @@ public class GovernanceExecutionController {
             @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         authorizeTask(taskId, userId, roles);
-        return service.items(taskId).stream().map(ItemExecutionResponse::from).toList();
+        return service.items(taskId).stream().map(this::itemExecutionResponse).toList();
     }
 
     @PutMapping("/items/{itemId}/result-draft")
@@ -115,6 +115,15 @@ public class GovernanceExecutionController {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("已保存的治理结果 JSON 无法解析", exception);
         }
+    }
+
+    private ItemExecutionResponse itemExecutionResponse(
+            GovernanceExecutionService.ItemExecutionContext context) {
+        return new ItemExecutionResponse(
+                context.item(),
+                context.currentResult() == null ? null : resultResponse(context.currentResult()),
+                context.originalFactJson(), context.ruleSnapshot(),
+                context.blockReason(), context.reworkSourceItemId());
     }
 
     public record SaveResultDraftRequest(
@@ -191,15 +200,9 @@ public class GovernanceExecutionController {
 
     public record ItemExecutionResponse(
             GovernanceItem item,
-            GovernanceResultVersion currentResult,
+            GovernanceResultResponse currentResult,
             String originalFactJson,
             GovernanceRuleSnapshot ruleContext,
             String blockReason,
-            Long reworkSourceItemId) {
-        static ItemExecutionResponse from(GovernanceExecutionService.ItemExecutionContext context) {
-            return new ItemExecutionResponse(
-                    context.item(), context.currentResult(), context.originalFactJson(), context.ruleSnapshot(),
-                    context.blockReason(), context.reworkSourceItemId());
-        }
-    }
+            Long reworkSourceItemId) {}
 }

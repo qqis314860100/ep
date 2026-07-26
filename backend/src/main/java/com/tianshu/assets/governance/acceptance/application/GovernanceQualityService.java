@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,7 @@ public class GovernanceQualityService {
     private final GovernanceAcceptanceStore store;
     private final Clock clock;
 
+    @Autowired
     public GovernanceQualityService(GovernanceAcceptanceStore store) {
         this(store, Clock.systemUTC());
     }

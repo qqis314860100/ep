@@ -102,7 +102,10 @@ public class GovernanceStoreConfiguration {
             havingValue = "false",
             matchIfMissing = true)
     AssetResponsibilityPort inMemoryAssetResponsibilityAdapter() {
-        return new InMemoryAssetResponsibilityAdapter();
+        var adapter = new InMemoryAssetResponsibilityAdapter();
+        adapter.assign(101, "emp-li", "标准化小组");
+        adapter.assign(102, "emp-li", "标准化小组");
+        return adapter;
     }
 
     @Bean

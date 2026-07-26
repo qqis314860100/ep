@@ -78,7 +78,7 @@ class GovernanceClosedLoopApiTest {
     @Test
     void corsAllowsPutForGovernanceCommands() throws Exception {
         mockMvc.perform(options("/api/v1/governance/items/{itemId}/result-draft", itemId)
-                        .header("Origin", "http://127.0.0.1:5173")
+                        .header("Origin", "http://127.0.0.1:5174")
                         .header("Access-Control-Request-Method", "PUT"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Methods",
