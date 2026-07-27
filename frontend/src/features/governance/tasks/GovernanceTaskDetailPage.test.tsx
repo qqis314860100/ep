@@ -62,4 +62,37 @@ describe('GovernanceTaskDetailPage', () => {
     expect(await screen.findByText('历史任务只读')).toBeVisible()
     expect(screen.queryByRole('button', { name: '进入确认' })).not.toBeInTheDocument()
   })
+
+  it('switches from the existing table to the Gantt view without changing data', async () => {
+    const user = userEvent.setup()
+    vi.mocked(governanceApi.getGovernancePlans).mockResolvedValue([
+      { id: 1, taskId: 9, title: '字段清洗', status: 'IN_PROGRESS', plannedStart: '2026-07-27', plannedEnd: '2026-07-29', plannedQuantity: 4, completedQuantity: 2, quantityUnit: '字段', responsibleUserId: 'owner-1', dependencyIds: [] },
+    ])
+    vi.mocked(governanceApi.getGovernanceEmployees).mockResolvedValue([
+      { id: 'owner-1', name: '王工', department: '数据部', source: 'dev' },
+    ])
+    renderPage()
+
+    expect(await screen.findByRole('columnheader', { name: '计划项' })).toBeVisible()
+    await user.click(screen.getByText('甘特图'))
+
+    expect(screen.getByRole('img', { name: /字段清洗.*50%/ })).toBeVisible()
+    expect(screen.queryByRole('columnheader', { name: '计划项' })).not.toBeInTheDocument()
+  })
+
+  it('shows a plan loading failure instead of an empty plan state', async () => {
+    vi.mocked(governanceApi.getGovernancePlans).mockRejectedValue(new Error('计划服务不可用'))
+    renderPage()
+
+    expect(await screen.findByText('计划服务不可用')).toBeVisible()
+    expect(screen.queryByText('尚未编排计划项')).not.toBeInTheDocument()
+  })
+
+  it('keeps plan editing locked after the task starts', async () => {
+    vi.mocked(governanceApi.getGovernanceTask).mockResolvedValue({ id: 9, name: '字段治理', scope: '问题池选择', owner: '王工', total: 1, completed: 0, dueDate: '2026-08-10', status: 'IN_PROGRESS', editable: false })
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: '编辑计划' })).toBeDisabled()
+    expect(screen.getByText('任务启动后计划已锁定')).toBeVisible()
+  })
 })

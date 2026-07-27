@@ -35,6 +35,15 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
     <Section><Typography.Title level={4}>自动阶段进度</Typography.Title><GovernanceProgressStrip progress={task.progress} legacyCompleted={task.completed} legacyTotal={task.total} /></Section>
     <Section><Typography.Title level={4}>范围快照</Typography.Title><Typography.Paragraph code style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(task.scopeSnapshot ?? {}, null, 2)}</Typography.Paragraph></Section>
     <Section><Typography.Title level={4}>问题集合（只读）</Typography.Title><Table rowKey="id" size="small" columns={issueColumns} dataSource={issuesQuery.data ?? []} loading={issuesQuery.isLoading} pagination={false} /></Section>
-    <Section><Typography.Title level={4}>计划依赖与责任</Typography.Title><GovernancePlanEditor taskId={taskId} plans={plansQuery.data ?? []} issues={issuesQuery.data ?? []} employees={employeesQuery.data ?? []} editable={editable} /></Section>
+    <Section><Typography.Title level={4}>计划依赖与责任</Typography.Title><GovernancePlanEditor
+      taskId={taskId}
+      plans={plansQuery.data ?? []}
+      issues={issuesQuery.data ?? []}
+      employees={employeesQuery.data ?? []}
+      editable={editable}
+      taskStatus={task.status}
+      loading={plansQuery.isLoading}
+      error={plansQuery.error instanceof Error ? plansQuery.error.message : undefined}
+    /></Section>
   </article>
 }
