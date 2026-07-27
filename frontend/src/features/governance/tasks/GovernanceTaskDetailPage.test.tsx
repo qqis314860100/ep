@@ -53,4 +53,13 @@ describe('GovernanceTaskDetailPage', () => {
 
     expect(governanceApi.openGovernanceRework).toHaveBeenCalledWith(9, { taskVersion: 3, reason: '业务确认退回', actorUserId: 'demo-user' })
   })
+
+  it('does not offer closed-loop confirmation for a legacy progress task', async () => {
+    vi.mocked(governanceApi.getGovernanceTask).mockResolvedValue({ id: 9, name: '历史专业类别标准化', scope: '机械、电气自由文本', owner: '李工', total: 421, completed: 421, dueDate: '2026-07-31', status: 'PENDING_CONFIRMATION', workflowVersion: 'LEGACY_PROGRESS', editable: false })
+
+    renderPage()
+
+    expect(await screen.findByText('历史任务只读')).toBeVisible()
+    expect(screen.queryByRole('button', { name: '进入确认' })).not.toBeInTheDocument()
+  })
 })
