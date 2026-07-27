@@ -16,7 +16,7 @@ export type GovernanceItemStatus =
   | 'REWORK_REQUIRED'
 
 export type GovernanceField = 'DESCRIPTION' | 'SPECIALTIES' | 'OWNER' | 'SCOPE'
-export type GovernancePlanStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
+export type GovernancePlanStatus = 'TODO' | 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
 export type GovernanceIssueStatus = 'OPEN' | 'CLAIMED' | 'RESOLVED'
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
 
