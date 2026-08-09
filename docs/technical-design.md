@@ -67,6 +67,7 @@ pages/
 - `POST/DELETE /api/v1/assets/{id}/favorite`：幂等添加或取消当前用户收藏。
 - `GET /api/v1/governance/tasks`：查询治理任务及进度。
 - `POST /api/v1/governance/tasks`：创建治理任务，初始状态为草稿。
+- `GET /api/v1/governance/tasks/{taskId}/plans`：返回 `{ plan, status, completedQuantity }[]` 权威计划投影；`status` 和 `completedQuantity` 来自治理项聚合并覆盖计划基线中的同名展示值，任务详情与甘特图必须复用这一事实来源。
 - `GET /api/v1/governance/issues`：查询字段问题池；任务只接受开放问题 ID 建单。
 - `GET /api/v1/governance/tasks/{taskId}/confirmation-rounds/current`、`PUT /api/v1/governance/confirmation-rounds/{roundId}/items/{itemId}/decision`、`POST /api/v1/governance/tasks/{taskId}/confirmation-rounds/{roundId}/complete`：逐项保存并完成业务确认轮次。
 - `GET /api/v1/governance/tasks/{taskId}/acceptance-rounds/current`、`PUT /api/v1/governance/acceptance-rounds/{roundId}/samples/{itemId}`、`POST /api/v1/governance/tasks/{taskId}/acceptance-rounds/{roundId}/complete`：读取固定指标与抽样、保存抽样决定并完成验收。
@@ -76,6 +77,8 @@ pages/
 - `PATCH /api/v1/governance/tasks/{taskId}/status`：计划完整后将草稿任务启动为进行中并锁定计划结构。
 - `PATCH /api/v1/governance/tasks/{taskId}/plans/{planId}`：仅允许进行中任务更新计划执行状态。
 - `PATCH /api/v1/governance/tasks/{taskId}/progress`：仅允许进行中任务更新完成量。
+
+当前治理 API 只覆盖问题资产的字段闭环。员工系统组织同步、部门资料征集、办公软件提醒和 RAGFlow 交付属于后续独立边界；接入时以平台任务、资产版本和权限为权威事实，外部系统不得维护可覆盖平台状态的副本。
 - `GET /api/v1/equipment-interconnections`：按设备编码、基地和拉线查询设备互联数据。
 - `GET /api/v1/uploads/mine`：按当前用户查询本人上传资产，可按状态筛选。
 - `POST /api/v1/uploads/files`：上传单个文件，返回临时对象键、大小和 SHA-256 摘要。
@@ -134,6 +137,7 @@ pages/
 - 收藏、评论、点赞和操作日志继续关联稳定资产 ID；孤立记录进入异常清单，不通过删除数据解决。
 - 正式切换采用“结构扩展 -> 只读核对 -> 小范围双读 -> 全量切换”的顺序，并准备只切回旧读链路的回退方案。
 - 字段正式应用只写资产扩展值并使用结果版本与资产版本保证幂等；验收通过前不得写入。后续映射治理、文件拆分合并和复杂治理动作不属于当前字段闭环切片。
+- 面向 RAGFlow 的后续适配器必须消费已标准化资产和不可变文件版本，记录解析、切片、索引、撤回与重建作业；RAG 索引状态不得反向覆盖资产生命周期或治理验收结果。
 - 扩展表首先承接平台范围、模块标签、模块超链接、设备互联、文件清单和审计事件；旧收藏、评论、点赞和操作日志先保持原表读取，迁移报告逐项核对后再切换。
 - 当前开发 profile 的评论与点赞状态用于验证接口和交互；生产切换时必须将同一契约适配到既有 `sys_drawing_comment`、`sys_drawing_comment_like` 和 `comment_img` 字段，完成用户工号映射和对象存储适配后才能启用写入。
 - `local` profile 已使用既有评论、点赞和收藏表持久化协作数据；开发文件内容保存到被 Git 忽略的 `.data/files`，数据库仅保存文件键和摘要。
