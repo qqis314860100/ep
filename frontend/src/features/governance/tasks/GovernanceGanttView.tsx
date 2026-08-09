@@ -1,8 +1,7 @@
 import { Alert, Empty, Typography } from 'antd'
 import styled from 'styled-components'
-import type { GovernanceEmployee, GovernancePlan, GovernanceProgress, GovernanceTaskStatus } from '../types'
+import type { GovernanceEmployee, GovernancePlan } from '../types'
 import { GovernanceDependencyLayer, GANTT_DAY_WIDTH, GANTT_ROW_HEIGHT } from './GovernanceDependencyLayer'
-import { GovernanceMilestoneStrip } from './GovernanceMilestoneStrip'
 import { buildGanttModel, type GanttRowState } from './governanceGanttModel'
 
 const INFO_WIDTH = 260
@@ -176,31 +175,21 @@ function localToday(): string {
   return `${year}-${month}-${day}`
 }
 
-export function GovernanceGanttView({ plans, employees, taskStatus, workflowVersion, progress, currentRound, legacyCompleted = 0, legacyTotal = 0, today = localToday() }: {
+export function GovernanceGanttView({ plans, employees, today = localToday() }: {
   plans: GovernancePlan[]
   employees: GovernanceEmployee[]
-  taskStatus: GovernanceTaskStatus
-  workflowVersion?: string
-  progress?: GovernanceProgress | null
-  currentRound?: number
-  legacyCompleted?: number
-  legacyTotal?: number
   today?: string
 }) {
   const model = buildGanttModel(plans, today)
   const employeeById = new Map(employees.map(employee => [employee.id, employee.name]))
 
   if (plans.length === 0) {
-    return <Root>
-      <GovernanceMilestoneStrip status={taskStatus} workflowVersion={workflowVersion} progress={progress} currentRound={currentRound} completed={legacyCompleted} total={legacyTotal} />
-      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未编排计划项" />
-    </Root>
+    return <Root><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未编排计划项" /></Root>
   }
 
   const timelineWidth = model.range.totalDays * GANTT_DAY_WIDTH
 
   return <Root>
-    <GovernanceMilestoneStrip status={taskStatus} workflowVersion={workflowVersion} progress={progress} currentRound={currentRound} completed={legacyCompleted} total={legacyTotal} />
     {model.invalidPlans.length > 0 && <Notices>
       <Alert
         type="warning"

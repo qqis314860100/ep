@@ -5,30 +5,25 @@ import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useState } from 'react'
 import { createGovernancePlan } from '../api'
-import type { CreateGovernancePlanInput, GovernanceEmployee, GovernanceIssue, GovernancePlan, GovernanceProgress, GovernanceTaskStatus } from '../types'
+import type { CreateGovernancePlanInput, GovernanceEmployee, GovernanceIssue, GovernancePlan, GovernanceTaskStatus } from '../types'
 import { GovernanceGanttView } from './GovernanceGanttView'
 
 type PlanFormValues = Omit<CreateGovernancePlanInput, 'plannedStart' | 'plannedEnd'> & { dates: [dayjs.Dayjs, dayjs.Dayjs] }
 
-export function GovernancePlanEditor({ taskId, plans, issues, employees, editable, taskStatus, workflowVersion, progress, currentRound, legacyCompleted, legacyTotal, loading, error }: {
+export function GovernancePlanEditor({ taskId, plans, issues, employees, editable, taskStatus, loading, error }: {
   taskId: number
   plans: GovernancePlan[]
   issues: GovernanceIssue[]
   employees: GovernanceEmployee[]
   editable: boolean
   taskStatus: GovernanceTaskStatus
-  workflowVersion?: string
-  progress?: GovernanceProgress | null
-  currentRound?: number
-  legacyCompleted?: number
-  legacyTotal?: number
   loading?: boolean
   error?: string
 }) {
   const { message } = App.useApp()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [view, setView] = useState<'table' | 'gantt'>('table')
+  const [view, setView] = useState<'table' | 'gantt'>(() => taskStatus === 'DRAFT' ? 'table' : 'gantt')
   const [form] = Form.useForm<PlanFormValues>()
   const createMutation = useMutation({
     mutationFn: (values: PlanFormValues) => createGovernancePlan(taskId, { ...values, plannedStart: values.dates[0].format('YYYY-MM-DD'), plannedEnd: values.dates[1].format('YYYY-MM-DD') }),
@@ -75,6 +70,6 @@ export function GovernancePlanEditor({ taskId, plans, issues, employees, editabl
         ? <Alert type="error" showIcon message={error} />
         : view === 'table'
           ? <Table rowKey="id" size="small" columns={columns} dataSource={plans} pagination={false} locale={{ emptyText: '尚未编排计划项' }} />
-          : <GovernanceGanttView plans={plans} employees={employees} taskStatus={taskStatus} workflowVersion={workflowVersion} progress={progress} currentRound={currentRound} legacyCompleted={legacyCompleted} legacyTotal={legacyTotal} />}
+          : <GovernanceGanttView plans={plans} employees={employees} />}
   </div>
 }

@@ -26,20 +26,17 @@ describe('GovernanceGanttView', () => {
         { id: 'u-1', name: '王工', department: '数据部', source: 'dev' },
         { id: 'u-2', name: '李工', department: '业务部', source: 'dev' },
       ]}
-      taskStatus="PENDING_CONFIRMATION"
       today="2026-07-27"
     />)
 
     expect(screen.getByRole('img', { name: /清洗字段.*2026-07-27.*2026-07-28.*100%/ })).toBeVisible()
     expect(screen.getByRole('img', { name: /业务复核.*50%/ })).toBeVisible()
     expect(screen.getByText('王工')).toBeVisible()
-    expect(screen.getByText('业务确认')).toBeVisible()
-    expect(screen.getByText(/资料处理包含按任务进行的征集、标注或清洗/)).toBeVisible()
     expect(screen.getByTestId('dependency-1-2')).toBeInTheDocument()
   })
 
   it('shows an empty state without plans', () => {
-    render(<GovernanceGanttView plans={[]} employees={[]} taskStatus="DRAFT" today="2026-07-27" />)
+    render(<GovernanceGanttView plans={[]} employees={[]} today="2026-07-27" />)
 
     expect(screen.getByText('尚未编排计划项')).toBeVisible()
   })
@@ -48,7 +45,6 @@ describe('GovernanceGanttView', () => {
     render(<GovernanceGanttView
       plans={[...plans, { ...plans[0], id: 3, title: '缺少排期', plannedStart: undefined, plannedEnd: undefined }]}
       employees={[]}
-      taskStatus="IN_PROGRESS"
       today="2026-07-27"
     />)
 
@@ -57,24 +53,10 @@ describe('GovernanceGanttView', () => {
   })
 
   it('reports an unknown dependency without drawing a false path', () => {
-    render(<GovernanceGanttView plans={[{ ...plans[0], dependencyIds: [999] }]} employees={[]} taskStatus="DRAFT" today="2026-07-27" />)
+    render(<GovernanceGanttView plans={[{ ...plans[0], dependencyIds: [999] }]} employees={[]} today="2026-07-27" />)
 
     expect(screen.getByText('依赖数据异常：999')).toBeVisible()
     expect(screen.queryByTestId('dependency-999-1')).not.toBeInTheDocument()
   })
 
-  it('does not infer passed milestones while rework is required', () => {
-    render(<GovernanceGanttView plans={plans} employees={[]} taskStatus="REWORK_REQUIRED" today="2026-07-27" />)
-
-    expect(screen.getByText('第 1 轮：确认或验收退回，待重新处理。')).toBeVisible()
-    expect(screen.getByText('质量验收').closest('[data-state]')).toHaveAttribute('data-state', 'pending')
-  })
-
-  it('shows only a historical summary for a legacy task', () => {
-    render(<GovernanceGanttView plans={plans} employees={[]} taskStatus="PENDING_CONFIRMATION" workflowVersion="LEGACY_PROGRESS" legacyCompleted={421} legacyTotal={421} today="2026-07-27" />)
-
-    expect(screen.getByText('历史汇总任务')).toBeVisible()
-    expect(screen.queryByText('业务确认')).not.toBeInTheDocument()
-    expect(screen.getByText(/仅保留汇总进度 421\/421/)).toBeVisible()
-  })
 })

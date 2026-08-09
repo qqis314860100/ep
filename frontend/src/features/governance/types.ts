@@ -29,6 +29,27 @@ export interface GovernanceProgress {
   reworkRequired: number
 }
 
+export interface GovernanceRuleSnapshot {
+  id: number
+  dataStandardId: string
+  dataStandardVersion: number
+  fieldRuleVersion: number
+  dictionaryVersions: Record<string, number>
+  qualityPolicyId: string
+  qualityPolicyVersion: number
+}
+
+export interface GovernanceScopeSnapshot {
+  id: number
+  taskId: number
+  claimedIssueIds: number[]
+  assetIds: number[]
+  ruleSnapshot: GovernanceRuleSnapshot
+  createdBy: string
+  frozenAt: string
+  itemCount: number
+}
+
 export interface GovernanceIssue {
   id: number
   assetId: number
@@ -85,8 +106,8 @@ export interface GovernanceTaskDetail {
   progress?: GovernanceProgress | null
   riskCount?: number
   plans?: GovernancePlan[]
-  scopeSnapshot?: JsonValue | null
-  ruleSnapshot?: JsonValue | null
+  scopeSnapshot?: GovernanceScopeSnapshot | null
+  ruleSnapshot?: GovernanceRuleSnapshot | null
   workbenchEntries?: Record<string, string>
 }
 
