@@ -5,6 +5,7 @@ import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService.CreateGovernanceTaskCommand;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.CreatePlanCommand;
+import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.PlanProjection;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.TaskFilter;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStartService;
 import com.tianshu.assets.governance.application.GovernanceValidationException;
@@ -80,7 +81,7 @@ public class GovernanceTaskController {
     }
 
     @GetMapping("/{taskId}/plans")
-    public List<GovernancePlan> plans(@PathVariable long taskId) {
+    public List<PlanProjection> plans(@PathVariable long taskId) {
         return service.plans(taskId);
     }
 

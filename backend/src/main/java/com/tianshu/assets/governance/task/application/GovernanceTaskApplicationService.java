@@ -101,9 +101,8 @@ public class GovernanceTaskApplicationService {
                 .orElseThrow(() -> new IllegalArgumentException("治理任务不存在"));
     }
 
-    public List<GovernancePlan> plans(long taskId) {
-        get(taskId);
-        return store.findPlans(taskId);
+    public List<PlanProjection> plans(long taskId) {
+        return projection(get(taskId)).plans();
     }
 
     public List<GovernanceEmployee> employees() {

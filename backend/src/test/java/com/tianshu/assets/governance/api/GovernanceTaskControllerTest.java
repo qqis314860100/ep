@@ -189,10 +189,11 @@ class GovernanceTaskControllerTest {
         mockMvc.perform(get("/api/v1/governance/tasks/1/plans"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value("DONE"))
-                .andExpect(jsonPath("$[0].plannedStart[0]").value(2026))
-                .andExpect(jsonPath("$[0].plannedStart[1]").value(8))
-                .andExpect(jsonPath("$[0].plannedStart[2]").value(1))
-                .andExpect(jsonPath("$[0].plannedQuantity").value(286));
+                .andExpect(jsonPath("$[0].completedQuantity").value(286))
+                .andExpect(jsonPath("$[0].plan.plannedStart[0]").value(2026))
+                .andExpect(jsonPath("$[0].plan.plannedStart[1]").value(8))
+                .andExpect(jsonPath("$[0].plan.plannedStart[2]").value(1))
+                .andExpect(jsonPath("$[0].plan.plannedQuantity").value(286));
 
         mockMvc.perform(patch("/api/v1/governance/tasks/1/plans/102")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -255,8 +256,15 @@ class GovernanceTaskControllerTest {
                 .andExpect(jsonPath("$.progress.total").value(2))
                 .andExpect(jsonPath("$.progress.submitted").value(2))
                 .andExpect(jsonPath("$.plans[0].status").value("DONE"))
+                .andExpect(jsonPath("$.plans[0].completedQuantity").value(2))
                 .andExpect(jsonPath("$.scopeSnapshot.itemCount").value(2))
                 .andExpect(jsonPath("$.workbenchEntries.execution").isNotEmpty());
+
+        mockMvc.perform(get("/api/v1/governance/tasks/4/plans"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].plan.id").value(401))
+                .andExpect(jsonPath("$[0].status").value("DONE"))
+                .andExpect(jsonPath("$[0].completedQuantity").value(2));
 
         mockMvc.perform(post("/api/v1/governance/tasks/4/submit-for-confirmation")
                         .contentType(MediaType.APPLICATION_JSON)
