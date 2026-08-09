@@ -11,6 +11,7 @@ import type {
   GovernanceIssueStatus,
   GovernanceItemExecution,
   GovernancePlan,
+  GovernancePlanProjection,
   GovernancePlanStatus,
   GovernanceResultVersion,
   GovernanceTask,
@@ -116,7 +117,11 @@ export function getGovernanceEmployees(): Promise<GovernanceEmployee[]> {
 }
 
 export function getGovernancePlans(taskId: number): Promise<GovernancePlan[]> {
-  return request(`/api/v1/governance/tasks/${taskId}/plans`)
+  return request<GovernancePlanProjection[]>(`/api/v1/governance/tasks/${taskId}/plans`).then(items => items.map(({ plan, status, completedQuantity }) => ({
+    ...plan,
+    status,
+    completedQuantity,
+  })))
 }
 
 export function createGovernancePlan(

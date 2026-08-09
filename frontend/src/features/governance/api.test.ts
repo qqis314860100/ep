@@ -1,9 +1,34 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { saveBatchResults } from './api'
+import { getGovernancePlans, saveBatchResults } from './api'
 import type { BatchResultCommand } from './types'
 
 describe('governance api', () => {
+  it('flattens authoritative plan projections for the task workspace', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify([{
+      plan: {
+        id: 41,
+        taskId: 4,
+        title: '业务确认',
+        status: 'NOT_STARTED',
+        plannedStart: '2026-08-01',
+        plannedEnd: '2026-08-02',
+        plannedQuantity: 2,
+        completedQuantity: 0,
+        quantityUnit: '资产',
+        dependencyIds: [],
+      },
+      status: 'DONE',
+      completedQuantity: 2,
+    }]), { status: 200 }))
+
+    await expect(getGovernancePlans(4)).resolves.toEqual([expect.objectContaining({
+      id: 41,
+      status: 'DONE',
+      completedQuantity: 2,
+    })])
+  })
+
   it('sends the current governance identity on every request', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
       results: [],

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { GovernancePlan } from '../types'
+import { buildDependencyPath } from './GovernanceDependencyLayer'
 import { GovernanceGanttView } from './GovernanceGanttView'
 
 const plans: GovernancePlan[] = [
@@ -9,6 +10,15 @@ const plans: GovernancePlan[] = [
 ]
 
 describe('GovernanceGanttView', () => {
+  it.each([
+    ['normal schedules', 72, 144, 'M72,28 C108,28 108,84 144,84'],
+    ['adjacent schedules', 108, 108, 'M108,28 C126,28 90,84 108,84'],
+    ['overlapping schedules', 180, 144, 'M180,28 C198,28 126,84 144,84'],
+    ['reverse-date schedules', 216, 108, 'M216,28 C264,28 60,84 108,84'],
+  ])('approaches the target from left to right for %s', (_name, x1, x2, expected) => {
+    expect(buildDependencyPath(x1, 28, x2, 84)).toBe(expected)
+  })
+
   it('shows timeline rows, progress, milestones, and dependencies', () => {
     render(<GovernanceGanttView
       plans={plans}

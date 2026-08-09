@@ -62,6 +62,12 @@ export interface GovernancePlan {
   issueIds?: number[]
 }
 
+export interface GovernancePlanProjection {
+  plan: GovernancePlan
+  status: GovernancePlanStatus
+  completedQuantity: number
+}
+
 export interface GovernanceTaskDetail {
   id: number
   name: string
