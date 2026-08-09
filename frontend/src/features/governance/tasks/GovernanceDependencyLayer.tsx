@@ -1,12 +1,8 @@
 import type { GanttModel } from './governanceGanttModel'
+import { buildDependencyPath } from './governanceDependencyPath'
 
 export const GANTT_DAY_WIDTH = 36
 export const GANTT_ROW_HEIGHT = 56
-
-export function buildDependencyPath(x1: number, y1: number, x2: number, y2: number): string {
-  const handle = Math.max(18, Math.min(48, Math.abs(x2 - x1) / 2))
-  return `M${x1},${y1} C${x1 + handle},${y1} ${x2 - handle},${y2} ${x2},${y2}`
-}
 
 export function GovernanceDependencyLayer({ model }: { model: GanttModel }) {
   const rowById = new Map(model.rows.map((row, index) => [row.plan.id, { row, index }]))

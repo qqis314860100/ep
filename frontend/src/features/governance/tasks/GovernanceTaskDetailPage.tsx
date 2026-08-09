@@ -42,6 +42,11 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
       employees={employeesQuery.data ?? []}
       editable={editable}
       taskStatus={task.status}
+      workflowVersion={task.workflowVersion}
+      progress={task.progress}
+      currentRound={task.currentRound}
+      legacyCompleted={task.completed}
+      legacyTotal={task.total}
       loading={plansQuery.isLoading}
       error={plansQuery.error instanceof Error ? plansQuery.error.message : undefined}
     /></Section>

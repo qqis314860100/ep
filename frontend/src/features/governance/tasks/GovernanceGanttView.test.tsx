@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { GovernancePlan } from '../types'
-import { buildDependencyPath } from './GovernanceDependencyLayer'
+import { buildDependencyPath } from './governanceDependencyPath'
 import { GovernanceGanttView } from './GovernanceGanttView'
 
 const plans: GovernancePlan[] = [
@@ -34,6 +34,7 @@ describe('GovernanceGanttView', () => {
     expect(screen.getByRole('img', { name: /业务复核.*50%/ })).toBeVisible()
     expect(screen.getByText('王工')).toBeVisible()
     expect(screen.getByText('业务确认')).toBeVisible()
+    expect(screen.getByText(/资料处理包含按任务进行的征集、标注或清洗/)).toBeVisible()
     expect(screen.getByTestId('dependency-1-2')).toBeInTheDocument()
   })
 
@@ -65,7 +66,15 @@ describe('GovernanceGanttView', () => {
   it('does not infer passed milestones while rework is required', () => {
     render(<GovernanceGanttView plans={plans} employees={[]} taskStatus="REWORK_REQUIRED" today="2026-07-27" />)
 
-    expect(screen.getByText('返工中')).toBeVisible()
+    expect(screen.getByText('第 1 轮：确认或验收退回，待重新处理。')).toBeVisible()
     expect(screen.getByText('质量验收').closest('[data-state]')).toHaveAttribute('data-state', 'pending')
+  })
+
+  it('shows only a historical summary for a legacy task', () => {
+    render(<GovernanceGanttView plans={plans} employees={[]} taskStatus="PENDING_CONFIRMATION" workflowVersion="LEGACY_PROGRESS" legacyCompleted={421} legacyTotal={421} today="2026-07-27" />)
+
+    expect(screen.getByText('历史汇总任务')).toBeVisible()
+    expect(screen.queryByText('业务确认')).not.toBeInTheDocument()
+    expect(screen.getByText(/仅保留汇总进度 421\/421/)).toBeVisible()
   })
 })

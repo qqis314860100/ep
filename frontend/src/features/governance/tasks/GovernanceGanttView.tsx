@@ -1,6 +1,6 @@
 import { Alert, Empty, Typography } from 'antd'
 import styled from 'styled-components'
-import type { GovernanceEmployee, GovernancePlan, GovernanceTaskStatus } from '../types'
+import type { GovernanceEmployee, GovernancePlan, GovernanceProgress, GovernanceTaskStatus } from '../types'
 import { GovernanceDependencyLayer, GANTT_DAY_WIDTH, GANTT_ROW_HEIGHT } from './GovernanceDependencyLayer'
 import { GovernanceMilestoneStrip } from './GovernanceMilestoneStrip'
 import { buildGanttModel, type GanttRowState } from './governanceGanttModel'
@@ -176,10 +176,15 @@ function localToday(): string {
   return `${year}-${month}-${day}`
 }
 
-export function GovernanceGanttView({ plans, employees, taskStatus, today = localToday() }: {
+export function GovernanceGanttView({ plans, employees, taskStatus, workflowVersion, progress, currentRound, legacyCompleted = 0, legacyTotal = 0, today = localToday() }: {
   plans: GovernancePlan[]
   employees: GovernanceEmployee[]
   taskStatus: GovernanceTaskStatus
+  workflowVersion?: string
+  progress?: GovernanceProgress | null
+  currentRound?: number
+  legacyCompleted?: number
+  legacyTotal?: number
   today?: string
 }) {
   const model = buildGanttModel(plans, today)
@@ -187,7 +192,7 @@ export function GovernanceGanttView({ plans, employees, taskStatus, today = loca
 
   if (plans.length === 0) {
     return <Root>
-      <GovernanceMilestoneStrip status={taskStatus} />
+      <GovernanceMilestoneStrip status={taskStatus} workflowVersion={workflowVersion} progress={progress} currentRound={currentRound} completed={legacyCompleted} total={legacyTotal} />
       <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未编排计划项" />
     </Root>
   }
@@ -195,7 +200,7 @@ export function GovernanceGanttView({ plans, employees, taskStatus, today = loca
   const timelineWidth = model.range.totalDays * GANTT_DAY_WIDTH
 
   return <Root>
-    <GovernanceMilestoneStrip status={taskStatus} />
+    <GovernanceMilestoneStrip status={taskStatus} workflowVersion={workflowVersion} progress={progress} currentRound={currentRound} completed={legacyCompleted} total={legacyTotal} />
     {model.invalidPlans.length > 0 && <Notices>
       <Alert
         type="warning"
