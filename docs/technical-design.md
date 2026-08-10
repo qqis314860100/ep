@@ -78,6 +78,9 @@ pages/
 - `POST /api/v1/governance/mappings`、`POST /api/v1/governance/mappings/{id}/versions`：创建映射规则或新增不可覆盖的规则版本；规则必须绑定启用数据标准、启用目标字典项和完整 `AssetScope`。
 - `POST /api/v1/governance/mappings/{id}/confirm`、`POST /api/v1/governance/mappings/{id}/disable`：按乐观锁确认或停用规则；歧义规则必须提供业务确认意见。
 - `GET /api/v1/governance/mappings/{id}/history`：查询同一来源、标准版本和适用范围下的规则版本历史。
+- `GET /api/v1/governance/scans`、`GET /api/v1/governance/scans/{id}`：查询自动问题扫描运行历史和单次运行结果。
+- `POST /api/v1/governance/scans`：触发一次人工扫描并固定记录为 `MANUAL`，返回运行状态、扫描资产数、新建问题数、重开问题数和未变化问题数；`SCHEDULED` 只由调度器产生，`RETRY` 只由重试接口产生。
+- `POST /api/v1/governance/scans/{id}/retry`：仅允许对失败运行发起重试，新的运行记录通过 `retryOfRunId` 关联原运行。
 - `GET /api/v1/governance/tasks/{taskId}/confirmation-rounds/current`、`PUT /api/v1/governance/confirmation-rounds/{roundId}/items/{itemId}/decision`、`POST /api/v1/governance/tasks/{taskId}/confirmation-rounds/{roundId}/complete`：逐项保存并完成业务确认轮次。
 - `GET /api/v1/governance/tasks/{taskId}/acceptance-rounds/current`、`PUT /api/v1/governance/acceptance-rounds/{roundId}/samples/{itemId}`、`POST /api/v1/governance/tasks/{taskId}/acceptance-rounds/{roundId}/complete`：读取固定指标与抽样、保存抽样决定并完成验收。
 - 任务首次进入待验收状态时，查询当前验收轮次会按启动时冻结的质量策略和已确认治理项事实幂等创建指标与固定抽样；后续查询只读取已固化轮次。
@@ -92,6 +95,8 @@ pages/
 标准中心启用的数据标准是后续治理规则的权威事实源。任务启动时读取当前启用标准并把标准版本、字典版本和质量策略版本写入治理规则快照；标准中心后续停用或启用新版本不得修改已经冻结的执行中任务。默认开发 profile 使用内存标准仓储，`local/oceanbase` 仅在显式开启治理 schema 后使用 JDBC 适配器；对应 V1.8 迁移脚本不会由应用启动自动执行。
 
 映射规则同样是版本化治理事实。规则只能新增版本，不能覆盖历史记录；目标字典项必须处于启用状态。规则的产品与生产条件以完整 `AssetScope` 存储并做同范围校验，已确认且无歧义的规则才可被自动扫描切片读取为建议，系统不会在映射确认时直接改写资产。
+
+自动问题扫描是只读检查加问题池写入：扫描当前启用标准、启用字典、责任人目录、范围规则和已确认映射，发现缺失字段、非法字典值、异常范围、失效责任人、异常文件、重复资产编号和可复用映射建议。每个问题以资产、问题类型、目标路径和标准或映射版本生成稳定指纹，并固化当时的范围快照；重复运行只更新同一问题，已解决问题再次出现时重开并保留原历史。扫描运行记录包含触发方式、状态、计数、失败原因和重试来源。定时扫描由 `asset.governance-scan.enabled` 控制，默认关闭，固定间隔由 `asset.governance-scan.fixed-delay-ms` 配置；扫描不会直接覆盖正式资产值。
 - `GET /api/v1/equipment-interconnections`：按设备编码、基地和拉线查询设备互联数据。
 - `GET /api/v1/uploads/mine`：按当前用户查询本人上传资产，可按状态筛选。
 - `POST /api/v1/uploads/files`：上传单个文件，返回临时对象键、大小和 SHA-256 摘要。
