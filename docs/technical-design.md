@@ -81,6 +81,7 @@ pages/
 - `GET /api/v1/governance/scans`、`GET /api/v1/governance/scans/{id}`：查询自动问题扫描运行历史和单次运行结果。
 - `POST /api/v1/governance/scans`：触发一次人工扫描并固定记录为 `MANUAL`，返回运行状态、扫描资产数、新建问题数、重开问题数和未变化问题数；`SCHEDULED` 只由调度器产生，`RETRY` 只由重试接口产生。
 - `POST /api/v1/governance/scans/{id}/retry`：仅允许对失败运行发起重试，新的运行记录通过 `retryOfRunId` 关联原运行。
+- `GET /api/v1/governance/operations/overview`：按标准编码、问题类型、责任人、资产类型、基地和日期范围聚合治理运营指标、问题类型分布、逾期任务和每日/每周/月度/季度治理节奏；响应中的每项指标包含分子、分母、可用性、单位和事实来源。
 - `GET /api/v1/governance/tasks/{taskId}/confirmation-rounds/current`、`PUT /api/v1/governance/confirmation-rounds/{roundId}/items/{itemId}/decision`、`POST /api/v1/governance/tasks/{taskId}/confirmation-rounds/{roundId}/complete`：逐项保存并完成业务确认轮次。
 - `GET /api/v1/governance/tasks/{taskId}/acceptance-rounds/current`、`PUT /api/v1/governance/acceptance-rounds/{roundId}/samples/{itemId}`、`POST /api/v1/governance/tasks/{taskId}/acceptance-rounds/{roundId}/complete`：读取固定指标与抽样、保存抽样决定并完成验收。
 - 任务首次进入待验收状态时，查询当前验收轮次会按启动时冻结的质量策略和已确认治理项事实幂等创建指标与固定抽样；后续查询只读取已固化轮次。
@@ -90,7 +91,9 @@ pages/
 - `PATCH /api/v1/governance/tasks/{taskId}/plans/{planId}`：仅允许进行中任务更新计划执行状态。
 - `PATCH /api/v1/governance/tasks/{taskId}/progress`：仅允许进行中任务更新完成量。
 
-当前治理 API 只覆盖问题资产的字段闭环。员工系统组织同步、部门资料征集、办公软件提醒和 RAGFlow 交付属于后续独立边界；接入时以平台任务、资产版本和权限为权威事实，外部系统不得维护可覆盖平台状态的副本。
+当前治理 API 只覆盖问题资产的字段闭环和治理运营聚合。员工系统组织同步、部门资料征集、办公软件提醒和 RAGFlow 交付属于后续独立边界；接入时以平台任务、资产版本和权限为权威事实，外部系统不得维护可覆盖平台状态的副本。
+
+治理运营接口只聚合已有治理事实：资产责任关系、问题池、治理任务及治理项、确认和验收轮次、正式应用作业、审计事件及扫描运行。每项指标都保留分子、分母、适用筛选和来源说明；问题表没有创建时间和解决时间时，平均关闭周期返回不可用，不以当前时间或任务状态推算。扫描复发率使用扫描运行全局汇总，若资产筛选不会影响该指标，响应来源必须明确标注。运营看板是只读风险与复盘视图，不改变治理状态，不绕过确认、验收和正式应用权限。
 
 标准中心启用的数据标准是后续治理规则的权威事实源。任务启动时读取当前启用标准并把标准版本、字典版本和质量策略版本写入治理规则快照；标准中心后续停用或启用新版本不得修改已经冻结的执行中任务。默认开发 profile 使用内存标准仓储，`local/oceanbase` 仅在显式开启治理 schema 后使用 JDBC 适配器；对应 V1.8 迁移脚本不会由应用启动自动执行。
 
@@ -173,3 +176,4 @@ pages/
 - 数据写入阶段使用乐观锁防止后台治理并发覆盖；冲突返回明确的 `409 Conflict`。
 - 文件上传阶段校验扩展名、实际类型、大小、内容摘要和安全扫描结果，文件存储地址不直接暴露给前端。
 - OceanBase schema 变更使用版本化迁移脚本并在非生产环境验证；当前只读切片不包含任何线上 DDL 或 DML。
+- 治理运营页使用只读查询缓存和组合筛选；指标缺少必要时间事实时返回不可用状态，前端保留原因提示；窄屏下筛选项和指标网格纵向折叠，核心内容不得整体横向溢出。
