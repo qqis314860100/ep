@@ -50,6 +50,8 @@ const CollapseButton = styled(Button)`
     color: #fff !important;
     background: rgba(255, 255, 255, 0.09) !important;
   }
+
+  @media (max-width: 720px) { display: none; }
 `
 
 const Brand = styled.button`
@@ -105,6 +107,8 @@ const BrandName = styled.div`
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  @media (max-width: 560px) { display: none; }
 `
 
 const ModuleName = styled.div`
@@ -113,6 +117,11 @@ const ModuleName = styled.div`
   color: #c6d3dc;
   border-left: 1px solid rgba(255, 255, 255, 0.18);
   font-size: 12px;
+
+  @media (max-width: 560px) {
+    margin-left: 8px;
+    padding-left: 8px;
+  }
 `
 
 const HeaderSpacer = styled.div`
@@ -154,6 +163,10 @@ const UserRole = styled.div`
   margin-top: 1px;
   color: #9fb1bd;
   font-size: 10px;
+`
+
+const UserDetails = styled.div`
+  @media (max-width: 560px) { display: none; }
 `
 
 const Body = styled(Layout)`
@@ -237,6 +250,8 @@ const Main = styled(Content)<{ $fixed?: boolean }>`
   background: #f4f6f5;
   height: ${({ $fixed }) => ($fixed ? 'calc(100vh - 50px)' : 'auto')};
   overflow: ${({ $fixed }) => ($fixed ? 'hidden' : 'visible')};
+
+  @media (max-width: 720px) { padding: 10px 8px 24px; }
 `
 
 interface AppShellProps {
@@ -269,6 +284,7 @@ export function AppShell({ children }: AppShellProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem('workspace-nav-collapsed') === 'true')
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 720px)').matches)
   const allItems = useMemo(() => [...primaryItems, ...managementItems], [])
   const currentModule = allItems.find((item) => item.active(location.pathname))?.label ?? '生产知识资产平台'
   const isUploadRoute = location.pathname === '/upload' || location.pathname === '/sys/file'
@@ -276,6 +292,15 @@ export function AppShell({ children }: AppShellProps) {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [location.pathname])
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 720px)')
+    const update = () => setNarrow(media.matches)
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  const navigationCollapsed = collapsed || narrow
 
   const toggleCollapsed = () => {
     setCollapsed((current) => {
@@ -285,17 +310,17 @@ export function AppShell({ children }: AppShellProps) {
   }
 
   const renderItem = (item: NavigationItem) => (
-    <Tooltip key={item.key} title={collapsed ? item.label : undefined} placement="right">
+    <Tooltip key={item.key} title={navigationCollapsed ? item.label : undefined} placement="right">
       <NavItem
         type="button"
         $active={item.active(location.pathname)}
-        $collapsed={collapsed}
+        $collapsed={navigationCollapsed}
         aria-label={item.label}
         aria-current={item.active(location.pathname) ? 'page' : undefined}
         onClick={() => navigate(item.path)}
       >
         {item.icon}
-        {!collapsed && <span>{item.label}</span>}
+        {!navigationCollapsed && <span>{item.label}</span>}
       </NavItem>
     </Tooltip>
   )
@@ -303,7 +328,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <Shell>
       <TopBar>
-        <CollapseButton type="text" icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} aria-label={collapsed ? '展开导航' : '收起导航'} onClick={toggleCollapsed} />
+        <CollapseButton type="text" icon={navigationCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} aria-label={navigationCollapsed ? '展开导航' : '收起导航'} onClick={toggleCollapsed} />
         <Brand onClick={() => navigate('/')} aria-label="返回资料检索">
           <Mark aria-hidden="true" />
           <BrandName>数模资产中心</BrandName>
@@ -315,21 +340,21 @@ export function AppShell({ children }: AppShellProps) {
           <Tooltip title="通知"><Button type="text" icon={<BellOutlined />} aria-label="通知" /></Tooltip>
           <User>
             <Avatar size={28} style={{ background: '#2f7567' }}>陈</Avatar>
-            <div>
+            <UserDetails>
               <UserName>陈工</UserName>
               <UserRole>内容管理员</UserRole>
-            </div>
+            </UserDetails>
           </User>
         </HeaderActions>
       </TopBar>
       <Body>
-        <Navigation width={expandedWidth} collapsedWidth={collapsedWidth} collapsed={collapsed} trigger={null}>
+        <Navigation width={expandedWidth} collapsedWidth={collapsedWidth} collapsed={navigationCollapsed} trigger={null}>
           <NavSection>
-            <NavLabel $collapsed={collapsed}>资产工作台</NavLabel>
+            <NavLabel $collapsed={navigationCollapsed}>资产工作台</NavLabel>
             {primaryItems.map(renderItem)}
           </NavSection>
           <NavSection>
-            <NavLabel $collapsed={collapsed}>管理与治理</NavLabel>
+            <NavLabel $collapsed={navigationCollapsed}>管理与治理</NavLabel>
             {managementItems.map(renderItem)}
           </NavSection>
         </Navigation>

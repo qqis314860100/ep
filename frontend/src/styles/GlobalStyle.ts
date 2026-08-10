@@ -17,7 +17,7 @@ export const GlobalStyle = createGlobalStyle`
 
   body {
     margin: 0;
-    min-width: 960px;
+    min-width: 320px;
     min-height: 100vh;
     background: #f4f6f5;
   }

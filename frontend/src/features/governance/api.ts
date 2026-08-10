@@ -4,7 +4,10 @@ import type {
   BatchResultCommand,
   ConfirmationView,
   CreateGovernancePlanInput,
+  CreateGovernanceStandardInput,
+  CreateGovernanceStandardVersionInput,
   GovernanceApiErrorDetail,
+  GovernanceDataStandard,
   GovernanceEmployee,
   GovernanceField,
   GovernanceIssue,
@@ -14,6 +17,7 @@ import type {
   GovernancePlanProjection,
   GovernancePlanStatus,
   GovernanceResultVersion,
+  GovernanceStandardImpactReview,
   GovernanceTask,
   GovernanceTaskDetail,
   GovernanceTaskStatus,
@@ -280,4 +284,50 @@ export function getOperationJob(jobId: number): Promise<OperationJob> {
 
 export function retryOperationJob(jobId: number): Promise<OperationJob> {
   return request(`/api/v1/governance/jobs/${jobId}/retry`, { method: 'POST' })
+}
+
+export function getGovernanceStandards(): Promise<GovernanceDataStandard[]> {
+  return request('/api/v1/governance/standards')
+}
+
+export function createGovernanceStandard(
+  input: CreateGovernanceStandardInput,
+): Promise<GovernanceDataStandard> {
+  return request('/api/v1/governance/standards', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function createGovernanceStandardVersion(
+  sourceId: number,
+  input: CreateGovernanceStandardVersionInput,
+): Promise<GovernanceDataStandard> {
+  return request(`/api/v1/governance/standards/${sourceId}/versions`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function enableGovernanceStandard(
+  id: number,
+  version: number,
+): Promise<{ standard: GovernanceDataStandard; impactReview: GovernanceStandardImpactReview }> {
+  return request(`/api/v1/governance/standards/${id}/enable`, {
+    method: 'POST',
+    body: JSON.stringify({ version }),
+  })
+}
+
+export function disableGovernanceStandard(id: number, version: number): Promise<GovernanceDataStandard> {
+  return request(`/api/v1/governance/standards/${id}/disable`, {
+    method: 'POST',
+    body: JSON.stringify({ version }),
+  })
+}
+
+export function getGovernanceStandardImpactReviews(
+  id: number,
+): Promise<GovernanceStandardImpactReview[]> {
+  return request(`/api/v1/governance/standards/${id}/impact-reviews`)
 }

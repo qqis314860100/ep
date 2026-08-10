@@ -17,6 +17,7 @@ const GovernancePage = lazy(() =>
   import('./pages/sys/drawing'),
 )
 const GovernanceIssuePoolPage = lazy(() => import('./features/governance/issues/GovernanceIssuePoolPage').then(module => ({ default: module.GovernanceIssuePoolPage })))
+const GovernanceStandardsPage = lazy(() => import('./features/governance/standards/GovernanceStandardsPage').then(module => ({ default: module.GovernanceStandardsPage })))
 const GovernanceTaskDetailPage = lazy(() => import('./features/governance/tasks/GovernanceTaskDetailPage').then(module => ({ default: module.GovernanceTaskDetailPage })))
 const GovernanceExecutionPage = lazy(() => import('./features/governance/execution/GovernanceExecutionPage').then(module => ({ default: module.GovernanceExecutionPage })))
 const GovernanceConfirmationPage = lazy(() => import('./features/governance/confirmation/GovernanceConfirmationPage').then(module => ({ default: module.GovernanceConfirmationPage })))
@@ -94,6 +95,7 @@ export default function App() {
                   <Route path="/governance" element={<Navigate to="/sys/drawing" replace />} />
                   <Route path="/sys/drawing" element={<GovernancePage />} />
                   <Route path="/sys/drawing/issues" element={<GovernanceIssuePoolPage />} />
+                  <Route path="/sys/drawing/standards" element={<GovernanceStandardsPage />} />
                   <Route path="/sys/drawing/tasks/:taskId" element={<TaskRoute page={GovernanceTaskDetailPage} />} />
                   <Route path="/sys/drawing/tasks/:taskId/execute" element={<TaskRoute page={GovernanceExecutionPage} />} />
                   <Route path="/sys/drawing/tasks/:taskId/confirm" element={<TaskRoute page={GovernanceConfirmationPage} />} />

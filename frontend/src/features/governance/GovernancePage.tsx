@@ -9,8 +9,12 @@ export function GovernancePage() {
   const location = useLocation()
   const navigate = useNavigate()
   if (location.pathname === '/governance') return <Navigate to="/sys/drawing" replace />
-  return <Workspace><Tabs activeKey="overview" onChange={key => { if (key === 'issues') navigate('/sys/drawing/issues') }} items={[
+  return <Workspace><Tabs activeKey="overview" onChange={key => {
+    if (key === 'issues') navigate('/sys/drawing/issues')
+    if (key === 'standards') navigate('/sys/drawing/standards')
+  }} items={[
     { key: 'overview', label: '治理总览', children: <GovernanceOverviewPage onOpenTask={taskId => navigate(`/sys/drawing/tasks/${taskId}`)} /> },
+    { key: 'standards', label: '标准中心' },
     { key: 'issues', label: '字段问题池' },
   ]} /></Workspace>
 }

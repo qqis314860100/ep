@@ -18,7 +18,59 @@ export type GovernanceItemStatus =
 export type GovernanceField = 'DESCRIPTION' | 'SPECIALTIES' | 'OWNER' | 'SCOPE'
 export type GovernancePlanStatus = 'TODO' | 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
 export type GovernanceIssueStatus = 'OPEN' | 'CLAIMED' | 'RESOLVED'
+export type GovernanceStandardStatus = 'DRAFT' | 'ENABLED' | 'DISABLED'
+export type GovernanceStandardRuleType = 'REQUIRED' | 'NAMING' | 'CONTROLLED_VALUE' | 'FILE_ROLE' | 'QUALITY_THRESHOLD'
+export type GovernanceAssetType = 'THREE_DIMENSIONAL_MODEL' | 'TWO_DIMENSIONAL_DRAWING' | 'MIXED_ASSET' | 'OTHER'
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }
+
+export interface GovernanceStandardRule {
+  targetField: string
+  ruleType: GovernanceStandardRuleType
+  description: string
+  blocking: boolean
+  configurationJson: string
+}
+
+export interface GovernanceDataStandard {
+  id: number
+  standardCode: string
+  standardVersion: number
+  name: string
+  status: GovernanceStandardStatus
+  applicableAssetTypes: GovernanceAssetType[]
+  ownerUserId: string
+  ownerName: string
+  effectiveAt: string | null
+  changeSummary: string
+  affectedAssetCount: number
+  rules: GovernanceStandardRule[]
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GovernanceStandardImpactReview {
+  id: number
+  standardId: number
+  affectedAssetCount: number
+  assetIds: number[]
+  status: 'OPEN' | 'COMPLETED'
+  createdAt: string
+}
+
+export interface CreateGovernanceStandardVersionInput {
+  standardVersion: number
+  name: string
+  applicableAssetTypes: GovernanceAssetType[]
+  ownerUserId: string
+  ownerName: string
+  changeSummary: string
+  rules: GovernanceStandardRule[]
+}
+
+export interface CreateGovernanceStandardInput extends CreateGovernanceStandardVersionInput {
+  standardCode: string
+}
 
 export interface GovernanceProgress {
   total: number
