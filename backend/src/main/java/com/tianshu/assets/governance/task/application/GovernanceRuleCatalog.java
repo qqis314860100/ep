@@ -8,6 +8,10 @@ public interface GovernanceRuleCatalog {
 
     GovernanceRuleSnapshot enabledSnapshot();
 
+    default boolean isDataStandardEnabled(String standardCode, long standardVersion) {
+        return true;
+    }
+
     default List<AssetScope> validScopes() {
         return List.of();
     }

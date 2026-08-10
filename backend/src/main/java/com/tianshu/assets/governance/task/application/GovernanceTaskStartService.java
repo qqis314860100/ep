@@ -97,6 +97,11 @@ public class GovernanceTaskStartService {
             var reloadedIssues = issueStore.findByIds(issueIds);
             validateReloadedIssues(taskId, claimedIssues, reloadedIssues);
             var rules = ruleCatalog.enabledSnapshot();
+            if (!ruleCatalog.isDataStandardEnabled(
+                    rules.dataStandardId(), rules.dataStandardVersion())) {
+                throw new GovernanceValidationException(
+                        "当前数据标准未启用，不能启动治理任务");
+            }
             if (reloadedIssues.stream().anyMatch(issue -> issue.ruleVersion() != rules.fieldRuleVersion())) {
                 throw new GovernanceValidationException("治理问题规则版本已变化，请重新生成问题");
             }

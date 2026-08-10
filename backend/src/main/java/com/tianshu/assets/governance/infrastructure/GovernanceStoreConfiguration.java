@@ -11,6 +11,10 @@ import com.tianshu.assets.governance.confirmation.application.GovernanceConfirma
 import com.tianshu.assets.governance.issue.application.GovernanceIssueStore;
 import com.tianshu.assets.governance.task.application.GovernanceRuleCatalog;
 import com.tianshu.assets.governance.task.application.GovernanceWorkflowStore;
+import com.tianshu.assets.governance.standard.application.GovernanceDataStandardStore;
+import com.tianshu.assets.governance.standard.application.GovernanceStandardImpactPort;
+import com.tianshu.assets.asset.domain.AssetRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -18,6 +22,19 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class GovernanceStoreConfiguration {
+    @Bean
+    @ConditionalOnMissingBean(GovernanceDataStandardStore.class)
+    @ConditionalOnProperty(name = "asset.governance-schema-enabled", havingValue = "false", matchIfMissing = true)
+    GovernanceDataStandardStore inMemoryGovernanceDataStandardStore() {
+        return new InMemoryGovernanceDataStandardStore();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(GovernanceStandardImpactPort.class)
+    GovernanceStandardImpactPort governanceStandardImpactPort(
+            ObjectProvider<AssetRepository> assetRepositories) {
+        return new RepositoryGovernanceStandardImpactAdapter(assetRepositories);
+    }
 
     @Bean
     @ConditionalOnMissingBean(GovernanceAuditStore.class)
@@ -81,8 +98,8 @@ public class GovernanceStoreConfiguration {
             name = "asset.governance-schema-enabled",
             havingValue = "false",
             matchIfMissing = true)
-    GovernanceRuleCatalog inMemoryGovernanceRuleCatalog() {
-        return new InMemoryGovernanceRuleCatalog();
+    GovernanceRuleCatalog inMemoryGovernanceRuleCatalog(GovernanceDataStandardStore standardStore) {
+        return new InMemoryGovernanceRuleCatalog(standardStore);
     }
 
     @Bean
