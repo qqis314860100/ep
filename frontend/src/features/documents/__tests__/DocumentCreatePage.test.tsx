@@ -37,6 +37,8 @@ const draft = {
   maintainerId: 'demo-user',
   maintainerName: '陈工',
   maintainerDepartment: '设备工程部',
+  scopeMode: 'GLOBAL' as const,
+  scopes: [],
   status: 'DRAFT' as const,
   currentVersion: {
     id: 400,
@@ -70,6 +72,7 @@ function renderPage() {
 
 describe('DocumentCreatePage', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(getDictionaryItems).mockResolvedValue([{
       id: 263,
       category: 'DOCUMENT_CATEGORY',
@@ -128,7 +131,19 @@ describe('DocumentCreatePage', () => {
     await user.click(screen.getByRole('button', { name: '确认发布' }))
 
     await waitFor(() => expect(createDocumentDraft).toHaveBeenCalledTimes(1))
+    expect(createDocumentDraft).toHaveBeenCalledWith(expect.objectContaining({ scopeMode: 'GLOBAL', scopes: [] }))
     expect(publishDocument).toHaveBeenCalledWith(321)
     expect(await screen.findByText('详情已打开')).toBeInTheDocument()
+  })
+
+  it('requires a scope row when the document applies to a specified range', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByLabelText('指定范围'))
+    await user.click(screen.getByRole('button', { name: '保存草稿' }))
+
+    expect(await screen.findByText('请至少添加一组适用范围')).toBeInTheDocument()
+    expect(createDocumentDraft).not.toHaveBeenCalled()
   })
 })

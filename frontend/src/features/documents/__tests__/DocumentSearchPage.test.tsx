@@ -20,6 +20,8 @@ const documentPage = {
     maintainerId: 'u-101',
     maintainerName: '陈工',
     maintainerDepartment: '设备工程部',
+    scopeMode: 'GLOBAL' as const,
+    scopes: [],
     status: 'PUBLISHED' as const,
     currentVersionId: 1001,
     currentVersion: {

@@ -1,11 +1,11 @@
 import { InboxOutlined } from '@ant-design/icons'
-import { Alert, Form, Input, Select, Upload } from 'antd'
+import { Alert, Button, Form, Input, Radio, Select, Space, Upload } from 'antd'
 import type { FormInstance, UploadProps } from 'antd'
 import { useState } from 'react'
 import styled from 'styled-components'
 import { uploadDocumentFile } from '../../../services/documentService'
 import type { DictionaryItem } from '../../../types/dictionary'
-import type { DocumentFile } from '../../../types/document'
+import type { DocumentFile, DocumentScope, DocumentScopeMode } from '../../../types/document'
 import { DocumentFileList } from './DocumentFileList'
 
 const { Dragger } = Upload
@@ -70,6 +70,8 @@ export interface DocumentFormValues {
   versionNumber: string
   changeSummary: string
   files: DocumentFile[]
+  scopeMode: Exclude<DocumentScopeMode, 'UNCLASSIFIED'>
+  scopes: DocumentScope[]
 }
 
 interface DocumentUploadProps {
@@ -124,11 +126,29 @@ function DocumentUpload({ value = [], onChange, disabled }: DocumentUploadProps)
 interface DocumentFormProps {
   form: FormInstance<DocumentFormValues>
   categories: DictionaryItem[]
+  scopeItems: DictionaryItem[]
   disabled?: boolean
   onChange: () => void
 }
 
-export function DocumentForm({ form, categories, disabled, onChange }: DocumentFormProps) {
+export function DocumentForm({ form, categories, scopeItems, disabled, onChange }: DocumentFormProps) {
+  const scopeMode = Form.useWatch('scopeMode', form)
+  const scopes = Form.useWatch('scopes', form) ?? []
+  const enabledItems = scopeItems.filter((item) => item.status === 'ENABLED')
+  const categoryItems = (category: string) => enabledItems
+    .filter((item) => item.category === category)
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+  const itemByName = (category: string, name?: string) => categoryItems(category).find((item) => item.name === name)
+  const dependentItems = (category: string, parent?: DictionaryItem) => {
+    const items = categoryItems(category)
+    const hasHierarchy = items.some((item) => item.parentId !== undefined)
+    if (!hasHierarchy) return items
+    return parent ? items.filter((item) => item.parentId === parent.id) : []
+  }
+  const options = (items: DictionaryItem[]) => items.map((item) => ({ value: item.name, label: item.name }))
+  const clearScopeFields = (index: number, names: Array<keyof DocumentScope>) => {
+    names.forEach((name) => form.setFieldValue(['scopes', index, name], undefined))
+  }
   return (
     <Form<DocumentFormValues>
       form={form}
@@ -145,6 +165,8 @@ export function DocumentForm({ form, categories, disabled, onChange }: DocumentF
         versionNumber: 'V1.0',
         changeSummary: '首次发布',
         files: [],
+        scopeMode: 'GLOBAL',
+        scopes: [],
       }}
       onValuesChange={onChange}
     >
@@ -168,6 +190,42 @@ export function DocumentForm({ form, categories, disabled, onChange }: DocumentF
           <Form.Item name="summary" label="文档摘要" rules={[{ required: true, message: '请输入文档摘要' }]}>
             <Input.TextArea rows={3} maxLength={1000} showCount placeholder="说明用途和适用对象" />
           </Form.Item>
+          <Form.Item name="scopeMode" label="适用方式" rules={[{ required: true, message: '请选择文档适用方式' }]}>
+            <Radio.Group>
+              <Radio value="GLOBAL">全局通用</Radio>
+              <Radio value="SPECIFIED">指定范围</Radio>
+            </Radio.Group>
+          </Form.Item>
+          {scopeMode === 'SPECIFIED' && <Form.List name="scopes" rules={[{ validator: async (_, values) => {
+            if (!values?.length) throw new Error('请至少添加一组适用范围')
+          } }]}>
+            {(fields, { add, remove }, { errors }) => <>
+              {fields.map((field, index) => {
+                const row = scopes[field.name] ?? {}
+                const selectedPlatform = itemByName('PLATFORM_FAMILY', row.platformFamily)
+                const selectedVariant = itemByName('PLATFORM_VARIANT', row.platformVariant)
+                const selectedBase = itemByName('BASE', row.baseName)
+                const selectedProductionLine = itemByName('PRODUCTION_LINE', row.productionLine)
+                return <Section key={field.key} style={{ marginBottom: 10, padding: 12 }}>
+                  <Space style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}><span>适用范围 {index + 1}</span><Button type="link" danger size="small" onClick={() => remove(field.name)}>移除</Button></Space>
+                  <Pair>
+                    <Form.Item {...field} name={[field.name, 'platformFamily']} label="平台族" rules={[{ required: true, message: '请选择平台族' }]}><Select options={options(categoryItems('PLATFORM_FAMILY'))} onChange={() => clearScopeFields(field.name, ['platformVariant', 'productLine'])} /></Form.Item>
+                    <Form.Item {...field} name={[field.name, 'platformVariant']} label="平台子类"><Select allowClear disabled={!selectedPlatform && dependentItems('PLATFORM_VARIANT').some((item) => item.parentId !== undefined)} options={options(dependentItems('PLATFORM_VARIANT', selectedPlatform))} onChange={() => clearScopeFields(field.name, ['productLine'])} /></Form.Item>
+                  </Pair>
+                  <Pair>
+                    <Form.Item {...field} name={[field.name, 'productLine']} label="蓝本" rules={[{ required: true, message: '请选择蓝本' }]}><Select disabled={!selectedVariant && dependentItems('PRODUCT_LINE').some((item) => item.parentId !== undefined)} options={options(dependentItems('PRODUCT_LINE', selectedVariant))} /></Form.Item>
+                    <Form.Item {...field} name={[field.name, 'baseName']} label="基地" rules={[{ required: true, message: '请选择基地' }]}><Select options={options(categoryItems('BASE'))} onChange={() => clearScopeFields(field.name, ['productionLine', 'processSection'])} /></Form.Item>
+                  </Pair>
+                  <Pair>
+                    <Form.Item {...field} name={[field.name, 'productionLine']} label="拉线" rules={[{ required: true, message: '请选择拉线' }]}><Select disabled={!selectedBase && dependentItems('PRODUCTION_LINE').some((item) => item.parentId !== undefined)} options={options(dependentItems('PRODUCTION_LINE', selectedBase))} onChange={() => clearScopeFields(field.name, ['processSection'])} /></Form.Item>
+                    <Form.Item {...field} name={[field.name, 'processSection']} label="工序段"><Select allowClear disabled={!selectedProductionLine && dependentItems('PROCESS_SECTION').some((item) => item.parentId !== undefined)} options={options(dependentItems('PROCESS_SECTION', selectedProductionLine))} /></Form.Item>
+                  </Pair>
+                </Section>
+              })}
+              <Button onClick={() => add({ platformFamily: '', platformVariant: '', productLine: '', baseName: '', productionLine: '', processSection: '' })}>添加适用范围</Button>
+              <Form.ErrorList errors={errors} />
+            </>}
+          </Form.List>}
           <Pair>
             <Form.Item name="maintainerName" label="维护人" rules={[{ required: true, message: '请选择维护人' }]}>
               <Input maxLength={100} />

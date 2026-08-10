@@ -69,6 +69,7 @@ function toInput(values: DocumentFormValues): CreateDocumentDraftInput {
   return {
     ...values,
     maintainerId: values.maintainerId || 'demo-user',
+    scopes: values.scopeMode === 'GLOBAL' ? [] : values.scopes,
   }
 }
 
@@ -160,7 +161,7 @@ export default function DocumentCreatePage() {
         {savedDraft && <Tag color="gold">草稿 {savedDraft.documentNumber}</Tag>}
       </PageBar>
       {error && <Alert type="error" showIcon message={error} closable onClose={() => setError('')} style={{ marginBottom: 10 }} />}
-      <DocumentForm form={form} categories={categories} disabled={Boolean(savedDraft)} onChange={() => setDirty(true)} />
+      <DocumentForm form={form} categories={categories} scopeItems={categoryQuery.data ?? []} disabled={Boolean(savedDraft)} onChange={() => setDirty(true)} />
       <ActionBar>
         <DraftState>{savedDraft ? '草稿已保存' : '尚未保存'}</DraftState>
         <Button onClick={leave}>取消</Button>

@@ -28,11 +28,14 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { useAssetSearch } from '../../hooks/useAssets'
 import { SearchSidebar } from '../../pages/main/search/components/SearchSidebar'
+import { DocumentSearchResultSection } from '../documents/components/DocumentSearchResultSection'
 import { getAssetFilePreviewUrl } from '../../services/assetService'
+import { searchUnified } from '../../services/unifiedSearchService'
 import type { Asset, AssetFile, AssetSearchParams, AssetStatus, AssetType } from '../../types/asset'
 import { scopeLabel } from './assetPresentation'
 import { AssetStatusTag, AssetTypeTag } from './AssetTags'
@@ -447,6 +450,20 @@ export function AssetSearchPage() {
     perPage: viewMode === 'gallery' ? 12 : 20,
   }
   const assetsQuery = useAssetSearch(params)
+  const documentsQuery = useQuery({
+    queryKey: ['unified-document-search', debouncedQuery, platformFamily, platformVariant, base, productionLine],
+    queryFn: () => searchUnified({
+      query: debouncedQuery,
+      platformFamily,
+      platformVariant,
+      base,
+      productionLine,
+      assetPage: 1,
+      assetPerPage: 1,
+      documentPage: 1,
+      documentPerPage: 8,
+    }),
+  })
 
   useEffect(() => setPage(1), [debouncedQuery, assetType, status, platformFamily, platformVariant, base, productionLine, previewableOnly, viewMode])
 
@@ -670,6 +687,13 @@ export function AssetSearchPage() {
               )}
             </Results>
           )}
+          <DocumentSearchResultSection
+            page={documentsQuery.data?.documents}
+            loading={documentsQuery.isLoading}
+            error={documentsQuery.isError}
+            onRetry={() => void documentsQuery.refetch()}
+            query={query}
+          />
         </MainPanel>
       </Workspace>
     </Page>

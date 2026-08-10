@@ -4,7 +4,9 @@ import type {
   DocumentPage,
   DocumentSearchParams,
   KnowledgeDocument,
+  AssetDocumentRelation,
 } from '../types/document'
+import type { Asset } from '../types/asset'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 
@@ -43,6 +45,15 @@ export function searchDocuments(params: DocumentSearchParams): Promise<DocumentP
 
 export function getDocument(id: number): Promise<KnowledgeDocument> {
   return request<KnowledgeDocument>(`/api/v1/documents/${id}`)
+}
+
+export interface DocumentAssetRelationResult {
+  relation: AssetDocumentRelation
+  asset: Asset
+}
+
+export function getDocumentAssetRelations(id: number): Promise<DocumentAssetRelationResult[]> {
+  return request<DocumentAssetRelationResult[]>(`/api/v1/documents/${id}/asset-relations`)
 }
 
 export function createDocumentDraft(input: CreateDocumentDraftInput): Promise<KnowledgeDocument> {

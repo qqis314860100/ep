@@ -1,12 +1,14 @@
 import {
   ArrowLeftOutlined,
+  DeleteOutlined,
   FileImageOutlined,
   FileOutlined,
   FilePdfOutlined,
+  LinkOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
-import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Skeleton, Tag } from 'antd'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Alert, App as AntdApp, Button, Select, Skeleton, Tag, Tooltip } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
@@ -17,8 +19,15 @@ import {
   formatFileSize,
 } from '../../../features/documents/documentPresentation'
 import { getDictionaryItems } from '../../../services/dictionaryService'
-import { getDocument } from '../../../services/documentService'
-import type { DocumentFile } from '../../../types/document'
+import { getDocument, getDocumentAssetRelations } from '../../../services/documentService'
+import {
+  changeAssetDocumentRelationType,
+  createAssetDocumentRelation,
+  removeAssetDocumentRelation,
+} from '../../../services/assetDocumentRelationService'
+import type { AssetDocumentRelation, AssetDocumentRelationType, DocumentFile } from '../../../types/document'
+import { AssetDocumentRelationModal } from '../../../features/documents/components/AssetDocumentRelationModal'
+import { assetDocumentRelationLabels } from '../../../features/documents/assetDocumentRelationPresentation'
 
 const Page = styled.div`
   min-width: 0;
@@ -170,6 +179,15 @@ const State = styled.div`
   border: 1px solid #dbe2de;
 `
 
+const RelationActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+
+  .ant-select { min-width: 74px; }
+`
+
 function icon(file: DocumentFile) {
   if (file.format === 'PDF') return <FilePdfOutlined />
   if (['PNG', 'JPG', 'JPEG', 'TIFF'].includes(file.format)) return <FileImageOutlined />
@@ -178,6 +196,8 @@ function icon(file: DocumentFile) {
 
 export default function DocumentDetailPage() {
   const navigate = useNavigate()
+  const { message, modal } = AntdApp.useApp()
+  const queryClient = useQueryClient()
   const { id } = useParams()
   const documentId = Number(id)
   const documentQuery = useQuery({
@@ -185,15 +205,63 @@ export default function DocumentDetailPage() {
     queryFn: () => getDocument(documentId),
     enabled: Number.isFinite(documentId),
   })
+  const relationsQuery = useQuery({
+    queryKey: ['document-asset-relations', documentId],
+    queryFn: () => getDocumentAssetRelations(documentId),
+    enabled: Number.isFinite(documentId),
+  })
   const categoryQuery = useQuery({ queryKey: ['document-categories'], queryFn: getDictionaryItems })
   const categories = useMemo(() => (categoryQuery.data ?? [])
     .filter((item) => item.category === 'DOCUMENT_CATEGORY'), [categoryQuery.data])
   const [selectedFileId, setSelectedFileId] = useState<number>()
+  const [relationDialogOpen, setRelationDialogOpen] = useState(false)
   const document = documentQuery.data
   useEffect(() => {
     if (document && selectedFileId === undefined) setSelectedFileId(document.currentVersion.files[0]?.id)
   }, [document, selectedFileId])
   const selectedFile = document?.currentVersion.files.find((file) => file.id === selectedFileId)
+  const refreshRelations = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['document-asset-relations'] }),
+      queryClient.invalidateQueries({ queryKey: ['asset-documents'] }),
+    ])
+  }
+  const createRelation = useMutation({
+    mutationFn: createAssetDocumentRelation,
+    onSuccess: async () => {
+      await refreshRelations()
+      setRelationDialogOpen(false)
+      void message.success('关联已建立')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '建立关联失败'),
+  })
+  const changeRelation = useMutation({
+    mutationFn: ({ relation, relationType }: { relation: AssetDocumentRelation; relationType: AssetDocumentRelationType }) =>
+      changeAssetDocumentRelationType(relation.id, { relationType, version: relation.version }),
+    onSuccess: async () => {
+      await refreshRelations()
+      void message.success('关联类型已更新')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '更新关联失败'),
+  })
+  const removeRelation = useMutation({
+    mutationFn: (relation: AssetDocumentRelation) => removeAssetDocumentRelation(relation.id, relation.version),
+    onSuccess: async () => {
+      await refreshRelations()
+      void message.success('关联已解除')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '解除关联失败'),
+  })
+  const confirmRemove = (relation: AssetDocumentRelation) => {
+    modal.confirm({
+      title: '解除关联？',
+      content: '解除后不会删除资产、文档或任何版本文件。',
+      okText: '解除关联',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: () => removeRelation.mutateAsync(relation),
+    })
+  }
 
   if (documentQuery.isLoading) return <State><Skeleton active paragraph={{ rows: 10 }} /></State>
   if (documentQuery.isError || !document) {
@@ -220,6 +288,7 @@ export default function DocumentDetailPage() {
           <DocumentNumber>{document.documentNumber}</DocumentNumber>
         </div>
         <Spacer />
+        <Button icon={<LinkOutlined />} aria-label="关联资产" onClick={() => setRelationDialogOpen(true)}>关联资产</Button>
         <Tag color="green">已发布</Tag>
         <Tag color="blue">当前版本 {document.currentVersion.versionNumber}</Tag>
       </PageBar>
@@ -255,15 +324,45 @@ export default function DocumentDetailPage() {
               <InfoRow><dt>分类</dt><dd>{documentCategoryName(document.categoryCode, categories)}</dd></InfoRow>
               <InfoRow><dt>维护人</dt><dd>{document.maintainerName}</dd></InfoRow>
               <InfoRow><dt>所属部门</dt><dd>{document.maintainerDepartment || '-'}</dd></InfoRow>
+              <InfoRow><dt>适用范围</dt><dd>{document.scopeMode === 'GLOBAL' ? '全局通用' : document.scopeMode === 'SPECIFIED' ? `${document.scopes.length} 组指定范围` : '范围待补充'}</dd></InfoRow>
               <InfoRow><dt>版本号</dt><dd>{document.currentVersion.versionNumber}</dd></InfoRow>
               <InfoRow><dt>变更说明</dt><dd>{document.currentVersion.changeSummary}</dd></InfoRow>
               <InfoRow><dt>发布时间</dt><dd>{formatDocumentTime(document.currentVersion.publishedAt)}</dd></InfoRow>
               <InfoRow><dt>发布人</dt><dd>{document.currentVersion.publishedBy || '-'}</dd></InfoRow>
               <InfoRow><dt>内容摘要</dt><dd>{selectedFile?.contentSha256.slice(0, 16) || '-'}</dd></InfoRow>
             </InfoGroup>
+            <InfoGroup>
+              <InfoRow><dt>关联对象</dt><dd>{relationsQuery.isLoading ? '加载中' : `${relationsQuery.data?.length ?? 0} 项`}</dd></InfoRow>
+              {(relationsQuery.data ?? []).map(({ relation, asset }) => (
+                <InfoRow key={relation.id}>
+                  <dt><Tag color="blue">{assetDocumentRelationLabels[relation.relationType]}</Tag></dt>
+                  <dd>
+                    <Button type="link" size="small" onClick={() => navigate(`/assets/${asset.id}`)}>{asset.name}</Button>
+                    <RelationActions>
+                      <Select
+                        size="small"
+                        value={relation.relationType}
+                        aria-label={`${asset.name}关联类型`}
+                        loading={changeRelation.isPending}
+                        options={(Object.keys(assetDocumentRelationLabels) as AssetDocumentRelationType[]).map((type) => ({ value: type, label: assetDocumentRelationLabels[type] }))}
+                        onChange={(relationType: AssetDocumentRelationType) => changeRelation.mutate({ relation, relationType })}
+                      />
+                      <Tooltip title="解除关联"><Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label={`解除与${asset.name}的关联`} loading={removeRelation.isPending} onClick={() => confirmRemove(relation)} /></Tooltip>
+                    </RelationActions>
+                  </dd>
+                </InfoRow>
+              ))}
+            </InfoGroup>
           </InfoBody>
         </InfoPanel>
       </Workspace>
+      <AssetDocumentRelationModal
+        subject={{ kind: 'document', id: document.id }}
+        open={relationDialogOpen}
+        saving={createRelation.isPending}
+        onClose={() => setRelationDialogOpen(false)}
+        onSubmit={(input) => createRelation.mutate(input)}
+      />
     </Page>
   )
 }

@@ -9,6 +9,7 @@ import type {
   AssetSearchParams,
   EquipmentInterconnection,
 } from '../types/asset'
+import type { AssetDocumentRelation, KnowledgeDocument } from '../types/document'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 const useMocks = import.meta.env.VITE_USE_MOCKS !== 'false'
@@ -108,6 +109,16 @@ export async function getAssetRelations(id: number): Promise<AssetRelation[]> {
     return mockRelations[id] ?? []
   }
   return request<AssetRelation[]>(`/api/v1/assets/${id}/relations`)
+}
+
+export interface AssetDocumentRelationResult {
+  relation: AssetDocumentRelation
+  document: KnowledgeDocument
+}
+
+export async function getAssetDocuments(id: number): Promise<AssetDocumentRelationResult[]> {
+  if (useMocks) return []
+  return request<AssetDocumentRelationResult[]>(`/api/v1/assets/${id}/documents`)
 }
 
 export async function saveAssetDraft(input: AssetDraftInput): Promise<Asset> {

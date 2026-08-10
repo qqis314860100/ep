@@ -1,5 +1,18 @@
 export type DocumentStatus = 'DRAFT' | 'PUBLISHED' | 'DISABLED'
 export type DocumentVersionStatus = 'DRAFT' | 'PUBLISHED' | 'HISTORICAL'
+export type DocumentScopeMode = 'GLOBAL' | 'SPECIFIED' | 'UNCLASSIFIED'
+export type AssetDocumentRelationType = 'COMPANION' | 'APPLICABLE' | 'REFERENCE'
+
+export interface DocumentScope {
+  id?: number
+  documentId?: number
+  platformFamily: string
+  platformVariant: string
+  productLine: string
+  baseName: string
+  productionLine: string
+  processSection: string
+}
 
 export interface DocumentFile {
   id: number
@@ -33,6 +46,8 @@ export interface KnowledgeDocument {
   maintainerId: string
   maintainerName: string
   maintainerDepartment: string
+  scopeMode: DocumentScopeMode
+  scopes: DocumentScope[]
   status: DocumentStatus
   currentVersionId?: number
   currentVersion: DocumentVersion
@@ -69,4 +84,14 @@ export interface CreateDocumentDraftInput {
   versionNumber: string
   changeSummary: string
   files: DocumentFile[]
+  scopeMode: Exclude<DocumentScopeMode, 'UNCLASSIFIED'>
+  scopes: DocumentScope[]
+}
+
+export interface AssetDocumentRelation {
+  id: number
+  assetId: number
+  documentId: number
+  relationType: AssetDocumentRelationType
+  version: number
 }

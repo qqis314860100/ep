@@ -1,19 +1,29 @@
 import {
   ArrowLeftOutlined,
+  DeleteOutlined,
   FileZipOutlined,
   LinkOutlined,
   RightOutlined,
   StarFilled,
   StarOutlined,
 } from '@ant-design/icons'
-import { App as AntdApp, Button, Empty, Space, Spin, Tag } from 'antd'
+import { App as AntdApp, Button, Empty, Select, Space, Spin, Tag, Tooltip } from 'antd'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { AssetStatusTag } from '../../../features/assets/AssetTags'
+import { AssetDocumentRelationModal } from '../../../features/documents/components/AssetDocumentRelationModal'
+import { assetDocumentRelationLabels } from '../../../features/documents/assetDocumentRelationPresentation'
 import { useAsset, useAssetRelations, useFavorite } from '../../../hooks/useAssets'
-import { setFavorite } from '../../../services/assetService'
+import { getAssetDocuments, setFavorite } from '../../../services/assetService'
+import {
+  changeAssetDocumentRelationType,
+  createAssetDocumentRelation,
+  removeAssetDocumentRelation,
+} from '../../../services/assetDocumentRelationService'
 import type { AssetFile } from '../../../types/asset'
+import type { AssetDocumentRelation, AssetDocumentRelationType } from '../../../types/document'
 import { CommentSection } from './components/CommentSection'
 import { DrawingGallery } from './components/DrawingGallery'
 import { DrawingInfoPanel } from './components/DrawingInfoPanel'
@@ -130,6 +140,19 @@ const RelationCard = styled.button`
   }
 `
 
+const ManagedRelationCard = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  min-height: 74px;
+  padding: 11px 12px;
+  background: #f8faf8;
+  border: 1px solid #e0e6e2;
+  border-radius: 5px;
+`
+
 const RelationBody = styled.div`
   min-width: 0;
 `
@@ -163,6 +186,14 @@ const RelationMeta = styled.div`
   white-space: nowrap;
 `
 
+const RelationActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  .ant-select { width: 74px; }
+`
+
 const CommentArea = styled.div`
   margin-top: 12px;
   padding-top: 12px;
@@ -177,14 +208,64 @@ const LoadingPage = styled.div`
 
 export default function DrawingDetailPage() {
   const navigate = useNavigate()
-  const { message } = AntdApp.useApp()
+  const { message, modal } = AntdApp.useApp()
+  const queryClient = useQueryClient()
   const params = useParams()
   const assetId = Number(params.id)
   const assetQuery = useAsset(assetId)
   const relationsQuery = useAssetRelations(assetId)
+  const documentRelationsQuery = useQuery({
+    queryKey: ['asset-documents', assetId],
+    queryFn: () => getAssetDocuments(assetId),
+    enabled: Number.isFinite(assetId),
+  })
   const favoriteQuery = useFavorite(assetId)
   const [favoriteSaving, setFavoriteSaving] = useState(false)
+  const [relationDialogOpen, setRelationDialogOpen] = useState(false)
   const asset = assetQuery.data
+
+  const refreshDocumentRelations = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['asset-documents'] }),
+      queryClient.invalidateQueries({ queryKey: ['document-asset-relations'] }),
+    ])
+  }
+  const createRelation = useMutation({
+    mutationFn: createAssetDocumentRelation,
+    onSuccess: async () => {
+      await refreshDocumentRelations()
+      setRelationDialogOpen(false)
+      void message.success('关联已建立')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '建立关联失败'),
+  })
+  const changeRelation = useMutation({
+    mutationFn: ({ relation, relationType }: { relation: AssetDocumentRelation; relationType: AssetDocumentRelationType }) =>
+      changeAssetDocumentRelationType(relation.id, { relationType, version: relation.version }),
+    onSuccess: async () => {
+      await refreshDocumentRelations()
+      void message.success('关联类型已更新')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '更新关联失败'),
+  })
+  const removeRelation = useMutation({
+    mutationFn: (relation: AssetDocumentRelation) => removeAssetDocumentRelation(relation.id, relation.version),
+    onSuccess: async () => {
+      await refreshDocumentRelations()
+      void message.success('关联已解除')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '解除关联失败'),
+  })
+  const confirmRemove = (relation: AssetDocumentRelation) => {
+    modal.confirm({
+      title: '解除关联？',
+      content: '解除后不会删除资产、文档或任何版本文件。',
+      okText: '解除关联',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: () => removeRelation.mutateAsync(relation),
+    })
+  }
 
   const toggleFavorite = async () => {
     if (!asset) return
@@ -262,7 +343,39 @@ export default function DrawingDetailPage() {
         ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无关联资料" style={{ margin: '8px 0' }} />}
       </RelationSection>
 
+      <RelationSection>
+        <SectionHeader>
+          <SectionTitle>关联文档</SectionTitle>
+          <Space size={8}><SectionMeta>{documentRelationsQuery.data?.length ?? 0} 项知识文档</SectionMeta><Button size="small" icon={<LinkOutlined />} onClick={() => setRelationDialogOpen(true)}>关联文档</Button></Space>
+        </SectionHeader>
+        {documentRelationsQuery.isLoading ? <Spin /> : (documentRelationsQuery.data?.length ?? 0) > 0 ? (
+          <RelationGrid>
+            {documentRelationsQuery.data?.map(({ relation, document }) => (
+              <ManagedRelationCard key={relation.id}>
+                <RelationBody>
+                  <RelationTop><Tag icon={<LinkOutlined />}>{assetDocumentRelationLabels[relation.relationType]}文档</Tag></RelationTop>
+                  <Button type="link" size="small" style={{ height: 'auto', padding: 0, fontSize: 13, fontWeight: 650 }} onClick={() => navigate(`/documents/${document.id}`)}>{document.title}</Button>
+                  <RelationMeta>{document.documentNumber} · 当前版本 {document.currentVersion.versionNumber}</RelationMeta>
+                </RelationBody>
+                <RelationActions>
+                  <Select aria-label={`${document.title}关联类型`} size="small" value={relation.relationType} loading={changeRelation.isPending} options={(Object.keys(assetDocumentRelationLabels) as AssetDocumentRelationType[]).map((type) => ({ value: type, label: assetDocumentRelationLabels[type] }))} onChange={(relationType: AssetDocumentRelationType) => changeRelation.mutate({ relation, relationType })} />
+                  <Tooltip title="解除关联"><Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label={`解除与${document.title}的关联`} loading={removeRelation.isPending} onClick={() => confirmRemove(relation)} /></Tooltip>
+                  <Tooltip title="打开文档"><Button type="text" size="small" icon={<RightOutlined />} aria-label={`打开${document.title}`} onClick={() => navigate(`/documents/${document.id}`)} /></Tooltip>
+                </RelationActions>
+              </ManagedRelationCard>
+            ))}
+          </RelationGrid>
+        ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无关联文档" style={{ margin: '8px 0' }} />}
+      </RelationSection>
+
       <CommentArea><CommentSection assetId={asset.id} /></CommentArea>
+      <AssetDocumentRelationModal
+        subject={{ kind: 'asset', id: asset.id }}
+        open={relationDialogOpen}
+        saving={createRelation.isPending}
+        onClose={() => setRelationDialogOpen(false)}
+        onSubmit={(input) => createRelation.mutate(input)}
+      />
     </Page>
   )
 }
