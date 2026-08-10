@@ -111,6 +111,24 @@ export interface GovernanceMappingRule {
   updatedAt: string
 }
 
+export type GovernanceScanTriggerType = 'MANUAL' | 'SCHEDULED' | 'RETRY'
+export type GovernanceScanRunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+
+export interface GovernanceScanRun {
+  id: number
+  triggerType: GovernanceScanTriggerType
+  status: GovernanceScanRunStatus
+  startedAt: string
+  finishedAt: string | null
+  scannedAssetCount: number
+  createdIssueCount: number
+  reopenedIssueCount: number
+  unchangedIssueCount: number
+  errorMessage: string
+  retryOfRunId: number | null
+  version: number
+}
+
 export interface GovernanceProgress {
   total: number
   submitted: number

@@ -15,6 +15,7 @@ import type {
   GovernanceItemExecution,
   GovernanceMappingRule,
   GovernanceMappingStatus,
+  GovernanceScanRun,
   GovernancePlan,
   GovernancePlanProjection,
   GovernancePlanStatus,
@@ -382,4 +383,16 @@ export function disableGovernanceMapping(id: number, version: number): Promise<G
 
 export function getGovernanceMappingHistory(id: number): Promise<GovernanceMappingRule[]> {
   return request(`/api/v1/governance/mappings/${id}/history`)
+}
+
+export function getGovernanceScanRuns(): Promise<GovernanceScanRun[]> {
+  return request('/api/v1/governance/scans')
+}
+
+export function triggerGovernanceScan(): Promise<GovernanceScanRun> {
+  return request('/api/v1/governance/scans', { method: 'POST' })
+}
+
+export function retryGovernanceScan(id: number): Promise<GovernanceScanRun> {
+  return request(`/api/v1/governance/scans/${id}/retry`, { method: 'POST' })
 }
