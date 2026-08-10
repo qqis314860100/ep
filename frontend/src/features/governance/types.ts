@@ -129,6 +129,40 @@ export interface GovernanceScanRun {
   version: number
 }
 
+export interface GovernanceOperationsFilter {
+  standardCode?: string
+  issueType?: string
+  ownerUserId?: string
+  assetType?: GovernanceAssetType
+  base?: string
+  fromDate?: string
+  toDate?: string
+}
+
+export interface GovernanceOperationsMetric {
+  key: string
+  label: string
+  value: number | null
+  numerator: number
+  denominator: number
+  available: boolean
+  unit: string
+  source: string
+}
+
+export interface GovernanceOperationsOverview {
+  filter: GovernanceOperationsFilter
+  assetCount: number
+  coveredAssetCount: number
+  openIssueCount: number
+  overdueTaskCount: number
+  metrics: GovernanceOperationsMetric[]
+  issuesByType: Array<{ key: string; count: number }>
+  overdueTasks: Array<{ taskId: number; taskName: string; ownerName: string; dueDate: string; status: GovernanceTaskStatus }>
+  cadences: Array<{ key: string; name: string; ownerRole: string; status: string; nextDueAt: string; evidence: string }>
+  generatedAt: string
+}
+
 export interface GovernanceProgress {
   total: number
   submitted: number

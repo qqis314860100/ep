@@ -15,6 +15,8 @@ import type {
   GovernanceItemExecution,
   GovernanceMappingRule,
   GovernanceMappingStatus,
+  GovernanceOperationsFilter,
+  GovernanceOperationsOverview,
   GovernanceScanRun,
   GovernancePlan,
   GovernancePlanProjection,
@@ -74,7 +76,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-function queryString(values: Record<string, string | number | undefined>): string {
+function queryString<T extends object>(values: T): string {
   const params = new URLSearchParams()
   Object.entries(values).forEach(([key, value]) => {
     if (value !== undefined && value !== '') params.set(key, String(value))
@@ -395,4 +397,8 @@ export function triggerGovernanceScan(): Promise<GovernanceScanRun> {
 
 export function retryGovernanceScan(id: number): Promise<GovernanceScanRun> {
   return request(`/api/v1/governance/scans/${id}/retry`, { method: 'POST' })
+}
+
+export function getGovernanceOperationsOverview(filters: GovernanceOperationsFilter = {}): Promise<GovernanceOperationsOverview> {
+  return request(`/api/v1/governance/operations/overview${queryString(filters)}`)
 }
