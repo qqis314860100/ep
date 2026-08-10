@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.tianshu.assets.common.file.InMemoryFileStorage;
 import com.tianshu.assets.document.domain.DocumentFile;
+import com.tianshu.assets.document.domain.DocumentScope;
+import com.tianshu.assets.document.domain.DocumentScopeMode;
 import com.tianshu.assets.document.domain.DocumentStatus;
 import com.tianshu.assets.document.domain.DocumentVersionStatus;
 import com.tianshu.assets.document.infrastructure.InMemoryDocumentRepository;
@@ -67,6 +69,18 @@ class DocumentCommandServiceTest {
 
         assertThatThrownBy(() -> commands.publish(draft.id(), "u-100", "陈工"))
                 .isInstanceOf(DocumentStateConflictException.class);
+    }
+
+    @Test
+    void rejectsSpecifiedScopeWithoutItsRequiredProductionDimensions() throws Exception {
+        var command = new CreateDocumentDraftCommand("DOC-NEW-0003", "测试文档", "用于应用服务测试。",
+                "WORK_INSTRUCTION", "u-100", "陈工", "设备工程部", "", "", List.of(pdfFile()),
+                DocumentScopeMode.SPECIFIED,
+                List.of(new DocumentScope(0, 0, "乘用车", "大面水冷", "", "宁德基地", "A 拉线", "焊接段")));
+
+        assertThatThrownBy(() -> commands.createDraft(command))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("平台族、蓝本、基地和拉线");
     }
 
     private CreateDocumentDraftCommand command(String number, DocumentFile file) {

@@ -4,6 +4,7 @@ import com.tianshu.assets.common.file.FileStorage;
 import com.tianshu.assets.document.domain.DocumentFile;
 import com.tianshu.assets.document.domain.DocumentRepository;
 import com.tianshu.assets.document.domain.DocumentScopeMode;
+import com.tianshu.assets.document.domain.DocumentScope;
 import com.tianshu.assets.document.domain.DocumentStatus;
 import com.tianshu.assets.document.domain.DocumentVersion;
 import com.tianshu.assets.document.domain.DocumentVersionStatus;
@@ -36,7 +37,7 @@ public class DocumentCommandService {
             throw new IllegalArgumentException("请至少上传一个文件");
         }
         command.files().forEach(this::validateDraftFile);
-        validateScope(command.scopeMode(), command.scopes().isEmpty());
+        validateScope(command.scopeMode(), command.scopes());
 
         var now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         var version = new DocumentVersion(0, 0, defaultText(command.versionNumber(), "V1.0"),
@@ -90,15 +91,21 @@ public class DocumentCommandService {
         if (file.sizeBytes() < 0) throw new IllegalArgumentException("文件大小不能为负数");
     }
 
-    private void validateScope(DocumentScopeMode mode, boolean scopesEmpty) {
+    private void validateScope(DocumentScopeMode mode, java.util.List<DocumentScope> scopes) {
         if (mode == null || mode == DocumentScopeMode.UNCLASSIFIED) {
             throw new IllegalArgumentException("请选择文档适用方式");
         }
-        if (mode == DocumentScopeMode.GLOBAL && !scopesEmpty) {
+        if (mode == DocumentScopeMode.GLOBAL && !scopes.isEmpty()) {
             throw new IllegalArgumentException("全局通用文档不能填写指定适用范围");
         }
-        if (mode == DocumentScopeMode.SPECIFIED && scopesEmpty) {
+        if (mode == DocumentScopeMode.SPECIFIED && scopes.isEmpty()) {
             throw new IllegalArgumentException("指定范围文档至少需要一组适用范围");
+        }
+        for (var scope : scopes) {
+            if (scope.platformFamily().isBlank() || scope.productLine().isBlank() || scope.baseName().isBlank()
+                    || scope.productionLine().isBlank()) {
+                throw new IllegalArgumentException("指定范围必须填写平台族、蓝本、基地和拉线");
+            }
         }
     }
 
