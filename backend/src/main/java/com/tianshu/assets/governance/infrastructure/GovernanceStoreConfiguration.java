@@ -13,6 +13,7 @@ import com.tianshu.assets.governance.task.application.GovernanceRuleCatalog;
 import com.tianshu.assets.governance.task.application.GovernanceWorkflowStore;
 import com.tianshu.assets.governance.standard.application.GovernanceDataStandardStore;
 import com.tianshu.assets.governance.standard.application.GovernanceStandardImpactPort;
+import com.tianshu.assets.governance.mapping.application.GovernanceMappingRuleStore;
 import com.tianshu.assets.asset.domain.AssetRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -22,6 +23,12 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class GovernanceStoreConfiguration {
+    @Bean
+    @ConditionalOnMissingBean(GovernanceMappingRuleStore.class)
+    @ConditionalOnProperty(name = "asset.governance-schema-enabled", havingValue = "false", matchIfMissing = true)
+    GovernanceMappingRuleStore inMemoryGovernanceMappingRuleStore() {
+        return new InMemoryGovernanceMappingRuleStore();
+    }
     @Bean
     @ConditionalOnMissingBean(GovernanceDataStandardStore.class)
     @ConditionalOnProperty(name = "asset.governance-schema-enabled", havingValue = "false", matchIfMissing = true)
