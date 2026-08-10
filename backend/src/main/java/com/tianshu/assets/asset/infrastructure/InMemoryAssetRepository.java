@@ -203,7 +203,9 @@ public class InMemoryAssetRepository implements AssetRepository {
                 (criteria.base() == null || criteria.base().isBlank() || criteria.base().equals(scope.base()))
                         && (criteria.productionLine() == null
                                 || criteria.productionLine().isBlank()
-                                || criteria.productionLine().equals(scope.productionLine())));
+                                || criteria.productionLine().equals(scope.productionLine()))
+                        && (criteria.productLine().isBlank() || criteria.productLine().equals(scope.productLine()))
+                        && (criteria.processSection().isBlank() || criteria.processSection().equals(scope.processSection())));
         return matchesQuery && matchesType && matchesStatus && matchesOwner && matchesPreviewable && matchesScope;
     }
 

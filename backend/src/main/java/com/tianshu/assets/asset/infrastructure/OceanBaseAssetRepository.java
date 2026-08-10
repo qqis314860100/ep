@@ -82,6 +82,9 @@ public class OceanBaseAssetRepository implements AssetRepository {
         if (!extensionStore.enabled() && criteria.platformVariant() != null && !criteria.platformVariant().isBlank()) {
             return new AssetPage(List.of(), 0, criteria.page(), criteria.perPage());
         }
+        if (!extensionStore.enabled() && (hasText(criteria.productLine()) || hasText(criteria.processSection()))) {
+            return new AssetPage(List.of(), 0, criteria.page(), criteria.perPage());
+        }
         if (!extensionStore.enabled() && criteria.productionLine() != null && !criteria.productionLine().isBlank()) {
             where.add("drawing_line = :productionLine");
             parameters.put("productionLine", criteria.productionLine());
@@ -100,6 +103,10 @@ public class OceanBaseAssetRepository implements AssetRepository {
                 scopePredicates.add("scope.platform_variant = :platformVariant");
                 parameters.put("platformVariant", criteria.platformVariant());
             }
+            if (hasText(criteria.productLine())) {
+                scopePredicates.add("scope.product_line = :productLine");
+                parameters.put("productLine", criteria.productLine());
+            }
             if (hasText(criteria.base())) {
                 scopePredicates.add("scope.base_name = :base");
                 parameters.put("base", criteria.base());
@@ -107,6 +114,10 @@ public class OceanBaseAssetRepository implements AssetRepository {
             if (hasText(criteria.productionLine())) {
                 scopePredicates.add("scope.production_line = :productionLine");
                 parameters.put("productionLine", criteria.productionLine());
+            }
+            if (hasText(criteria.processSection())) {
+                scopePredicates.add("scope.process_section = :processSection");
+                parameters.put("processSection", criteria.processSection());
             }
             where.add("EXISTS (SELECT 1 FROM asset_scope_ext scope WHERE scope.drawing_id = sys_drawing.id AND "
                     + String.join(" AND ", scopePredicates) + ")");
@@ -342,7 +353,8 @@ public class OceanBaseAssetRepository implements AssetRepository {
 
     private boolean hasScopeCriteria(AssetSearchCriteria criteria) {
         return hasText(criteria.platformFamily()) || hasText(criteria.platformVariant())
-                || hasText(criteria.base()) || hasText(criteria.productionLine());
+                || hasText(criteria.productLine()) || hasText(criteria.base()) || hasText(criteria.productionLine())
+                || hasText(criteria.processSection());
     }
 
     private boolean hasText(String value) {
