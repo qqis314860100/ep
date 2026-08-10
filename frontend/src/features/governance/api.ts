@@ -13,6 +13,8 @@ import type {
   GovernanceIssue,
   GovernanceIssueStatus,
   GovernanceItemExecution,
+  GovernanceMappingRule,
+  GovernanceMappingStatus,
   GovernancePlan,
   GovernancePlanProjection,
   GovernancePlanStatus,
@@ -330,4 +332,54 @@ export function getGovernanceStandardImpactReviews(
   id: number,
 ): Promise<GovernanceStandardImpactReview[]> {
   return request(`/api/v1/governance/standards/${id}/impact-reviews`)
+}
+
+export function getGovernanceMappings(filters: {
+  status?: GovernanceMappingStatus
+  sourceDimension?: string
+  query?: string
+} = {}): Promise<GovernanceMappingRule[]> {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value) })
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return request(`/api/v1/governance/mappings${suffix}`)
+}
+
+export function createGovernanceMapping(input: {
+  standardId: number
+  sourceDimension: string
+  sourceValue: string
+  targetDictionaryCategory: string
+  targetDictionaryItemId: number
+  scope: GovernanceMappingRule['scope']
+  ambiguous: boolean
+  affectedAssetCount: number
+}): Promise<GovernanceMappingRule> {
+  return request('/api/v1/governance/mappings', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function createGovernanceMappingVersion(id: number, input: {
+  standardId: number
+  standardVersion: number
+  sourceDimension: string
+  sourceValue: string
+  targetDictionaryCategory: string
+  targetDictionaryItemId: number
+  scope: GovernanceMappingRule['scope']
+  ambiguous: boolean
+  affectedAssetCount: number
+}): Promise<GovernanceMappingRule> {
+  return request(`/api/v1/governance/mappings/${id}/versions`, { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function confirmGovernanceMapping(id: number, input: { version: number; userId: string; userName: string; comment?: string }): Promise<GovernanceMappingRule> {
+  return request(`/api/v1/governance/mappings/${id}/confirm`, { method: 'POST', body: JSON.stringify(input) })
+}
+
+export function disableGovernanceMapping(id: number, version: number): Promise<GovernanceMappingRule> {
+  return request(`/api/v1/governance/mappings/${id}/disable`, { method: 'POST', body: JSON.stringify({ version }) })
+}
+
+export function getGovernanceMappingHistory(id: number): Promise<GovernanceMappingRule[]> {
+  return request(`/api/v1/governance/mappings/${id}/history`)
 }

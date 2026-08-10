@@ -72,6 +72,45 @@ export interface CreateGovernanceStandardInput extends CreateGovernanceStandardV
   standardCode: string
 }
 
+export type GovernanceMappingStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED' | 'DISABLED'
+
+export interface GovernanceAssetScope {
+  platform: string
+  productLine: string
+  base: string
+  productionLine: string
+  processSection: string
+  platformFamily: string
+  platformVariant: string
+}
+
+export interface GovernanceMappingRule {
+  id: number
+  standardId: number
+  standardCode: string
+  standardVersion: number
+  ruleVersion: number
+  sourceDimension: string
+  sourceValue: string
+  targetDictionaryCategory: string
+  targetDictionaryItemId: number
+  targetCode: string
+  targetName: string
+  scope: GovernanceAssetScope
+  ambiguous: boolean
+  confirmationComment: string | null
+  confirmedByUserId: string | null
+  confirmedByName: string | null
+  confirmedAt: string | null
+  usageCount: number
+  matchedAssetCount: number
+  affectedAssetCount: number
+  status: GovernanceMappingStatus
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
 export interface GovernanceProgress {
   total: number
   submitted: number
