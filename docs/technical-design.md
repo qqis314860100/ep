@@ -17,6 +17,7 @@
 - 新结构采用扩展表和关系表，不改变旧主键，不覆盖旧原始值。
 - V1.5 扩展 DDL 位于 `docs/migrations/V1_5__asset_extension_schema.sql`，盘点/核对查询位于 `docs/migrations/V1_5__legacy_reconciliation_queries.sql`；两者仅作为受控迁移输入，不由应用启动自动执行。
 - V1.7 字段治理闭环 DDL 位于 `docs/migrations/V1_7__governance_field_closure.sql`，只新增治理问题、任务、计划、治理项、结果、确认、验收、作业和审计扩展表，不修改旧表主键或来源字段。
+- 产品 V1.7.0 使用 `docs/migrations/V1_11__document_scope_and_relation.sql` 扩展知识文档范围、资产文档关系和关系审计；该迁移只新增字段和表，既有文档默认为 `UNCLASSIFIED`，不回填或覆盖历史来源值。
 - API 使用资源名词、标准 HTTP 状态码和统一错误结构。
 - 前端页面按业务功能组织，不按 Ant Design 组件类型组织。
 
@@ -29,6 +30,9 @@ controller -> application service -> domain repository -> infrastructure adapter
 - `asset.domain`：数模资产、适用范围、资产关系和领域枚举。
 - `asset.application`：查询用例、分页和业务校验。
 - `asset.infrastructure`：内存仓储和 OceanBase 读取适配器。
+- `document`：知识文档、文档范围、草稿/首次发布命令和当前版本查询；文档范围以 `GLOBAL`、`SPECIFIED`、`UNCLASSIFIED` 表达兼容状态。
+- `documentrelation`：资产与逻辑文档的固定类型关联、乐观锁写入和追加审计；关联不复制文件，也不改变资产或文档生命周期。
+- `search`：只读统一检索应用服务，同时编排资产和知识文档查询，两个分页和结果状态独立返回。
 - `common.api`：响应结构、错误处理和跨域配置。
 - `governance`：控制器只编排鉴权和 DTO；任务、执行、确认、验收、正式应用与审计应用服务依赖各自仓储端口，内存和 JDBC 适配器实现端口。
 
@@ -39,6 +43,8 @@ pages/
 ├── main/
 │   ├── search/       # 搜索首页、搜索入口、筛选和结果
 │   └── detail/       # 资产详情、文件预览、评论和关系
+├── features/
+│   └── documents/    # 文档检索、草稿、范围录入和关联维护
 └── sys/
     ├── drawing/      # 图纸/数模资产管理与治理
     └── file/         # 文件上传与文件管理
@@ -63,6 +69,11 @@ pages/
 - `GET /api/v1/assets`：分页搜索资产。
 - `GET /api/v1/assets/{id}`：查询资产详情。
 - `GET /api/v1/assets/{id}/relations`：查询资产关系。
+- `GET /api/v1/search`：同时查询资产和已发布知识文档；资产与文档结果区分别分页并返回独立状态，生产条件必须在同一条范围记录中命中。
+- `GET /api/v1/documents`、`GET /api/v1/documents/{id}`：查询知识文档及其当前版本。
+- `POST /api/v1/documents/drafts`、`POST /api/v1/documents/{id}/publish`：保存文档草稿和首次发布；新建请求必须显式提交 `GLOBAL` 或 `SPECIFIED` 范围模式。
+- `GET /api/v1/documents/{id}/asset-relations`、`GET /api/v1/assets/{id}/documents`：从任一侧查询资产文档关联；资产侧仅返回关联文档的当前已发布版本。
+- `POST /api/v1/asset-document-relations`、`PATCH /api/v1/asset-document-relations/{id}`、`DELETE /api/v1/asset-document-relations/{id}`：建立、改类或解除固定类型 `COMPANION`、`APPLICABLE`、`REFERENCE` 关联，写入操作人、时间、原值和新值审计，并使用关系版本防止并发覆盖。
 - `GET /api/v1/favorites`：查询当前用户收藏的资产。
 - `POST/DELETE /api/v1/assets/{id}/favorite`：幂等添加或取消当前用户收藏。
 - `GET /api/v1/governance/tasks`：查询治理任务及进度。
@@ -127,6 +138,7 @@ pages/
 - `ASSET_EXTENSION_SCHEMA_ENABLED` 默认关闭；开启前必须完成 V1.5 扩展表和迁移核对，适配器才读取扩展字段，旧字段仍作为回退来源。
 - `local` profile 默认开启扩展结构和数据库写入；资产、范围、文件清单、收藏、评论、点赞与设备互联均读写本地 MySQL。
 - 字段治理在默认 `dev` profile 使用内存仓储完成全闭环；`local` profile 通过 V1.7 扩展表持久化；`oceanbase` profile 默认拒绝治理写入，未完成受控迁移和开关验证前不得启用。
+- 文档范围与资产文档关系在默认 `dev` profile 使用内存仓储；`local/oceanbase` 使用 JDBC 适配器前必须先在非生产环境验证 V1_11 迁移、权限和对象存储条件，禁止在兼容阶段直接改写旧业务表。
 - 本地建表脚本为 `docs/migrations/local/V1_5__local_bootstrap.sql`，开发数据脚本为 `docs/migrations/local/V1_5__local_seed.sql`；两者均为幂等脚本，不删除已有数据。
 - `dictionary_item` 统一保存产品体系、生产体系、资产分类和关系类型字典；`parent_id` 表达层级，`status` 与 `merge_target_id` 保留停用和合并历史，`version` 防止并发覆盖。
 - 所有连接信息由环境变量提供。
@@ -168,6 +180,8 @@ pages/
 - 前端路由按业务页面懒加载，React、Ant Design 和查询库作为独立长期缓存包。
 - 后端单元测试覆盖搜索规则和异常分支，接口测试覆盖分页响应、参数校验和统一错误结构。
 - 搜索中的产品和生产维度必须在同一个 `AssetScope` 中命中，禁止跨适用范围拼接。
+- 文档范围遵循相同的同范围匹配规则：`GLOBAL` 始终匹配，`SPECIFIED` 必须由同一条 `DocumentScope` 同时命中，存量 `UNCLASSIFIED` 文档可按关键词检索但不匹配生产范围筛选。
+- 资产文档关联以逻辑文档 ID 为目标；文档发布新版本后关联不迁移，使用端自动读取当前有效版本。建立、改类和解除均使用关系版本并记录审计。
 - `AssetScope` 同时保留兼容用 `platform`、标准 `platformFamily` 和 `platformVariant`；八个平台子类通过平台族与子类组合筛选，历史数据缺失子类时不自动猜测。
 - 业务统一使用“蓝本”表示 H03、P02 等可复用标准方案；为兼容既有数据，API 字段 `productLine`、数据库列 `product_line` 和字典分类编码 `PRODUCT_LINE` 暂不重命名，界面及需求文档不得继续称其为“产品线”。
 - 模组相关属性使用受控 `moduleTags`、`standardEquipmentModule`、`linkedModuleAssetIds` 和 `equipmentInterconnectCode`，模块超链接只引用资产 ID，不复制文件。
