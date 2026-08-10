@@ -13,6 +13,7 @@ import com.tianshu.assets.governance.task.application.GovernanceRuleCatalog;
 import com.tianshu.assets.governance.task.application.GovernanceWorkflowStore;
 import com.tianshu.assets.governance.standard.application.GovernanceDataStandardStore;
 import com.tianshu.assets.governance.standard.application.GovernanceStandardImpactPort;
+import com.tianshu.assets.governance.scan.application.GovernanceScanRunStore;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -36,6 +37,7 @@ class GovernanceStoreConfigurationTest {
             assertThat(context.getBeansOfType(GovernanceAcceptanceStore.class)).hasSize(1);
             assertThat(context.getBeansOfType(GovernanceDataStandardStore.class)).hasSize(1);
             assertThat(context.getBeansOfType(GovernanceStandardImpactPort.class)).hasSize(1);
+            assertThat(context.getBeansOfType(GovernanceScanRunStore.class)).hasSize(1);
         });
     }
 
@@ -84,6 +86,7 @@ class GovernanceStoreConfigurationTest {
             assertThat(context.getBeansOfType(GovernanceAcceptanceStore.class)).isEmpty();
             assertThat(context.getBeansOfType(GovernanceDataStandardStore.class)).isEmpty();
             assertThat(context.getBeansOfType(GovernanceStandardImpactPort.class)).hasSize(1);
+            assertThat(context.getBeansOfType(GovernanceScanRunStore.class)).isEmpty();
         });
     }
 }

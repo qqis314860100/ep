@@ -15,6 +15,9 @@ server:
 asset:
   extension-schema-enabled: ${ASSET_EXTENSION_SCHEMA_ENABLED:false}
   governance-schema-enabled: ${ASSET_GOVERNANCE_SCHEMA_ENABLED:false}
+  governance-scan:
+    enabled: ${ASSET_GOVERNANCE_SCAN_ENABLED:false}
+    fixed-delay-ms: ${ASSET_GOVERNANCE_SCAN_FIXED_DELAY_MS:86400000}
 
 management:
   endpoints:

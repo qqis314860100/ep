@@ -74,6 +74,30 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
 
     @Override
     @Transactional
+    public GovernanceIssue upsertScanned(GovernanceIssue issue) {
+        requireWritable();
+        var current = findByFingerprint(issue.fingerprint());
+        if (current.isEmpty()) return insertAll(List.of(issue)).getFirst();
+        var existing = current.get();
+        if (existing.status() == GovernanceIssueStatus.RESOLVED) {
+            var updated = jdbcClient.sql("""
+                    UPDATE governance_issue SET status='OPEN',task_id=NULL,asset_id=:assetId,target_field=:targetField,
+                    issue_type=:issueType,target_path=:targetPath,rule_code=:ruleCode,rule_version=:ruleVersion,
+                    original_fact_json=:originalFactJson,asset_version=:assetVersion,scope_fingerprint=:scopeFingerprint,
+                    severity=:severity,blocking=:blocking,version=version+1
+                    WHERE id=:id AND version=:version
+                    """).param("assetId", issue.assetId()).param("targetField", issue.targetField().name()).param("issueType", issue.issueType()).param("targetPath", issue.targetPath()).param("ruleCode", issue.ruleCode()).param("ruleVersion", issue.ruleVersion()).param("originalFactJson", issue.originalFactJson()).param("assetVersion", issue.assetVersion()).param("scopeFingerprint", issue.scopeFingerprint()).param("severity", issue.severity()).param("blocking", issue.blocking()).param("id", existing.id()).param("version", existing.version()).update();
+            if (updated != 1) throw new GovernanceConflictException("治理问题已变化，请刷新后重试");
+            return findByIds(List.of(existing.id())).getFirst();
+        }
+        if (existing.assetVersion() == issue.assetVersion() && existing.originalFactJson().equals(issue.originalFactJson())) return existing;
+        var updated = jdbcClient.sql("UPDATE governance_issue SET original_fact_json=:originalFactJson,asset_version=:assetVersion,scope_fingerprint=:scopeFingerprint,version=version+1 WHERE id=:id AND version=:version").param("originalFactJson", issue.originalFactJson()).param("assetVersion", issue.assetVersion()).param("scopeFingerprint", issue.scopeFingerprint()).param("id", existing.id()).param("version", existing.version()).update();
+        if (updated != 1) throw new GovernanceConflictException("治理问题已变化，请刷新后重试");
+        return findByIds(List.of(existing.id())).getFirst();
+    }
+
+    @Override
+    @Transactional
     public List<GovernanceIssue> insertAll(List<GovernanceIssue> issues) {
         requireWritable();
         if (issues == null || issues.isEmpty()) return List.of();

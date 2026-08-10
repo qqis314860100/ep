@@ -78,6 +78,22 @@ public class InMemoryGovernanceIssueStore implements GovernanceIssueStore {
     }
 
     @Override
+    public synchronized GovernanceIssue upsertScanned(GovernanceIssue issue) {
+        var current = issues.values().stream().filter(item -> item.fingerprint().equals(issue.fingerprint())).findFirst();
+        if (current.isEmpty()) return insertAll(List.of(issue)).getFirst();
+        var existing = current.get();
+        if (existing.status() == GovernanceIssueStatus.RESOLVED) {
+            var reopened = new GovernanceIssue(existing.id(), issue.assetId(), issue.targetField(), issue.issueType(), issue.targetPath(),
+                    issue.ruleCode(), issue.ruleVersion(), issue.originalFactJson(), issue.assetVersion(), issue.scopeFingerprint(), issue.severity(), issue.blocking(),
+                    GovernanceIssueStatus.OPEN, null, existing.version() + 1);
+            issues.put(existing.id(), reopened); return reopened;
+        }
+        if (existing.assetVersion() == issue.assetVersion() && existing.originalFactJson().equals(issue.originalFactJson())) return existing;
+        var refreshed = new GovernanceIssue(existing.id(), issue.assetId(), issue.targetField(), issue.issueType(), issue.targetPath(), issue.ruleCode(), issue.ruleVersion(), issue.originalFactJson(), issue.assetVersion(), issue.scopeFingerprint(), issue.severity(), issue.blocking(), existing.status(), existing.taskId(), existing.version() + 1);
+        issues.put(existing.id(), refreshed); return refreshed;
+    }
+
+    @Override
     public synchronized void claimOpen(List<GovernanceIssue> expectedIssues, long taskId) {
         for (var expected : expectedIssues) {
             var current = issues.get(expected.id());

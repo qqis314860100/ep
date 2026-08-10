@@ -4,6 +4,7 @@ import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssue;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssueStatus;
 import java.util.List;
+import java.util.Optional;
 
 public interface GovernanceIssueStore {
 
@@ -12,6 +13,14 @@ public interface GovernanceIssueStore {
     List<GovernanceIssue> findByIds(List<Long> issueIds);
 
     List<GovernanceIssue> insertAll(List<GovernanceIssue> issues);
+
+    default Optional<GovernanceIssue> findByFingerprint(String fingerprint) {
+        return find(null, null, null).stream().filter(issue -> issue.fingerprint().equals(fingerprint)).findFirst();
+    }
+
+    default GovernanceIssue upsertScanned(GovernanceIssue issue) {
+        return insertAll(List.of(issue)).getFirst();
+    }
 
     void claimOpen(List<GovernanceIssue> expectedIssues, long taskId);
 
