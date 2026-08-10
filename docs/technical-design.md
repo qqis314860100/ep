@@ -74,6 +74,10 @@ pages/
 - `POST /api/v1/governance/standards/{id}/versions`：基于已有标准新增更高业务版本草稿。
 - `POST /api/v1/governance/standards/{id}/enable`、`POST /api/v1/governance/standards/{id}/disable`：按并发版本启用或停用标准；启用返回影响复核清单，旧版本自动停用。
 - `GET /api/v1/governance/standards/{id}/impact-reviews`：查询标准启用时固化的受影响资产 ID 清单和复核状态。
+- `GET /api/v1/governance/mappings`、`GET /api/v1/governance/mappings/{id}`：查询来源值到目标字典项的映射规则，可按状态、来源维度和关键词筛选。
+- `POST /api/v1/governance/mappings`、`POST /api/v1/governance/mappings/{id}/versions`：创建映射规则或新增不可覆盖的规则版本；规则必须绑定启用数据标准、启用目标字典项和完整 `AssetScope`。
+- `POST /api/v1/governance/mappings/{id}/confirm`、`POST /api/v1/governance/mappings/{id}/disable`：按乐观锁确认或停用规则；歧义规则必须提供业务确认意见。
+- `GET /api/v1/governance/mappings/{id}/history`：查询同一来源、标准版本和适用范围下的规则版本历史。
 - `GET /api/v1/governance/tasks/{taskId}/confirmation-rounds/current`、`PUT /api/v1/governance/confirmation-rounds/{roundId}/items/{itemId}/decision`、`POST /api/v1/governance/tasks/{taskId}/confirmation-rounds/{roundId}/complete`：逐项保存并完成业务确认轮次。
 - `GET /api/v1/governance/tasks/{taskId}/acceptance-rounds/current`、`PUT /api/v1/governance/acceptance-rounds/{roundId}/samples/{itemId}`、`POST /api/v1/governance/tasks/{taskId}/acceptance-rounds/{roundId}/complete`：读取固定指标与抽样、保存抽样决定并完成验收。
 - 任务首次进入待验收状态时，查询当前验收轮次会按启动时冻结的质量策略和已确认治理项事实幂等创建指标与固定抽样；后续查询只读取已固化轮次。
@@ -86,6 +90,8 @@ pages/
 当前治理 API 只覆盖问题资产的字段闭环。员工系统组织同步、部门资料征集、办公软件提醒和 RAGFlow 交付属于后续独立边界；接入时以平台任务、资产版本和权限为权威事实，外部系统不得维护可覆盖平台状态的副本。
 
 标准中心启用的数据标准是后续治理规则的权威事实源。任务启动时读取当前启用标准并把标准版本、字典版本和质量策略版本写入治理规则快照；标准中心后续停用或启用新版本不得修改已经冻结的执行中任务。默认开发 profile 使用内存标准仓储，`local/oceanbase` 仅在显式开启治理 schema 后使用 JDBC 适配器；对应 V1.8 迁移脚本不会由应用启动自动执行。
+
+映射规则同样是版本化治理事实。规则只能新增版本，不能覆盖历史记录；目标字典项必须处于启用状态。规则的产品与生产条件以完整 `AssetScope` 存储并做同范围校验，已确认且无歧义的规则才可被自动扫描切片读取为建议，系统不会在映射确认时直接改写资产。
 - `GET /api/v1/equipment-interconnections`：按设备编码、基地和拉线查询设备互联数据。
 - `GET /api/v1/uploads/mine`：按当前用户查询本人上传资产，可按状态筛选。
 - `POST /api/v1/uploads/files`：上传单个文件，返回临时对象键、大小和 SHA-256 摘要。
