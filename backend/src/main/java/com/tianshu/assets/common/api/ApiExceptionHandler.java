@@ -18,6 +18,7 @@ import com.tianshu.assets.document.application.DocumentNotFoundException;
 import com.tianshu.assets.document.application.DocumentPublishValidationException;
 import com.tianshu.assets.document.application.DocumentStateConflictException;
 import com.tianshu.assets.document.application.DuplicateDocumentNumberException;
+import com.tianshu.assets.documentrelation.application.AssetDocumentRelationConflictException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -127,6 +128,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(DocumentPublishValidationException.class)
     ResponseEntity<ApiError> handleDocumentPublishValidation(DocumentPublishValidationException exception) {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, "document_publish_invalid", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(AssetDocumentRelationConflictException.class)
+    ResponseEntity<ApiError> handleAssetDocumentRelationConflict(AssetDocumentRelationConflictException exception) {
+        return response(HttpStatus.CONFLICT, "asset_document_relation_conflict", exception.getMessage(), List.of());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

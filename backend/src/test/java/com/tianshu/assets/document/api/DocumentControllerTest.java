@@ -134,6 +134,8 @@ class DocumentControllerTest {
                   "maintainerDepartment":"设备工程部",
                   "versionNumber":"V1.0",
                   "changeSummary":"首次发布",
+                  "scopeMode":"GLOBAL",
+                  "scopes":[],
                   "files":[{
                     "id":0,
                     "name":"controller.pdf",

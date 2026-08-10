@@ -6,6 +6,8 @@ import com.tianshu.assets.document.domain.DocumentFile;
 import com.tianshu.assets.document.domain.DocumentPage;
 import com.tianshu.assets.document.domain.DocumentRepository;
 import com.tianshu.assets.document.domain.DocumentSearchCriteria;
+import com.tianshu.assets.document.domain.DocumentScope;
+import com.tianshu.assets.document.domain.DocumentScopeMode;
 import com.tianshu.assets.document.domain.DocumentStatus;
 import com.tianshu.assets.document.domain.DocumentVersion;
 import com.tianshu.assets.document.domain.DocumentVersionStatus;
@@ -137,7 +139,10 @@ public class InMemoryDocumentRepository implements DocumentRepository {
         var savedVersion = copyVersion(document.currentVersion(), versionId, documentId, files);
         var number = document.documentNumber().isBlank() ? "DOC-%06d".formatted(documentId) : document.documentNumber();
         var saved = new KnowledgeDocument(documentId, number, document.title(), document.summary(), document.categoryCode(),
-                document.maintainerId(), document.maintainerName(), document.maintainerDepartment(), document.status(),
+                document.maintainerId(), document.maintainerName(), document.maintainerDepartment(), document.scopeMode(),
+                document.scopes().stream().map(scope -> new DocumentScope(scope.id(), documentId,
+                        scope.platformFamily(), scope.platformVariant(), scope.productLine(), scope.baseName(),
+                        scope.productionLine(), scope.processSection())).toList(), document.status(),
                 document.status() == DocumentStatus.PUBLISHED ? versionId : null, savedVersion,
                 document.createdAt(), document.updatedAt(), document.version());
         documents.add(saved);
@@ -170,14 +175,35 @@ public class InMemoryDocumentRepository implements DocumentRepository {
                 || document.maintainerName().toLowerCase(Locale.ROOT).contains(query)
                 || document.currentVersion().files().stream()
                         .anyMatch(file -> file.name().toLowerCase(Locale.ROOT).contains(query));
-        return categoryMatches && queryMatches;
+        return categoryMatches && queryMatches && scopeMatches(document, criteria);
+    }
+
+    private boolean scopeMatches(KnowledgeDocument document, DocumentSearchCriteria criteria) {
+        if (!criteria.hasScopeFilter()) return true;
+        if (document.scopeMode() == DocumentScopeMode.GLOBAL) return true;
+        if (document.scopeMode() != DocumentScopeMode.SPECIFIED) return false;
+        return document.scopes().stream().anyMatch(scope ->
+                matches(criteria.platformFamily(), scope.platformFamily())
+                        && matches(criteria.platformVariant(), scope.platformVariant())
+                        && matches(criteria.productLine(), scope.productLine())
+                        && matches(criteria.baseName(), scope.baseName())
+                        && matches(criteria.productionLine(), scope.productionLine())
+                        && matches(criteria.processSection(), scope.processSection()));
+    }
+
+    private boolean matches(String filter, String value) {
+        return filter.isBlank() || filter.equals(value);
     }
 
     private KnowledgeDocument seedDocument(long id, String number, String title, String summary, String category,
             String maintainer, String department, Instant updatedAt, DocumentFile file) {
         var versionId = id + 900;
+        var mode = id == 101 ? DocumentScopeMode.SPECIFIED : DocumentScopeMode.GLOBAL;
+        var scopes = mode == DocumentScopeMode.SPECIFIED
+                ? List.of(new DocumentScope(1, id, "乘用车", "大面水冷", "H03", "宁德基地", "A 拉线", "焊接段"))
+                : List.<DocumentScope>of();
         return new KnowledgeDocument(id, number, title, summary, category, "u-" + id, maintainer, department,
-                DocumentStatus.PUBLISHED, versionId,
+                mode, scopes, DocumentStatus.PUBLISHED, versionId,
                 new DocumentVersion(versionId, id, "V1.0", "首次发布", DocumentVersionStatus.PUBLISHED,
                         List.of(file), maintainer, updatedAt, maintainer, updatedAt),
                 updatedAt.minus(1, ChronoUnit.DAYS), updatedAt, 1);

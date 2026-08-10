@@ -6,6 +6,8 @@ import com.tianshu.assets.document.domain.DocumentFile;
 import com.tianshu.assets.document.domain.DocumentPage;
 import com.tianshu.assets.document.domain.DocumentRepository;
 import com.tianshu.assets.document.domain.DocumentSearchCriteria;
+import com.tianshu.assets.document.domain.DocumentScope;
+import com.tianshu.assets.document.domain.DocumentScopeMode;
 import com.tianshu.assets.document.domain.DocumentStatus;
 import com.tianshu.assets.document.domain.DocumentVersion;
 import com.tianshu.assets.document.domain.DocumentVersionStatus;
@@ -56,6 +58,11 @@ public class JdbcDocumentRepository implements DocumentRepository {
                     """);
             arguments.addAll(List.of(like, like, like, like, like));
         }
+        if (criteria.hasScopeFilter()) {
+            where.append(" AND (d.scope_mode = 'GLOBAL' OR (d.scope_mode = 'SPECIFIED' AND EXISTS (SELECT 1 FROM document_scope ds WHERE ds.document_id = d.id" );
+            appendScopeFilter(where, arguments, "ds", criteria);
+            where.append(")))");
+        }
         var total = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM knowledge_document d" + where,
                 Long.class, arguments.toArray());
         var pageArguments = new ArrayList<>(arguments);
@@ -71,21 +78,24 @@ public class JdbcDocumentRepository implements DocumentRepository {
     public Optional<KnowledgeDocument> findById(long id) {
         var rows = jdbcTemplate.query("""
                 SELECT id, document_number, title, summary, category_code, maintainer_id, maintainer_name,
-                       maintainer_department, status, current_version_id, created_at, updated_at, version
+                       maintainer_department, scope_mode, status, current_version_id, created_at, updated_at, version
                 FROM knowledge_document WHERE id = ?
                 """, (resultSet, rowNumber) -> new DocumentRow(
                 resultSet.getLong("id"), resultSet.getString("document_number"), resultSet.getString("title"),
                 resultSet.getString("summary"), resultSet.getString("category_code"),
                 resultSet.getString("maintainer_id"), resultSet.getString("maintainer_name"),
-                resultSet.getString("maintainer_department"), DocumentStatus.valueOf(resultSet.getString("status")),
+                resultSet.getString("maintainer_department"),
+                DocumentScopeMode.valueOf(resultSet.getString("scope_mode")),
+                DocumentStatus.valueOf(resultSet.getString("status")),
                 nullableLong(resultSet, "current_version_id"), resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant(), resultSet.getLong("version")), id);
         if (rows.isEmpty()) return Optional.empty();
         var row = rows.getFirst();
         var documentVersion = findVersion(row.id(), row.currentVersionId());
         return Optional.of(new KnowledgeDocument(row.id(), row.documentNumber(), row.title(), row.summary(),
-                row.categoryCode(), row.maintainerId(), row.maintainerName(), row.maintainerDepartment(), row.status(),
-                row.currentVersionId(), documentVersion, row.createdAt(), row.updatedAt(), row.version()));
+                row.categoryCode(), row.maintainerId(), row.maintainerName(), row.maintainerDepartment(),
+                row.scopeMode(), findScopes(row.id()), row.status(), row.currentVersionId(), documentVersion,
+                row.createdAt(), row.updatedAt(), row.version()));
     }
 
     @Override
@@ -112,12 +122,12 @@ public class JdbcDocumentRepository implements DocumentRepository {
             var count = jdbcTemplate.update("""
                     UPDATE knowledge_document
                     SET document_number = ?, title = ?, summary = ?, category_code = ?, maintainer_id = ?,
-                        maintainer_name = ?, maintainer_department = ?, status = ?, current_version_id = ?,
+                        maintainer_name = ?, maintainer_department = ?, scope_mode = ?, status = ?, current_version_id = ?,
                         updated_at = ?, version = ?
                     WHERE id = ? AND version = ? AND status = 'DRAFT'
                     """, document.documentNumber(), document.title(), document.summary(), document.categoryCode(),
                     document.maintainerId(), document.maintainerName(), document.maintainerDepartment(),
-                    document.status().name(), document.currentVersionId(), Timestamp.from(document.updatedAt()),
+                    document.scopeMode().name(), document.status().name(), document.currentVersionId(), Timestamp.from(document.updatedAt()),
                     document.version(), document.id(), expectedVersion);
             if (count != 1) {
                 throw new DocumentStateConflictException("文档已被其他用户更新或不再是草稿");
@@ -132,6 +142,7 @@ public class JdbcDocumentRepository implements DocumentRepository {
             if (versionCount != 1) {
                 throw new DocumentStateConflictException("文档版本已被其他用户更新");
             }
+            replaceScopes(document.id(), document.scopes());
             return findRequired(document.id());
         });
         if (updated == null) throw new DocumentStateConflictException("文档更新事务未完成");
@@ -145,16 +156,17 @@ public class JdbcDocumentRepository implements DocumentRepository {
         var documentId = insertAndReturnKey("""
                 INSERT INTO knowledge_document
                     (document_number, title, summary, category_code, maintainer_id, maintainer_name,
-                     maintainer_department, status, current_version_id, created_at, updated_at, version)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
+                     maintainer_department, scope_mode, status, current_version_id, created_at, updated_at, version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
                 """, initialNumber, document.title(), document.summary(), document.categoryCode(),
                 document.maintainerId(), document.maintainerName(), document.maintainerDepartment(),
-                document.status().name(), Timestamp.from(document.createdAt()), Timestamp.from(document.updatedAt()),
+                document.scopeMode().name(), document.status().name(), Timestamp.from(document.createdAt()), Timestamp.from(document.updatedAt()),
                 document.version());
         var number = document.documentNumber().isBlank() ? "DOC-%06d".formatted(documentId) : document.documentNumber();
         if (!number.equals(initialNumber)) {
             jdbcTemplate.update("UPDATE knowledge_document SET document_number = ? WHERE id = ?", number, documentId);
         }
+        replaceScopes(documentId, document.scopes());
         var version = document.currentVersion();
         var versionId = insertAndReturnKey("""
                 INSERT INTO document_version
@@ -214,6 +226,47 @@ public class JdbcDocumentRepository implements DocumentRepository {
                 resultSet.getString("content_sha256")), documentId, versionId);
     }
 
+    private List<DocumentScope> findScopes(long documentId) {
+        return jdbcTemplate.query("""
+                SELECT id, document_id, platform_family, platform_variant, product_line, base_name,
+                       production_line, process_section
+                FROM document_scope WHERE document_id = ? ORDER BY id
+                """, (resultSet, rowNumber) -> new DocumentScope(resultSet.getLong("id"),
+                resultSet.getLong("document_id"), resultSet.getString("platform_family"),
+                resultSet.getString("platform_variant"), resultSet.getString("product_line"),
+                resultSet.getString("base_name"), resultSet.getString("production_line"),
+                resultSet.getString("process_section")), documentId);
+    }
+
+    private void replaceScopes(long documentId, List<DocumentScope> scopes) {
+        jdbcTemplate.update("DELETE FROM document_scope WHERE document_id = ?", documentId);
+        for (var scope : scopes) {
+            jdbcTemplate.update("""
+                    INSERT INTO document_scope (document_id, platform_family, platform_variant, product_line,
+                        base_name, production_line, process_section)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, documentId, scope.platformFamily(), scope.platformVariant(), scope.productLine(),
+                    scope.baseName(), scope.productionLine(), scope.processSection());
+        }
+    }
+
+    private void appendScopeFilter(StringBuilder where, List<Object> arguments, String alias,
+            DocumentSearchCriteria criteria) {
+        appendEquals(where, arguments, alias + ".platform_family", criteria.platformFamily());
+        appendEquals(where, arguments, alias + ".platform_variant", criteria.platformVariant());
+        appendEquals(where, arguments, alias + ".product_line", criteria.productLine());
+        appendEquals(where, arguments, alias + ".base_name", criteria.baseName());
+        appendEquals(where, arguments, alias + ".production_line", criteria.productionLine());
+        appendEquals(where, arguments, alias + ".process_section", criteria.processSection());
+    }
+
+    private void appendEquals(StringBuilder where, List<Object> arguments, String column, String value) {
+        if (!value.isBlank()) {
+            where.append(" AND ").append(column).append(" = ?");
+            arguments.add(value);
+        }
+    }
+
     private long insertAndReturnKey(String sql, Object... arguments) {
         var keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
@@ -248,6 +301,6 @@ public class JdbcDocumentRepository implements DocumentRepository {
     }
 
     private record DocumentRow(long id, String documentNumber, String title, String summary, String categoryCode,
-            String maintainerId, String maintainerName, String maintainerDepartment, DocumentStatus status,
+            String maintainerId, String maintainerName, String maintainerDepartment, DocumentScopeMode scopeMode, DocumentStatus status,
             Long currentVersionId, java.time.Instant createdAt, java.time.Instant updatedAt, long version) {}
 }

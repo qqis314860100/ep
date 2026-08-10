@@ -3,6 +3,7 @@ package com.tianshu.assets.document.application;
 import com.tianshu.assets.common.file.FileStorage;
 import com.tianshu.assets.document.domain.DocumentFile;
 import com.tianshu.assets.document.domain.DocumentRepository;
+import com.tianshu.assets.document.domain.DocumentScopeMode;
 import com.tianshu.assets.document.domain.DocumentStatus;
 import com.tianshu.assets.document.domain.DocumentVersion;
 import com.tianshu.assets.document.domain.DocumentVersionStatus;
@@ -35,6 +36,7 @@ public class DocumentCommandService {
             throw new IllegalArgumentException("请至少上传一个文件");
         }
         command.files().forEach(this::validateDraftFile);
+        validateScope(command.scopeMode(), command.scopes().isEmpty());
 
         var now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         var version = new DocumentVersion(0, 0, defaultText(command.versionNumber(), "V1.0"),
@@ -42,7 +44,7 @@ public class DocumentCommandService {
                 command.files(), text(command.maintainerName()), now, "", null);
         var draft = new KnowledgeDocument(0, number, command.title(), command.summary(), command.categoryCode(),
                 command.maintainerId(), command.maintainerName(), command.maintainerDepartment(),
-                DocumentStatus.DRAFT, null, version, now, now, 0);
+                command.scopeMode(), command.scopes(), DocumentStatus.DRAFT, null, version, now, now, 0);
         return repository.save(draft);
     }
 
@@ -60,7 +62,7 @@ public class DocumentCommandService {
                 draft.currentVersion().createdAt(), defaultText(publisherName, publisherId), now);
         var published = new KnowledgeDocument(draft.id(), draft.documentNumber(), draft.title(), draft.summary(),
                 draft.categoryCode(), draft.maintainerId(), draft.maintainerName(), draft.maintainerDepartment(),
-                DocumentStatus.PUBLISHED, publishedVersion.id(), publishedVersion, draft.createdAt(), now,
+                draft.scopeMode(), draft.scopes(), DocumentStatus.PUBLISHED, publishedVersion.id(), publishedVersion, draft.createdAt(), now,
                 draft.version() + 1);
         try {
             return repository.update(published, draft.version());
@@ -86,6 +88,18 @@ public class DocumentCommandService {
         require(file.name(), "文件名不能为空");
         require(file.format(), "文件格式不能为空");
         if (file.sizeBytes() < 0) throw new IllegalArgumentException("文件大小不能为负数");
+    }
+
+    private void validateScope(DocumentScopeMode mode, boolean scopesEmpty) {
+        if (mode == null || mode == DocumentScopeMode.UNCLASSIFIED) {
+            throw new IllegalArgumentException("请选择文档适用方式");
+        }
+        if (mode == DocumentScopeMode.GLOBAL && !scopesEmpty) {
+            throw new IllegalArgumentException("全局通用文档不能填写指定适用范围");
+        }
+        if (mode == DocumentScopeMode.SPECIFIED && scopesEmpty) {
+            throw new IllegalArgumentException("指定范围文档至少需要一组适用范围");
+        }
     }
 
     private void require(String value, String message) {

@@ -5,9 +5,12 @@ import com.tianshu.assets.document.application.DocumentCommandService;
 import com.tianshu.assets.document.application.DocumentQueryService;
 import com.tianshu.assets.document.domain.DocumentFile;
 import com.tianshu.assets.document.domain.DocumentSearchCriteria;
+import com.tianshu.assets.document.domain.DocumentScope;
+import com.tianshu.assets.document.domain.DocumentScopeMode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -42,9 +45,16 @@ public class DocumentController {
     public DocumentPageResponse search(
             @RequestParam(name = "q", defaultValue = "") String query,
             @RequestParam(name = "category", defaultValue = "") String category,
+            @RequestParam(name = "platform_family", defaultValue = "") String platformFamily,
+            @RequestParam(name = "platform_variant", defaultValue = "") String platformVariant,
+            @RequestParam(name = "product_line", defaultValue = "") String productLine,
+            @RequestParam(name = "base", defaultValue = "") String baseName,
+            @RequestParam(name = "production_line", defaultValue = "") String productionLine,
+            @RequestParam(name = "process_section", defaultValue = "") String processSection,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(name = "per_page", defaultValue = "20") int perPage) {
-        var result = queryService.search(new DocumentSearchCriteria(query, category, page, perPage));
+        var result = queryService.search(new DocumentSearchCriteria(query, category, platformFamily, platformVariant,
+                productLine, baseName, productionLine, processSection, page, perPage));
         return new DocumentPageResponse(result.items().stream().map(DocumentResponse::from).toList(),
                 PageMeta.of(result.total(), result.page(), result.perPage()));
     }
@@ -104,12 +114,28 @@ public class DocumentController {
             String maintainerDepartment,
             String versionNumber,
             String changeSummary,
-            @NotEmpty(message = "请至少上传一个文件") List<@Valid DocumentFileRequest> files) {
+            @NotEmpty(message = "请至少上传一个文件") List<@Valid DocumentFileRequest> files,
+            @NotNull(message = "请选择文档适用方式") DocumentScopeMode scopeMode,
+            List<@Valid DocumentScopeRequest> scopes) {
 
         CreateDocumentDraftCommand toCommand() {
             return new CreateDocumentDraftCommand(documentNumber, title, summary, categoryCode, maintainerId,
                     maintainerName, maintainerDepartment, versionNumber, changeSummary,
-                    files.stream().map(DocumentFileRequest::toDomain).toList());
+                    files.stream().map(DocumentFileRequest::toDomain).toList(), scopeMode,
+                    scopes == null ? List.of() : scopes.stream().map(DocumentScopeRequest::toDomain).toList());
+        }
+    }
+
+    public record DocumentScopeRequest(
+            String platformFamily,
+            String platformVariant,
+            String productLine,
+            String baseName,
+            String productionLine,
+            String processSection) {
+        DocumentScope toDomain() {
+            return new DocumentScope(0, 0, platformFamily, platformVariant, productLine, baseName,
+                    productionLine, processSection);
         }
     }
 

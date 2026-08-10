@@ -37,11 +37,24 @@ class JdbcDocumentRepositoryTest {
                     maintainer_id VARCHAR(64) NOT NULL,
                     maintainer_name VARCHAR(100) NOT NULL,
                     maintainer_department VARCHAR(100) NOT NULL,
+                    scope_mode VARCHAR(32) NOT NULL,
                     status VARCHAR(32) NOT NULL,
                     current_version_id BIGINT NULL,
                     created_at TIMESTAMP(3) NOT NULL,
                     updated_at TIMESTAMP(3) NOT NULL,
                     version BIGINT NOT NULL
+                )
+                """);
+        jdbc.execute("""
+                CREATE TABLE document_scope (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    document_id BIGINT NOT NULL,
+                    platform_family VARCHAR(100),
+                    platform_variant VARCHAR(100),
+                    product_line VARCHAR(100),
+                    base_name VARCHAR(200),
+                    production_line VARCHAR(200),
+                    process_section VARCHAR(200)
                 )
                 """);
         jdbc.execute("""

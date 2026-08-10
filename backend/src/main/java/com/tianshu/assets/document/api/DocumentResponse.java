@@ -2,6 +2,8 @@ package com.tianshu.assets.document.api;
 
 import com.tianshu.assets.document.domain.DocumentFile;
 import com.tianshu.assets.document.domain.DocumentStatus;
+import com.tianshu.assets.document.domain.DocumentScope;
+import com.tianshu.assets.document.domain.DocumentScopeMode;
 import com.tianshu.assets.document.domain.DocumentVersion;
 import com.tianshu.assets.document.domain.DocumentVersionStatus;
 import com.tianshu.assets.document.domain.KnowledgeDocument;
@@ -17,6 +19,8 @@ public record DocumentResponse(
         String maintainerId,
         String maintainerName,
         String maintainerDepartment,
+        DocumentScopeMode scopeMode,
+        List<ScopeResponse> scopes,
         DocumentStatus status,
         Long currentVersionId,
         VersionResponse currentVersion,
@@ -27,9 +31,25 @@ public record DocumentResponse(
     public static DocumentResponse from(KnowledgeDocument document) {
         return new DocumentResponse(document.id(), document.documentNumber(), document.title(), document.summary(),
                 document.categoryCode(), document.maintainerId(), document.maintainerName(),
-                document.maintainerDepartment(), document.status(), document.currentVersionId(),
+                document.maintainerDepartment(), document.scopeMode(),
+                document.scopes().stream().map(ScopeResponse::from).toList(), document.status(), document.currentVersionId(),
                 VersionResponse.from(document.currentVersion()), document.createdAt(), document.updatedAt(),
                 document.version());
+    }
+
+    public record ScopeResponse(
+            long id,
+            long documentId,
+            String platformFamily,
+            String platformVariant,
+            String productLine,
+            String baseName,
+            String productionLine,
+            String processSection) {
+        static ScopeResponse from(DocumentScope scope) {
+            return new ScopeResponse(scope.id(), scope.documentId(), scope.platformFamily(), scope.platformVariant(),
+                    scope.productLine(), scope.baseName(), scope.productionLine(), scope.processSection());
+        }
     }
 
     public record VersionResponse(
