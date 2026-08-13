@@ -2,6 +2,7 @@ package com.tianshu.assets.asset.api;
 
 import com.tianshu.assets.asset.application.AssetQueryService;
 import com.tianshu.assets.asset.application.AssetWriteService;
+import com.tianshu.assets.asset.domain.Asset;
 import com.tianshu.assets.asset.domain.AssetFile;
 import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.domain.AssetSearchCriteria;
@@ -14,8 +15,13 @@ import jakarta.validation.constraints.Min;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.HashSet;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -29,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -111,6 +118,48 @@ public class AssetController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + file.name().replace("\"", "") + "\"")
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(new ByteArrayResource(stored.content()));
+    }
+
+    @GetMapping("/{id}/package")
+    public ResponseEntity<byte[]> downloadPackage(@PathVariable @Min(1) long id) throws IOException {
+        var asset = assetQueryService.get(id);
+        var bytes = buildPackage(asset);
+        var filename = (asset.assetNumber().isBlank() ? "asset-" + id : asset.assetNumber()) + ".zip";
+        var disposition = ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(bytes.length)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(bytes);
+    }
+
+    private byte[] buildPackage(Asset asset) throws IOException {
+        var output = new ByteArrayOutputStream();
+        var usedNames = new HashSet<String>();
+        try (var zip = new ZipOutputStream(output)) {
+            for (var file : asset.files()) {
+                if (file.storageKey().isBlank()) continue;
+                var stored = assetFileStorage.open(file.storageKey()).orElse(null);
+                if (stored == null) continue;
+                zip.putNextEntry(new ZipEntry(uniqueName(usedNames, file.name())));
+                zip.write(stored.content());
+                zip.closeEntry();
+            }
+        }
+        return output.toByteArray();
+    }
+
+    private String uniqueName(Set<String> usedNames, String name) {
+        var candidate = name;
+        var index = 2;
+        var dot = name.lastIndexOf('.');
+        while (!usedNames.add(candidate)) {
+            candidate = dot > 0 ? name.substring(0, dot) + "-" + index + name.substring(dot)
+                    : name + "-" + index;
+            index++;
+        }
+        return candidate;
     }
 
     @PostMapping("/drafts")

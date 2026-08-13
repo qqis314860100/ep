@@ -20,6 +20,8 @@ public record AssetSearchCriteria(
         platformFamily = platformFamily == null ? "" : platformFamily.trim();
         platformVariant = platformVariant == null ? "" : platformVariant.trim();
         ownerName = ownerName == null ? "" : ownerName.trim();
+        base = base == null ? "" : base.trim();
+        productionLine = productionLine == null ? "" : productionLine.trim();
         productLine = productLine == null ? "" : productLine.trim();
         processSection = processSection == null ? "" : processSection.trim();
     }

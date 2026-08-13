@@ -2,6 +2,7 @@ package com.tianshu.assets.documentrelation.application;
 
 import com.tianshu.assets.asset.domain.Asset;
 import com.tianshu.assets.asset.domain.AssetRepository;
+import com.tianshu.assets.asset.domain.AssetStatus;
 import com.tianshu.assets.document.domain.DocumentRepository;
 import com.tianshu.assets.document.domain.DocumentStatus;
 import com.tianshu.assets.document.domain.KnowledgeDocument;
@@ -80,7 +81,12 @@ public class AssetDocumentRelationService {
 
     public List<AssetDocumentRelation> byDocument(long documentId) {
         requireDocument(documentId, false);
-        return relations.findActiveByDocumentId(documentId);
+        // 草稿资产仅上传者本人可见，不得经文档关联接口泄露；停用资产按资产域口径继续保留关系。
+        return relations.findActiveByDocumentId(documentId).stream()
+                .filter(relation -> assets.findById(relation.assetId())
+                        .filter(asset -> asset.status() != AssetStatus.DRAFT)
+                        .isPresent())
+                .toList();
     }
 
     public Asset asset(long assetId) {

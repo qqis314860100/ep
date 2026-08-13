@@ -1,5 +1,6 @@
 package com.tianshu.assets.asset.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -11,6 +12,9 @@ import com.tianshu.assets.asset.application.AssetQueryService;
 import com.tianshu.assets.asset.application.AssetWriteService;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.common.api.ApiExceptionHandler;
+import com.tianshu.assets.common.file.InMemoryFileStorage;
+import java.io.ByteArrayInputStream;
+import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -193,6 +197,51 @@ class AssetControllerTest {
                 .andExpect(jsonPath("$.content").value("带图反馈"))
                 .andExpect(jsonPath("$.images.length()").value(1))
                 .andExpect(jsonPath("$.images[0].url").isNotEmpty());
+    }
+
+    @Test
+    void downloadsAssetFilesAsZipPackage() throws Exception {
+        var storage = new InMemoryFileStorage();
+        var key = storage.store(new ByteArrayInputStream("model-bytes".getBytes(StandardCharsets.UTF_8)),
+                11, "model.step", "application/octet-stream");
+        var service = new AssetQueryService(repository);
+        var writeService = new AssetWriteService(repository);
+        var mvc = standaloneSetup(new AssetController(service, writeService, storage),
+                new FavoriteController(service, writeService))
+                .setControllerAdvice(new ApiExceptionHandler())
+                .build();
+
+        var request = """
+                {
+                  "assetNumber":"DM-ZIP-0001",
+                  "name":"打包测试资产",
+                  "description":"用于打包下载测试",
+                  "assetType":"THREE_DIMENSIONAL_MODEL",
+                  "specialties":["机械"],
+                  "scopes":[{"platform":"乘用车","productLine":"H03","base":"宁德基地","productionLine":"A 拉线","processSection":"焊接段"}],
+                  "files":[{"id":0,"name":"model.step","format":"STEP","sizeBytes":11,"role":"三维源模型","previewable":false,"primary":true,"storageKey":"%s"}],
+                  "ownerName":"陈工",
+                  "ownerDepartment":"设备工程部"
+                }
+                """.formatted(key);
+
+        mvc.perform(post("/api/v1/assets/drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(106));
+
+        var result = mvc.perform(get("/api/v1/assets/106/package"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(result.getResponse().getHeader("Content-Disposition"))
+                .contains("attachment").contains(".zip");
+        try (var zip = new ZipInputStream(new ByteArrayInputStream(result.getResponse().getContentAsByteArray()))) {
+            var entry = zip.getNextEntry();
+            assertThat(entry).isNotNull();
+            assertThat(entry.getName()).isEqualTo("model.step");
+        }
     }
 
     @Test
