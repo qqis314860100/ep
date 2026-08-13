@@ -20,3 +20,7 @@ backend/.data/
 .env
 .env.*
 !.env.example
+
+# E2E generated artifacts (mock files + logs)
+scripts/e2e/.mock-files/
+scripts/e2e/.logs/
