@@ -114,7 +114,7 @@ pages/
 - `GET /api/v1/equipment-interconnections`：按设备编码、基地和拉线查询设备互联数据。
 - `GET /api/v1/uploads/mine`：按当前用户查询本人上传资产，可按状态筛选。
 - `POST /api/v1/uploads/files`：上传单个文件，返回临时对象键、大小和 SHA-256 摘要。
-- `GET /api/v1/assets/{assetId}/files/{fileId}?preview=true`：经权限校验后以内联方式预览可预览文件。
+- `GET /api/v1/assets/{assetId}/files/{fileId}?preview=true`：经权限校验后以内联方式预览可预览文件；DOCX/DOC 由 `DocumentPreviewConverter`（默认 LibreOffice headless）转换为 PDF 后返回，转换服务不可用时返回 503，由前端降级为“暂不支持在线预览”。
 - `GET /api/v1/assets/{assetId}/files/{fileId}`：经权限校验后下载文件。
 - `GET /api/v1/assets/{assetId}/comments`：查询评论，并返回当前用户点赞状态和删除权限。
 - `POST /api/v1/assets/{assetId}/comments`：以 JSON 发布文字评论，或以 multipart 发布文字和最多 6 张评论图片。
