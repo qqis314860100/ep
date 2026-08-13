@@ -24,3 +24,6 @@ backend/.data/
 # E2E generated artifacts (mock files + logs)
 scripts/e2e/.mock-files/
 scripts/e2e/.logs/
+
+# pnpm global cache accidentally created in repo root
+.pnpm-store/
