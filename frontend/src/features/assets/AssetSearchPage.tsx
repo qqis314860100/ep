@@ -359,6 +359,12 @@ const CardDescription = styled.div`
   -webkit-line-clamp: 1;
 `
 
+const CardTime = styled.div`
+  margin-top: 4px;
+  color: #8b9590;
+  font-size: 11px;
+`
+
 const CardFooter = styled.div`
   display: flex;
   align-items: center;
@@ -400,6 +406,18 @@ const AssetNumber = styled.div`
 `
 
 const imageFormats = new Set(['PNG', 'JPG', 'JPEG', 'TIFF', 'WEBP'])
+
+function formatAssetTime(value?: string) {
+  if (!value) return '-'
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(value))
+}
 
 function previewFile(asset: Asset) {
   return asset.files.find((file) => file.previewable && imageFormats.has(file.format))
@@ -521,8 +539,8 @@ export function AssetSearchPage() {
       {
         title: '更新时间',
         dataIndex: 'updatedAt',
-        width: 112,
-        render: (value: string) => new Intl.DateTimeFormat('zh-CN').format(new Date(value)),
+        width: 150,
+        render: formatAssetTime,
       },
     ],
     [],
@@ -656,6 +674,7 @@ export function AssetSearchPage() {
                           <CardTitle title={asset.name}>{asset.name}</CardTitle>
                           <CardNumber>{asset.assetNumber}</CardNumber>
                           <CardDescription>{asset.description || '暂无功能说明'}</CardDescription>
+                          <CardTime>{formatAssetTime(asset.updatedAt)}</CardTime>
                           <CardFooter><span>{asset.files.filter((item) => item.previewable).length} 个可预览文件</span><span>{scope?.base || asset.ownerName}</span></CardFooter>
                         </CardBody>
                       </AssetCard>
@@ -678,7 +697,7 @@ export function AssetSearchPage() {
                   dataSource={assets}
                   loading={assetsQuery.isFetching}
                   size="small"
-                  scroll={{ x: 1080 }}
+                  scroll={{ x: 1120 }}
                   locale={{ emptyText: <Empty description="没有符合条件的数模资产" /> }}
                   pagination={{ current: page, pageSize: params.perPage, total, showSizeChanger: false, onChange: setPage }}
                   onRow={(record) => ({ onClick: () => navigate(`/assets/${record.id}`) })}
