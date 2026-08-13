@@ -61,6 +61,10 @@ public class GovernanceAuthorizationService {
     }
 
     public void requireAcceptance(String roles) {
+        requireGovernanceAdmin(roles);
+    }
+
+    public void requireGovernanceAdmin(String roles) {
         if (!hasRole(roles, CONTENT_ADMIN) && !hasRole(roles, SYSTEM_ADMIN)) forbidden();
     }
 

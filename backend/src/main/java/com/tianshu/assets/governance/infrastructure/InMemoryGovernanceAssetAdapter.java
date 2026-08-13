@@ -37,9 +37,19 @@ public class InMemoryGovernanceAssetAdapter implements GovernanceAssetPort {
         if (existing != null) return new ApplyOutcome(snapshot(assetId).version(), existing);
         var failure = nextFailures.remove(itemId);
         if (failure != null) throw new IllegalStateException(failure);
+        var wasAbsent = !assets.containsKey(assetId);
         var current = snapshot(assetId);
         if (current.version() != expectedAssetVersion) {
-            throw new GovernanceVersionConflictException("资产版本已变化，无法正式应用");
+            // 惰性初始化的治理状态尚未与扫描盖章的资产版本对齐
+            // （扫描使用 updatedAt 毫秒时间戳，而状态首次触达默认版本为 0），
+            // 首次正式应用时以该版本为基线，使扫描产生的问题可完成闭环。
+            if (wasAbsent) {
+                assets.put(assetId, new AssetState(current.status(), expectedAssetVersion));
+                current = snapshot(assetId);
+            }
+            if (current.version() != expectedAssetVersion) {
+                throw new GovernanceVersionConflictException("资产版本已变化，无法正式应用");
+            }
         }
         var summary = "字段 " + field.name() + " 已应用";
         appliedItems.put(itemId, summary);

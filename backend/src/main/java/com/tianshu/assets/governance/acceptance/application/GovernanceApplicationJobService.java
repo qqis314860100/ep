@@ -130,11 +130,8 @@ public class GovernanceApplicationJobService {
                 .filter(candidate -> candidate.assetId() == item.assetId())
                 .count();
         var expectedCurrentAssetVersion = item.assetVersion() + appliedForAsset;
-        var asset = assetPort.snapshot(item.assetId());
-        if (result.status() != GovernanceResultStatus.APPLIED
-                && asset.version() != expectedCurrentAssetVersion) {
-            throw new GovernanceConflictException("资产版本已变化，无法正式应用");
-        }
+        // 版本乐观锁由 assetPort.applyFieldResult 内部执行（内存适配器与 JDBC 适配器各自校验），
+        // 此处不再重复前置校验，保证扫描产生问题的资产版本（updatedAt 时间戳）也能对齐。
         assetPort.applyFieldResult(
                 item.id(), item.assetId(), result.field(), result.proposedValueJson(),
                 expectedCurrentAssetVersion, job.requestedBy());

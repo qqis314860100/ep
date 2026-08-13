@@ -6,6 +6,8 @@ public interface AssetResponsibilityPort {
 
     Optional<AssetResponsibility> currentResponsibility(long assetId);
 
+    AssetResponsibility assign(long assetId, String responsibleUserId, String responsibilityScope);
+
     record AssetResponsibility(long assetId, String responsibleUserId, String responsibilityScope) {
         public AssetResponsibility {
             if (assetId <= 0 || responsibleUserId == null || responsibleUserId.isBlank()

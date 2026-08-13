@@ -9,9 +9,11 @@ public class InMemoryAssetResponsibilityAdapter implements AssetResponsibilityPo
 
     private final Map<Long, AssetResponsibility> responsibilities = new ConcurrentHashMap<>();
 
-    public void assign(long assetId, String responsibleUserId, String responsibilityScope) {
-        responsibilities.put(assetId,
-                new AssetResponsibility(assetId, responsibleUserId, responsibilityScope));
+    @Override
+    public AssetResponsibility assign(long assetId, String responsibleUserId, String responsibilityScope) {
+        var responsibility = new AssetResponsibility(assetId, responsibleUserId, responsibilityScope);
+        responsibilities.put(assetId, responsibility);
+        return responsibility;
     }
 
     @Override
