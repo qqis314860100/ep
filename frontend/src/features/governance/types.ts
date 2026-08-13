@@ -205,6 +205,8 @@ export interface GovernanceIssue {
   status: GovernanceIssueStatus
   taskId: number | null
   version: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface GovernancePlan {

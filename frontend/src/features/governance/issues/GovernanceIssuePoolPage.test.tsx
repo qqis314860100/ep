@@ -15,8 +15,8 @@ vi.mock('../api', async (importOriginal) => ({
 }))
 
 const issues = [
-  { id: 1001, assetId: 41, targetField: 'DESCRIPTION' as const, issueType: 'MISSING', targetPath: 'description', originalFactJson: '{}', severity: 'HIGH', blocking: true, status: 'OPEN' as const, taskId: null, version: 0 },
-  { id: 1002, assetId: 42, targetField: 'OWNER' as const, issueType: 'MISSING', targetPath: 'owner', originalFactJson: '{}', severity: 'MEDIUM', blocking: false, status: 'OPEN' as const, taskId: null, version: 0 },
+  { id: 1001, assetId: 41, targetField: 'DESCRIPTION' as const, issueType: 'MISSING', targetPath: 'description', originalFactJson: '{}', severity: 'HIGH', blocking: true, status: 'OPEN' as const, taskId: null, version: 0, createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z' },
+  { id: 1002, assetId: 42, targetField: 'OWNER' as const, issueType: 'MISSING', targetPath: 'owner', originalFactJson: '{}', severity: 'MEDIUM', blocking: false, status: 'OPEN' as const, taskId: null, version: 0, createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-02T00:00:00Z' },
 ]
 
 function renderPage() {
@@ -46,5 +46,7 @@ describe('GovernanceIssuePoolPage', () => {
 
     expect(governanceApi.createGovernanceTask).toHaveBeenCalledWith(expect.objectContaining({ issueIds: [1001, 1002] }))
     expect(screen.queryByLabelText('计划总量')).not.toBeInTheDocument()
+    expect(screen.getAllByText('发现时间').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('修改时间').length).toBeGreaterThan(0)
   })
 })
