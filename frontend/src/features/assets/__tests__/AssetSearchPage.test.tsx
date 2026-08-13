@@ -4,12 +4,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAssetSearch } from '../../../hooks/useAssets'
 import { getDictionaryItems } from '../../../services/dictionaryService'
-import { searchUnified } from '../../../services/unifiedSearchService'
+import { searchDocuments } from '../../../services/documentService'
 import { AssetSearchPage } from '../AssetSearchPage'
 
 vi.mock('../../../hooks/useAssets', () => ({ useAssetSearch: vi.fn() }))
 vi.mock('../../../services/dictionaryService', () => ({ getDictionaryItems: vi.fn() }))
-vi.mock('../../../services/unifiedSearchService', () => ({ searchUnified: vi.fn() }))
+vi.mock('../../../services/documentService', () => ({ searchDocuments: vi.fn() }))
 
 const pageMeta = { total: 0, page: 1, perPage: 12, totalPages: 0 }
 const document = {
@@ -40,9 +40,9 @@ describe('AssetSearchPage unified results', () => {
     vi.clearAllMocks()
     vi.mocked(getDictionaryItems).mockResolvedValue([])
     vi.mocked(useAssetSearch).mockReturnValue({ data: { data: [], meta: pageMeta }, isLoading: false, isError: false } as unknown as ReturnType<typeof useAssetSearch>)
-    vi.mocked(searchUnified).mockResolvedValue({
-      assets: { data: [], meta: pageMeta, status: 'SUCCESS', errorCode: '' },
-      documents: { data: [document], meta: { ...pageMeta, total: 1, totalPages: 1 }, status: 'SUCCESS', errorCode: '' },
+    vi.mocked(searchDocuments).mockResolvedValue({
+      data: [document],
+      meta: { ...pageMeta, total: 1, totalPages: 1 },
     })
   })
 
@@ -52,8 +52,8 @@ describe('AssetSearchPage unified results', () => {
     expect(await screen.findByRole('region', { name: '知识文档检索结果' })).toBeInTheDocument()
     expect(await screen.findByText('焊接工位作业指导书')).toBeInTheDocument()
     expect(screen.getByText('没有符合条件的可预览资产')).toBeInTheDocument()
-    expect(searchUnified).toHaveBeenCalledWith(expect.objectContaining({
-      assetPage: 1, assetPerPage: 1, documentPage: 1, documentPerPage: 8,
+    expect(searchDocuments).toHaveBeenCalledWith(expect.objectContaining({
+      query: '', page: 1, perPage: 8,
     }))
   })
 })

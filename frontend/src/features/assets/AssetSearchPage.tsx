@@ -35,7 +35,7 @@ import { useAssetSearch } from '../../hooks/useAssets'
 import { SearchSidebar } from '../../pages/main/search/components/SearchSidebar'
 import { DocumentSearchResultSection } from '../documents/components/DocumentSearchResultSection'
 import { getAssetFilePreviewUrl } from '../../services/assetService'
-import { searchUnified } from '../../services/unifiedSearchService'
+import { searchDocuments } from '../../services/documentService'
 import type { Asset, AssetFile, AssetSearchParams, AssetStatus, AssetType } from '../../types/asset'
 import { scopeLabel } from './assetPresentation'
 import { AssetStatusTag, AssetTypeTag } from './AssetTags'
@@ -451,17 +451,16 @@ export function AssetSearchPage() {
   }
   const assetsQuery = useAssetSearch(params)
   const documentsQuery = useQuery({
-    queryKey: ['unified-document-search', debouncedQuery, platformFamily, platformVariant, base, productionLine],
-    queryFn: () => searchUnified({
+    queryKey: ['document-search-section', debouncedQuery, platformFamily, platformVariant, base, productionLine],
+    queryFn: () => searchDocuments({
       query: debouncedQuery,
+      category: '',
       platformFamily,
       platformVariant,
       base,
       productionLine,
-      assetPage: 1,
-      assetPerPage: 1,
-      documentPage: 1,
-      documentPerPage: 8,
+      page: 1,
+      perPage: 8,
     }),
   })
 
@@ -688,7 +687,7 @@ export function AssetSearchPage() {
             </Results>
           )}
           <DocumentSearchResultSection
-            page={documentsQuery.data?.documents}
+            page={documentsQuery.data}
             loading={documentsQuery.isLoading}
             error={documentsQuery.isError}
             onRetry={() => void documentsQuery.refetch()}

@@ -16,7 +16,7 @@ import { AssetStatusTag } from '../../../features/assets/AssetTags'
 import { AssetDocumentRelationModal } from '../../../features/documents/components/AssetDocumentRelationModal'
 import { assetDocumentRelationLabels } from '../../../features/documents/assetDocumentRelationPresentation'
 import { useAsset, useAssetRelations, useFavorite } from '../../../hooks/useAssets'
-import { getAssetDocuments, setFavorite } from '../../../services/assetService'
+import { getAssetDocuments, getAssetFileUrl, getAssetPackageUrl, setFavorite } from '../../../services/assetService'
 import {
   changeAssetDocumentRelationType,
   createAssetDocumentRelation,
@@ -283,7 +283,7 @@ export default function DrawingDetailPage() {
 
   const openFile = (file: AssetFile, preview: boolean) => {
     if (!file.storageKey) return message.info('该文件尚未绑定可访问的存储对象')
-    window.open(`/api/v1/assets/${assetId}/files/${file.id}?preview=${preview}`, '_blank', 'noopener,noreferrer')
+    window.open(getAssetFileUrl(assetId, file, preview), '_blank', 'noopener,noreferrer')
   }
 
   if (assetQuery.isLoading) return <LoadingPage><Spin /></LoadingPage>
@@ -310,7 +310,11 @@ export default function DrawingDetailPage() {
           >
             {favoriteQuery.data ? '已收藏' : '收藏'}
           </Button>
-          <Button icon={<FileZipOutlined />} onClick={() => message.info('资产包打包下载将在对象存储适配器启用后提供')}>打包下载</Button>
+          <Button icon={<FileZipOutlined />} onClick={() => {
+            const packageUrl = asset && getAssetPackageUrl(asset.id)
+            if (packageUrl) window.open(packageUrl, '_blank', 'noopener,noreferrer')
+            else message.info('资产包打包下载将在对象存储适配器启用后提供')
+          }}>打包下载</Button>
         </Space>
       </Header>
 

@@ -29,8 +29,8 @@ const UploadPage = lazy(() =>
   import('./pages/sys/file'),
 )
 const DictionaryPage = lazy(() => import('./pages/sys/dictionaries'))
-const ModulePlaceholder = lazy(() =>
-  import('./features/common/ModulePlaceholder').then((module) => ({ default: module.ModulePlaceholder })),
+const SystemAdminPage = lazy(() =>
+  import('./features/admin/SystemAdminPage').then((module) => ({ default: module.SystemAdminPage })),
 )
 
 const queryClient = new QueryClient({
@@ -111,8 +111,8 @@ export default function App() {
                   <Route path="/my-uploads" element={<MyUploadsPage />} />
                   <Route path="/dictionaries" element={<DictionaryPage />} />
                   <Route path="/sys/dictionaries" element={<DictionaryPage />} />
-                  <Route path="/settings" element={<ModulePlaceholder title="系统管理" />} />
-                  <Route path="/sys/settings" element={<ModulePlaceholder title="系统管理" />} />
+                  <Route path="/settings" element={<SystemAdminPage />} />
+                  <Route path="/sys/settings" element={<SystemAdminPage />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </Suspense>

@@ -69,6 +69,12 @@ export interface DocumentPage {
 export interface DocumentSearchParams {
   query: string
   category: string
+  platformFamily?: string
+  platformVariant?: string
+  productLine?: string
+  base?: string
+  productionLine?: string
+  processSection?: string
   page: number
   perPage: number
 }

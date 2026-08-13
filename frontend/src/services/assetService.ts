@@ -93,6 +93,15 @@ export function getAssetFilePreviewUrl(assetId: number, file: AssetFile): string
   return `${apiBaseUrl}/api/v1/assets/${assetId}/files/${file.id}?preview=true`
 }
 
+export function getAssetFileUrl(assetId: number, file: AssetFile, preview: boolean): string {
+  return `${apiBaseUrl}/api/v1/assets/${assetId}/files/${file.id}?preview=${preview}`
+}
+
+export function getAssetPackageUrl(assetId: number): string | undefined {
+  if (useMocks) return undefined
+  return `${apiBaseUrl}/api/v1/assets/${assetId}/package`
+}
+
 export async function getAsset(id: number): Promise<Asset> {
   if (useMocks) {
     await delay(100)

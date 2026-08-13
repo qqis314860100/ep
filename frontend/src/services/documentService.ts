@@ -40,6 +40,12 @@ export function searchDocuments(params: DocumentSearchParams): Promise<DocumentP
     page: String(params.page),
     per_page: String(params.perPage),
   })
+  if (params.platformFamily) query.set('platform_family', params.platformFamily)
+  if (params.platformVariant) query.set('platform_variant', params.platformVariant)
+  if (params.productLine) query.set('product_line', params.productLine)
+  if (params.base) query.set('base', params.base)
+  if (params.productionLine) query.set('production_line', params.productionLine)
+  if (params.processSection) query.set('process_section', params.processSection)
   return request<DocumentPage>(`/api/v1/documents?${query.toString()}`)
 }
 

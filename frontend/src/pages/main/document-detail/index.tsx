@@ -329,7 +329,7 @@ export default function DocumentDetailPage() {
               <InfoRow><dt>变更说明</dt><dd>{document.currentVersion.changeSummary}</dd></InfoRow>
               <InfoRow><dt>发布时间</dt><dd>{formatDocumentTime(document.currentVersion.publishedAt)}</dd></InfoRow>
               <InfoRow><dt>发布人</dt><dd>{document.currentVersion.publishedBy || '-'}</dd></InfoRow>
-              <InfoRow><dt>内容摘要</dt><dd>{selectedFile?.contentSha256.slice(0, 16) || '-'}</dd></InfoRow>
+              <InfoRow><dt>文件指纹</dt><dd>{selectedFile?.contentSha256?.slice(0, 16) || '-'}</dd></InfoRow>
             </InfoGroup>
             <InfoGroup>
               <InfoRow><dt>关联对象</dt><dd>{relationsQuery.isLoading ? '加载中' : `${relationsQuery.data?.length ?? 0} 项`}</dd></InfoRow>
