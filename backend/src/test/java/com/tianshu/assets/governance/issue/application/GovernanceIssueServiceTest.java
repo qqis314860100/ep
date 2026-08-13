@@ -12,6 +12,7 @@ import com.tianshu.assets.governance.issue.domain.GovernanceIssue;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssueStatus;
 import com.tianshu.assets.governance.task.domain.GovernanceTaskStatus;
 import com.tianshu.assets.governance.task.domain.GovernanceWorkflowVersion;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -105,7 +106,8 @@ class GovernanceIssueServiceTest {
         var duplicate = new GovernanceIssue(
                 0, 101, GovernanceField.DESCRIPTION, "MISSING_DESCRIPTION", "/description",
                 "FIELD_REQUIRED", 1, "{}", 3, "", "HIGH", true,
-                GovernanceIssueStatus.OPEN, null, 0);
+                GovernanceIssueStatus.OPEN, null, 0,
+                Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"));
 
         assertThatThrownBy(() -> issueStore.insertAll(List.of(
                         issue(2001, 105, GovernanceField.OWNER, "MISSING_OWNER", "/ownerUserId"),
@@ -136,6 +138,7 @@ class GovernanceIssueServiceTest {
             long id, long assetId, GovernanceField field, String issueType, String targetPath) {
         return new GovernanceIssue(
                 id, assetId, field, issueType, targetPath, "FIELD_REQUIRED", 1,
-                "{}", 1, "", "MEDIUM", false, GovernanceIssueStatus.OPEN, null, 0);
+                "{}", 1, "", "MEDIUM", false, GovernanceIssueStatus.OPEN, null, 0,
+                Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"));
     }
 }

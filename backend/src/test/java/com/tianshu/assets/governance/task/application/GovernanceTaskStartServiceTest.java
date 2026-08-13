@@ -22,6 +22,7 @@ import com.tianshu.assets.governance.task.domain.GovernancePlan;
 import com.tianshu.assets.governance.task.domain.GovernanceScopeItem;
 import com.tianshu.assets.governance.task.domain.GovernanceRuleSnapshot;
 import com.tianshu.assets.governance.task.domain.GovernanceTaskStatus;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -107,11 +108,13 @@ class GovernanceTaskStartServiceTest {
                 new GovernanceIssue(
                         1001, 101, GovernanceField.DESCRIPTION, "MISSING_DESCRIPTION", "/description",
                         "FIELD_REQUIRED", 3, "\"\"", 7, "asset:101:v7", "HIGH", true,
-                        GovernanceIssueStatus.OPEN, null, 0),
+                        GovernanceIssueStatus.OPEN, null, 0,
+                        Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z")),
                 new GovernanceIssue(
                         1002, 102, GovernanceField.SPECIALTIES, "MISSING_SPECIALTIES", "/specialties",
                         "FIELD_REQUIRED", 3, "[]", 9, "asset:102:v9", "HIGH", true,
-                        GovernanceIssueStatus.OPEN, null, 0)));
+                        GovernanceIssueStatus.OPEN, null, 0,
+                        Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"))));
         var taskStore = new InMemoryGovernanceTaskStore();
         var issueService = new GovernanceIssueService(issueStore, taskStore);
         var taskService = new GovernanceTaskApplicationService(
@@ -219,7 +222,8 @@ class GovernanceTaskStartServiceTest {
         delegate.insertAll(List.of(new GovernanceIssue(
                 1001, 101, GovernanceField.DESCRIPTION, "MISSING_DESCRIPTION", "/description",
                 "FIELD_REQUIRED", 3, "\"\"", 7, "asset:101:v7", "HIGH", true,
-                GovernanceIssueStatus.OPEN, null, 0)));
+                GovernanceIssueStatus.OPEN, null, 0,
+                Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"))));
         var issueStore = new ChangingIssueStore(delegate);
         var taskStore = new InMemoryGovernanceTaskStore();
         var issueService = new GovernanceIssueService(issueStore, taskStore);
@@ -252,7 +256,8 @@ class GovernanceTaskStartServiceTest {
                         20_000 + index, 30_000 + index, GovernanceField.DESCRIPTION,
                         "MISSING_DESCRIPTION", "/description", "FIELD_REQUIRED", 3,
                         "\"\"", 1, "asset:" + (30_000 + index) + ":v1", "HIGH", true,
-                        GovernanceIssueStatus.OPEN, null, 0))
+                        GovernanceIssueStatus.OPEN, null, 0,
+                        Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z")))
                 .toList();
         issueStore.insertAll(issues);
         var taskStore = new InMemoryGovernanceTaskStore();
@@ -302,7 +307,7 @@ class GovernanceTaskStartServiceTest {
                     issue.id(), issue.assetId(), issue.targetField(), issue.issueType(), issue.targetPath(),
                     issue.ruleCode(), issue.ruleVersion(), issue.originalFactJson(), issue.assetVersion() + 1,
                     issue.scopeFingerprint(), issue.severity(), issue.blocking(), issue.status(),
-                    issue.taskId(), issue.version())).toList();
+                    issue.taskId(), issue.version(), issue.createdAt(), issue.updatedAt())).toList();
         }
 
         @Override

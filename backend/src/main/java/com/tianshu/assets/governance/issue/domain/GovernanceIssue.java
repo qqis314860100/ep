@@ -1,5 +1,7 @@
 package com.tianshu.assets.governance.issue.domain;
 
+import java.time.Instant;
+
 public record GovernanceIssue(
         long id,
         long assetId,
@@ -15,7 +17,9 @@ public record GovernanceIssue(
         boolean blocking,
         GovernanceIssueStatus status,
         Long taskId,
-        long version) {
+        long version,
+        Instant createdAt,
+        Instant updatedAt) {
 
     public GovernanceIssue {
         if (assetId <= 0) throw new IllegalArgumentException("资产 ID 不合法");
@@ -33,13 +37,13 @@ public record GovernanceIssue(
         return assetId + "|" + issueType + "|" + targetPath + "|" + ruleVersion;
     }
 
-    public GovernanceIssue claim(long claimedTaskId) {
+    public GovernanceIssue claim(long claimedTaskId, Instant updatedAt) {
         if (status != GovernanceIssueStatus.OPEN) {
             throw new IllegalStateException("仅开放问题可以纳入治理任务");
         }
         return new GovernanceIssue(
                 id, assetId, targetField, issueType, targetPath, ruleCode, ruleVersion,
                 originalFactJson, assetVersion, scopeFingerprint, severity, blocking,
-                GovernanceIssueStatus.CLAIMED, claimedTaskId, version + 1);
+                GovernanceIssueStatus.CLAIMED, claimedTaskId, version + 1, createdAt, updatedAt);
     }
 }

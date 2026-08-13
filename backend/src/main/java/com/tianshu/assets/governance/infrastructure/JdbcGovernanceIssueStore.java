@@ -10,6 +10,7 @@ import com.tianshu.assets.governance.task.application.GovernanceStorageException
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,14 +85,14 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
                     UPDATE governance_issue SET status='OPEN',task_id=NULL,asset_id=:assetId,target_field=:targetField,
                     issue_type=:issueType,target_path=:targetPath,rule_code=:ruleCode,rule_version=:ruleVersion,
                     original_fact_json=:originalFactJson,asset_version=:assetVersion,scope_fingerprint=:scopeFingerprint,
-                    severity=:severity,blocking=:blocking,version=version+1
+                    severity=:severity,blocking=:blocking,version=version+1,updated_at=:updatedAt
                     WHERE id=:id AND version=:version
-                    """).param("assetId", issue.assetId()).param("targetField", issue.targetField().name()).param("issueType", issue.issueType()).param("targetPath", issue.targetPath()).param("ruleCode", issue.ruleCode()).param("ruleVersion", issue.ruleVersion()).param("originalFactJson", issue.originalFactJson()).param("assetVersion", issue.assetVersion()).param("scopeFingerprint", issue.scopeFingerprint()).param("severity", issue.severity()).param("blocking", issue.blocking()).param("id", existing.id()).param("version", existing.version()).update();
+                    """).param("assetId", issue.assetId()).param("targetField", issue.targetField().name()).param("issueType", issue.issueType()).param("targetPath", issue.targetPath()).param("ruleCode", issue.ruleCode()).param("ruleVersion", issue.ruleVersion()).param("originalFactJson", issue.originalFactJson()).param("assetVersion", issue.assetVersion()).param("scopeFingerprint", issue.scopeFingerprint()).param("severity", issue.severity()).param("blocking", issue.blocking()).param("id", existing.id()).param("version", existing.version()).param("updatedAt", issue.updatedAt()).update();
             if (updated != 1) throw new GovernanceConflictException("治理问题已变化，请刷新后重试");
             return findByIds(List.of(existing.id())).getFirst();
         }
         if (existing.assetVersion() == issue.assetVersion() && existing.originalFactJson().equals(issue.originalFactJson())) return existing;
-        var updated = jdbcClient.sql("UPDATE governance_issue SET original_fact_json=:originalFactJson,asset_version=:assetVersion,scope_fingerprint=:scopeFingerprint,version=version+1 WHERE id=:id AND version=:version").param("originalFactJson", issue.originalFactJson()).param("assetVersion", issue.assetVersion()).param("scopeFingerprint", issue.scopeFingerprint()).param("id", existing.id()).param("version", existing.version()).update();
+        var updated = jdbcClient.sql("UPDATE governance_issue SET original_fact_json=:originalFactJson,asset_version=:assetVersion,scope_fingerprint=:scopeFingerprint,version=version+1,updated_at=:updatedAt WHERE id=:id AND version=:version").param("originalFactJson", issue.originalFactJson()).param("assetVersion", issue.assetVersion()).param("scopeFingerprint", issue.scopeFingerprint()).param("id", existing.id()).param("version", existing.version()).param("updatedAt", issue.updatedAt()).update();
         if (updated != 1) throw new GovernanceConflictException("治理问题已变化，请刷新后重试");
         return findByIds(List.of(existing.id())).getFirst();
     }
@@ -116,6 +117,7 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
         for (int index = 0; index < issues.size(); index++) {
             var issue = issues.get(index);
             if (includeId) statement = statement.param("id" + index, issue.id());
+            var now = Instant.now();
             statement = statement
                     .param("assetId" + index, issue.assetId())
                     .param("targetField" + index, issue.targetField().name())
@@ -131,7 +133,9 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
                     .param("status" + index, issue.status().name())
                     .param("taskId" + index, issue.taskId(), Types.BIGINT)
                     .param("fingerprint" + index, issue.fingerprint())
-                    .param("version" + index, issue.version());
+                    .param("version" + index, issue.version())
+                    .param("createdAt" + index, issue.createdAt() == null ? now : issue.createdAt())
+                    .param("updatedAt" + index, issue.updatedAt() == null ? now : issue.updatedAt());
         }
 
         try {
@@ -165,7 +169,7 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
             for (var expected : expectedIssues) {
                 var updated = jdbcClient.sql("""
                         UPDATE governance_issue
-                        SET status = 'CLAIMED', task_id = :taskId, version = version + 1
+                        SET status = 'CLAIMED', task_id = :taskId, version = version + 1, updated_at = CURRENT_TIMESTAMP(6)
                         WHERE id = :id AND status = 'OPEN' AND version = :expectedVersion
                         """)
                         .param("taskId", taskId)
@@ -202,7 +206,7 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
         if (current.status() == GovernanceIssueStatus.RESOLVED) return current;
         var updated = jdbcClient.sql("""
                 UPDATE governance_issue
-                SET status = 'RESOLVED', version = version + 1
+                SET status = 'RESOLVED', version = version + 1, updated_at = CURRENT_TIMESTAMP(6)
                 WHERE id = :id AND status = 'CLAIMED' AND version = :expectedVersion
                 """)
                 .param("id", issueId)
@@ -232,7 +236,8 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
                     rs.getString("original_fact_json"), rs.getLong("asset_version"),
                     rs.getString("scope_fingerprint"), rs.getString("severity"), rs.getBoolean("blocking"),
                     GovernanceIssueStatus.valueOf(rs.getString("status")), nullableLong(rs, "task_id"),
-                    rs.getLong("version"));
+                    rs.getLong("version"),
+                    rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant());
         } catch (IllegalArgumentException exception) {
             throw storageFailure("治理问题数据损坏");
         }
@@ -247,7 +252,7 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
         return """
                 SELECT id, asset_id, target_field, issue_type, target_path, rule_code, rule_version,
                        original_fact_json, asset_version, scope_fingerprint, severity, blocking,
-                       status, task_id, version
+                       status, task_id, version, created_at, updated_at
                 FROM governance_issue
                 """;
     }
@@ -256,7 +261,7 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
         return """
                 asset_id, target_field, issue_type, target_path, rule_code, rule_version,
                 original_fact_json, asset_version, scope_fingerprint, severity, blocking,
-                status, task_id, fingerprint, version
+                status, task_id, fingerprint, version, created_at, updated_at
                 """;
     }
 
@@ -267,7 +272,8 @@ public class JdbcGovernanceIssueStore implements GovernanceIssueStore {
                 + ", :targetPath" + index + ", :ruleCode" + index + ", :ruleVersion" + index
                 + ", :originalFactJson" + index + ", :assetVersion" + index + ", :scopeFingerprint" + index
                 + ", :severity" + index + ", :blocking" + index + ", :status" + index
-                + ", :taskId" + index + ", :fingerprint" + index + ", :version" + index + ")";
+                + ", :taskId" + index + ", :fingerprint" + index + ", :version" + index
+                + ", :createdAt" + index + ", :updatedAt" + index + ")";
     }
 
     private GovernanceConflictException claimConflict() {

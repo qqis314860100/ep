@@ -282,7 +282,8 @@ class GovernanceExecutionServiceTest {
         issueStore.insertAll(List.of(new GovernanceIssue(
                 3001, 104, GovernanceField.SCOPE, "MISSING_SCOPE", "/scopes",
                 "FIELD_REQUIRED", 3, "[]", 4, "asset:104:v4", "HIGH", true,
-                GovernanceIssueStatus.OPEN, null, 0)));
+                GovernanceIssueStatus.OPEN, null, 0,
+                Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"))));
         var taskStore = new InMemoryGovernanceTaskStore();
         var workflowStore = new InMemoryGovernanceWorkflowStore();
         var issueService = new GovernanceIssueService(issueStore, taskStore);

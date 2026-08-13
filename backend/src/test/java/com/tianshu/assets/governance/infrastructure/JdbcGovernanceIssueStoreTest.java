@@ -8,6 +8,7 @@ import com.tianshu.assets.governance.application.GovernanceTaskStateException;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssue;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssueStatus;
+import java.time.Instant;
 import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +48,9 @@ class JdbcGovernanceIssueStoreTest {
                     status VARCHAR(20) NOT NULL,
                     task_id BIGINT,
                     fingerprint VARCHAR(800) NOT NULL UNIQUE,
-                    version BIGINT NOT NULL
+                    version BIGINT NOT NULL,
+                    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
                 )
                 """);
         store = new JdbcGovernanceIssueStore(JdbcClient.create(dataSource), true);
@@ -121,6 +124,7 @@ class JdbcGovernanceIssueStoreTest {
             long assetId, GovernanceField field, String issueType, String targetPath) {
         return new GovernanceIssue(
                 0, assetId, field, issueType, targetPath, "FIELD_REQUIRED", 1,
-                "", 0, "", "HIGH", true, GovernanceIssueStatus.OPEN, null, 0);
+                "", 0, "", "HIGH", true, GovernanceIssueStatus.OPEN, null, 0,
+                Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"));
     }
 }

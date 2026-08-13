@@ -5,6 +5,7 @@ import com.tianshu.assets.governance.issue.application.GovernanceIssueStore;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssue;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssueStatus;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -85,11 +86,11 @@ public class InMemoryGovernanceIssueStore implements GovernanceIssueStore {
         if (existing.status() == GovernanceIssueStatus.RESOLVED) {
             var reopened = new GovernanceIssue(existing.id(), issue.assetId(), issue.targetField(), issue.issueType(), issue.targetPath(),
                     issue.ruleCode(), issue.ruleVersion(), issue.originalFactJson(), issue.assetVersion(), issue.scopeFingerprint(), issue.severity(), issue.blocking(),
-                    GovernanceIssueStatus.OPEN, null, existing.version() + 1);
+                    GovernanceIssueStatus.OPEN, null, existing.version() + 1, existing.createdAt(), Instant.now());
             issues.put(existing.id(), reopened); return reopened;
         }
         if (existing.assetVersion() == issue.assetVersion() && existing.originalFactJson().equals(issue.originalFactJson())) return existing;
-        var refreshed = new GovernanceIssue(existing.id(), issue.assetId(), issue.targetField(), issue.issueType(), issue.targetPath(), issue.ruleCode(), issue.ruleVersion(), issue.originalFactJson(), issue.assetVersion(), issue.scopeFingerprint(), issue.severity(), issue.blocking(), existing.status(), existing.taskId(), existing.version() + 1);
+        var refreshed = new GovernanceIssue(existing.id(), issue.assetId(), issue.targetField(), issue.issueType(), issue.targetPath(), issue.ruleCode(), issue.ruleVersion(), issue.originalFactJson(), issue.assetVersion(), issue.scopeFingerprint(), issue.severity(), issue.blocking(), existing.status(), existing.taskId(), existing.version() + 1, existing.createdAt(), Instant.now());
         issues.put(existing.id(), refreshed); return refreshed;
     }
 
@@ -102,7 +103,7 @@ public class InMemoryGovernanceIssueStore implements GovernanceIssueStore {
                 throw new GovernanceConflictException("问题已被其他治理任务纳入");
             }
         }
-        var claimed = expectedIssues.stream().map(issue -> issues.get(issue.id()).claim(taskId)).toList();
+        var claimed = expectedIssues.stream().map(issue -> issues.get(issue.id()).claim(taskId, Instant.now())).toList();
         claimed.forEach(issue -> issues.put(issue.id(), issue));
     }
 
@@ -130,7 +131,7 @@ public class InMemoryGovernanceIssueStore implements GovernanceIssueStore {
                 current.id(), current.assetId(), current.targetField(), current.issueType(), current.targetPath(),
                 current.ruleCode(), current.ruleVersion(), current.originalFactJson(), current.assetVersion(),
                 current.scopeFingerprint(), current.severity(), current.blocking(), GovernanceIssueStatus.RESOLVED,
-                current.taskId(), current.version() + 1);
+                current.taskId(), current.version() + 1, current.createdAt(), Instant.now());
         issues.put(resolved.id(), resolved);
         return resolved;
     }
@@ -140,13 +141,19 @@ public class InMemoryGovernanceIssueStore implements GovernanceIssueStore {
             String originalFactJson, String severity, boolean blocking) {
         return new GovernanceIssue(
                 id, assetId, field, issueType, targetPath, "FIELD_REQUIRED", 1,
-                originalFactJson, 0, "", severity, blocking, GovernanceIssueStatus.OPEN, null, 0);
+                originalFactJson, 0, "", severity, blocking, GovernanceIssueStatus.OPEN, null, 0,
+                SEED_AT, SEED_AT);
     }
 
     private GovernanceIssue copy(GovernanceIssue issue, long id, long version) {
+        var now = Instant.now();
         return new GovernanceIssue(
                 id, issue.assetId(), issue.targetField(), issue.issueType(), issue.targetPath(),
                 issue.ruleCode(), issue.ruleVersion(), issue.originalFactJson(), issue.assetVersion(),
-                issue.scopeFingerprint(), issue.severity(), issue.blocking(), issue.status(), issue.taskId(), version);
+                issue.scopeFingerprint(), issue.severity(), issue.blocking(), issue.status(), issue.taskId(), version,
+                issue.createdAt() == null ? now : issue.createdAt(),
+                issue.updatedAt() == null ? now : issue.updatedAt());
     }
+
+    private static final Instant SEED_AT = Instant.parse("2026-08-01T00:00:00Z");
 }

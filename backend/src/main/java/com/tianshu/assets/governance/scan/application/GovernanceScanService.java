@@ -158,7 +158,10 @@ public class GovernanceScanService {
     }
 
     private boolean completeScope(AssetScope scope) { return scope != null && !scope.platformFamily().isBlank() && !scope.platformVariant().isBlank() && !scope.productLine().isBlank() && !scope.base().isBlank() && !scope.productionLine().isBlank() && !scope.processSection().isBlank(); }
-    private GovernanceIssue issue(Asset asset, GovernanceField field, String type, String path, String ruleCode, long ruleVersion, Object original, String severity, boolean blocking) { return new GovernanceIssue(0, asset.id(), field, type, path, ruleCode, ruleVersion, json(original), assetVersion(asset), scopeFingerprint(asset), severity, blocking, GovernanceIssueStatus.OPEN, null, 0); }
+    private GovernanceIssue issue(Asset asset, GovernanceField field, String type, String path, String ruleCode, long ruleVersion, Object original, String severity, boolean blocking) {
+        var now = Instant.now(clock);
+        return new GovernanceIssue(0, asset.id(), field, type, path, ruleCode, ruleVersion, json(original), assetVersion(asset), scopeFingerprint(asset), severity, blocking, GovernanceIssueStatus.OPEN, null, 0, now, now);
+    }
     private long assetVersion(Asset asset) { return asset.updatedAt() == null ? 0 : asset.updatedAt().toEpochMilli(); }
     private String scopeFingerprint(Asset asset) { return digest(asset.scopes().stream().map(scope -> scope.platformFamily()+"|"+scope.platformVariant()+"|"+scope.productLine()+"|"+scope.base()+"|"+scope.productionLine()+"|"+scope.processSection()).collect(Collectors.joining(";"))); }
     private String digest(String value) { try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); } catch (Exception exception) { throw new IllegalStateException("扫描指纹生成失败", exception); } }

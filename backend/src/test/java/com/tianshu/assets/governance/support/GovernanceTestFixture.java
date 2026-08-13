@@ -327,7 +327,8 @@ public final class GovernanceTestFixture {
                 0, assetId, GovernanceField.DESCRIPTION, issueType, "/files/primary",
                 "CONTINUOUS_GOVERNANCE", 1, "null", assetVersion,
                 "asset:" + assetId + ":blocking", "HIGH", true,
-                GovernanceIssueStatus.OPEN, null, 0)));
+                GovernanceIssueStatus.OPEN, null, 0,
+                Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"))));
     }
 
     public InMemoryGovernanceAcceptanceStore acceptanceStore() {
@@ -530,6 +531,7 @@ public final class GovernanceTestFixture {
         return new GovernanceIssue(
                 id, assetId, field, "MISSING_" + field.name(), path, "FIELD_REQUIRED", 3,
                 originalFactJson, assetVersion, scopeFingerprint,
-                "HIGH", true, GovernanceIssueStatus.OPEN, null, 0);
+                "HIGH", true, GovernanceIssueStatus.OPEN, null, 0,
+                Instant.parse("2026-08-01T00:00:00Z"), Instant.parse("2026-08-01T00:00:00Z"));
     }
 }

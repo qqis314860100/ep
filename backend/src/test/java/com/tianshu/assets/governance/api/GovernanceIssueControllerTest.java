@@ -43,7 +43,9 @@ class GovernanceIssueControllerTest {
                 .andExpect(jsonPath("$[0].blocking").value(true))
                 .andExpect(jsonPath("$[0].status").value("OPEN"))
                 .andExpect(jsonPath("$[0].taskId").doesNotExist())
-                .andExpect(jsonPath("$[0].version").value(0));
+                .andExpect(jsonPath("$[0].version").value(0))
+                .andExpect(jsonPath("$[0].createdAt").exists())
+                .andExpect(jsonPath("$[0].updatedAt").exists());
     }
 
     @Test

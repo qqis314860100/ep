@@ -4,6 +4,7 @@ import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssue;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssueStatus;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,13 +40,15 @@ public class GovernanceIssueController {
             boolean blocking,
             GovernanceIssueStatus status,
             Long taskId,
-            long version) {
+            long version,
+            Instant createdAt,
+            Instant updatedAt) {
 
         static GovernanceIssueResponse from(GovernanceIssue issue) {
             return new GovernanceIssueResponse(
                     issue.id(), issue.assetId(), issue.targetField(), issue.issueType(), issue.targetPath(),
                     issue.originalFactJson(), issue.severity(), issue.blocking(), issue.status(),
-                    issue.taskId(), issue.version());
+                    issue.taskId(), issue.version(), issue.createdAt(), issue.updatedAt());
         }
     }
 }
