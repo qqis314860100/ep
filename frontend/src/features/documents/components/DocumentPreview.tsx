@@ -88,7 +88,8 @@ export function DocumentPreview({ documentId, versionId, file }: DocumentPreview
   const previewUrl = getDocumentFileUrl(documentId, versionId, file.id, true)
   const downloadUrl = getDocumentFileUrl(documentId, versionId, file.id, false)
   const isImage = ['PNG', 'JPG', 'JPEG', 'TIFF'].includes(file.format)
-  const canPreview = file.previewable && (file.format === 'PDF' || isImage)
+  const isFramePreview = file.format === 'PDF' || file.format === 'DOCX' || file.format === 'DOC'
+  const canPreview = file.previewable && (isFramePreview || isImage)
 
   return (
     <Surface aria-label="文件预览区" onErrorCapture={() => setFailed(true)}>
@@ -102,7 +103,7 @@ export function DocumentPreview({ documentId, versionId, file }: DocumentPreview
           aria-label="下载文件"
         >下载文件</Button>
       </Toolbar>
-      {!failed && canPreview && file.format === 'PDF' && (
+      {!failed && canPreview && isFramePreview && (
         <Frame title="文档预览" src={previewUrl} />
       )}
       {!failed && canPreview && isImage && (
