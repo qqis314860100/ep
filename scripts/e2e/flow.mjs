@@ -8,6 +8,7 @@
  *   阶段 2  资产生命周期（建草稿 → 提交 → 待整理）
  *   阶段 3  治理扫描（手动触发 → 运行成功 → 问题池）
  *   阶段 4  治理闭环（建任务 → 计划 → 启动 → 执行 → 业务确认 → 质量验收 → 正式应用 → 任务完成）
+ *   阶段 4b 自有资产治理闭环（指派责任人 → 扫描 → 任务 → 确认 → 验收 → 正式应用）
  *   阶段 5  知识文档（建草稿 → 发布 → 检索）
  *   阶段 6  资产文档关联（双向）
  *   阶段 7  收藏 + 评论 + 点赞
@@ -205,13 +206,14 @@ await step('创建资产草稿 POST /assets/drafts', async () => {
     linkedModuleAssetIds: [],
     equipmentInterconnectCode: '',
     scopes: [{
+      // 完整但不属于治理有效适用范围，扫描会标记 INVALID_SCOPE，供自有资产治理闭环修复
       platform: '乘用车',
-      productLine: 'H03',
+      productLine: 'P02',
       base: '宁德基地',
       productionLine: 'A 拉线',
       processSection: '焊接段',
       platformFamily: '乘用车',
-      platformVariant: '大面水冷',
+      platformVariant: '底部水冷',
     }],
     files: assetFiles.map((file, index) => ({ ...file, primary: index === 0 })),
     ownerName: '陈工',
@@ -433,6 +435,177 @@ await step('治理问题已解决（1001/1002 → RESOLVED）', async () => {
   const res = await api('/api/v1/governance/issues?status=RESOLVED')
   const ids = new Set(res.json.map((issue) => issue.id))
   assert(ids.has(1001) && ids.has(1002), '问题 1001/1002 应已解决')
+})
+
+/* ---- 阶段 4b：自有资产治理闭环（责任人指派 → 扫描 → 闭环） ---- */
+console.log('\n【阶段 4b】自有资产治理闭环（责任人指派 → 扫描 → 闭环）')
+const RESP_ADMIN_HEADERS = { 'X-User-Roles': 'CONTENT_ADMIN,SYSTEM_ADMIN' }
+await step('指派资产责任人 PUT /governance/asset-responsibilities/{assetId}', async () => {
+  const res = await api(`/api/v1/governance/asset-responsibilities/${assetA.id}`, {
+    method: 'PUT',
+    body: { responsibleUserId: 'emp-chen', responsibilityScope: '设备工程部' },
+    headers: RESP_ADMIN_HEADERS,
+  })
+  assertEqual(res.status, 200, '指派应返回 200')
+  assertEqual(res.json.responsibleUserId, 'emp-chen', '责任人应为 emp-chen')
+  assertEqual(res.json.responsibilityScope, '设备工程部', '责任范围')
+})
+await step('读取资产责任人 GET /governance/asset-responsibilities/{assetId}', async () => {
+  const res = await api(`/api/v1/governance/asset-responsibilities/${assetA.id}`, { headers: RESP_ADMIN_HEADERS })
+  assertEqual(res.status, 200, '读取应返回 200')
+  assertEqual(res.json.responsibleUserId, 'emp-chen', '当前有效责任人')
+})
+
+let ownIssueId = 0
+await step('自有资产扫描产生 SCOPE 问题', async () => {
+  const issuesRes = await api(`/api/v1/governance/issues?assetId=${assetA.id}&status=OPEN`)
+  const scopeIssue = issuesRes.json.find((issue) => issue.targetField === 'SCOPE')
+  assert(scopeIssue, '应存在 SCOPE 开放问题')
+  ownIssueId = scopeIssue.id
+})
+
+let ownTaskId = 0
+let ownTaskVersion = 0
+await step('为自有资产创建治理任务 POST /governance/tasks', async () => {
+  const res = await api('/api/v1/governance/tasks', {
+    method: 'POST',
+    body: { name: 'E2E 自有资产范围治理', issueIds: [ownIssueId], ownerUserId: 'emp-chen', ownerName: '陈工', dueDate: '2026-09-30' },
+  })
+  assertEqual(res.status, 201, '创建任务应返回 201')
+  ownTaskId = res.json.id
+  ownTaskVersion = res.json.version
+  assertEqual(res.json.status, 'DRAFT', '初始为草稿')
+})
+await step('自有资产任务新增计划 POST /governance/tasks/{id}/plans', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/plans`, {
+    method: 'POST',
+    body: {
+      title: 'E2E 范围修正计划', plannedStart: '2026-09-01', plannedEnd: '2026-09-15',
+      assigneeId: 'emp-chen', responsibleUserId: 'emp-chen',
+      dependencyIds: [], issueIds: [ownIssueId],
+    },
+  })
+  assertEqual(res.status, 201, '新增计划应返回 201')
+})
+await step('自有资产任务启动 POST /governance/tasks/{id}/start', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/start`, {
+    method: 'POST', body: { version: ownTaskVersion, actorUserId: 'emp-admin' },
+  })
+  assertEqual(res.status, 200, '启动应返回 200')
+  assertEqual(res.json.status, 'IN_PROGRESS', '进行中')
+  ownTaskVersion = res.json.version
+})
+
+// 自有资产执行：责任人 emp-chen 亲自执行（X-User-Id=emp-chen），验证责任人指派生效
+const OWN_HEADERS = { 'X-User-Id': 'emp-chen', 'X-User-Roles': 'CONTENT_ADMIN' }
+let ownItemId = 0
+let ownAssetVersion = 0
+await step('读取自有资产治理项 GET .../items', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/items`, { headers: OWN_HEADERS })
+  assertEqual(res.status, 200, '读取治理项应返回 200')
+  assertEqual(res.json.length, 1, '应有 1 个治理项')
+  ownItemId = res.json[0].item.id
+  ownAssetVersion = res.json[0].item.assetVersion
+})
+await step('修正适用范围：保存草稿 + 提交', async () => {
+  const proposed = {
+    scopes: [{ platformFamily: '乘用车', platformVariant: '大面水冷', productLine: 'H03', base: '宁德基地', productionLine: 'A 拉线', processSection: '焊接段' }],
+  }
+  const draftRes = await api(`/api/v1/governance/items/${ownItemId}/result-draft`, {
+    method: 'PUT',
+    body: { itemVersion: 0, assetVersion: ownAssetVersion, proposedValue: proposed, actorUserId: 'emp-chen' },
+    headers: OWN_HEADERS,
+  })
+  assertEqual(draftRes.status, 200, '保存范围治理结果草稿')
+  const submitRes = await api(`/api/v1/governance/items/${ownItemId}/submit`, {
+    method: 'POST',
+    body: { resultVersionId: draftRes.json.id, resultVersion: draftRes.json.version, actorUserId: 'emp-chen' },
+    headers: OWN_HEADERS,
+  })
+  assertEqual(submitRes.status, 200, '提交范围治理结果')
+})
+await step('自有资产提交业务确认 POST .../submit-for-confirmation', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/submit-for-confirmation`, {
+    method: 'POST', body: { version: ownTaskVersion },
+  })
+  assertEqual(res.status, 200, '提交确认应返回 200')
+  assertEqual(res.json.status, 'PENDING_CONFIRMATION', '进入待业务确认')
+  ownTaskVersion = res.json.version
+})
+let ownRoundId = 0
+let ownRoundVersion = 0
+await step('自有资产读取确认轮次（以责任人为确认人）', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/confirmation-rounds/current`, { headers: OWN_HEADERS })
+  assertEqual(res.status, 200, '读取确认轮次应返回 200')
+  ownRoundId = res.json.round.id
+  ownRoundVersion = res.json.round.version
+  assert(res.json.items.length >= 1, '确认轮次应有确认项')
+})
+await step('自有资产逐项确认通过（责任人 emp-chen 审批）', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/confirmation-rounds/current`, { headers: OWN_HEADERS })
+  for (const item of res.json.items) {
+    const decisionRes = await api(`/api/v1/governance/confirmation-rounds/${ownRoundId}/items/${item.itemId}/decision`, {
+      method: 'PUT',
+      body: { decision: 'APPROVED', comment: '', decisionVersion: 0, confirmerUserId: 'emp-chen' },
+      headers: OWN_HEADERS,
+    })
+    assertEqual(decisionRes.status, 200, `确认项 ${item.itemId} 审批通过`)
+  }
+})
+await step('自有资产完成确认轮次 POST .../confirmation-rounds/{roundId}/complete', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/confirmation-rounds/${ownRoundId}/complete`, {
+    method: 'POST', body: { roundVersion: ownRoundVersion }, headers: OWN_HEADERS,
+  })
+  assertEqual(res.status, 200, '完成确认轮次应返回 200')
+  assertEqual(res.json.taskStatus, 'PENDING_ACCEPTANCE', '进入待质量验收')
+})
+let ownAcceptRoundId = 0
+let ownSampleId = 0
+let ownSampleVersion = 0
+await step('自有资产读取验收轮次 GET .../acceptance-rounds/current', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/acceptance-rounds/current`, { headers: RESP_ADMIN_HEADERS })
+  assertEqual(res.status, 200, '读取验收轮次应返回 200')
+  ownAcceptRoundId = res.json.id
+  assert(res.json.samples.length >= 1, '验收轮次应有固定抽样样本')
+  ownSampleId = res.json.samples[0].itemId
+  ownSampleVersion = res.json.samples[0].version
+})
+await step('自有资产抽样验收通过 PUT .../samples/{itemId}', async () => {
+  const res = await api(`/api/v1/governance/acceptance-rounds/${ownAcceptRoundId}/samples/${ownSampleId}`, {
+    method: 'PUT',
+    body: { passed: true, issueDescription: '', reviewerUserId: 'qa-1', sampleVersion: ownSampleVersion },
+    headers: RESP_ADMIN_HEADERS,
+  })
+  assertEqual(res.status, 200, '抽样验收应返回 200')
+})
+let ownJobId = 0
+await step('自有资产完成验收 POST .../acceptance-rounds/{roundId}/complete（正式应用）', async () => {
+  const current = await api(`/api/v1/governance/tasks/${ownTaskId}/acceptance-rounds/current`, { headers: RESP_ADMIN_HEADERS })
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}/acceptance-rounds/${ownAcceptRoundId}/complete`, {
+    method: 'POST', body: { roundVersion: current.json.version, operatorUserId: 'qa-1' }, headers: RESP_ADMIN_HEADERS,
+  })
+  assertEqual(res.status, 200, '完成验收应返回 200')
+  ownJobId = res.json.applicationJobId
+  assert(ownJobId > 0, '应生成正式应用作业 id')
+})
+await step('自有资产正式应用作业完成', async () => {
+  const job = await poll(async () => {
+    const res = await api(`/api/v1/governance/jobs/${ownJobId}`)
+    const j = res.json
+    return j.processing === 0 && j.failed === 0 ? j : null
+  }, { label: '自有资产正式应用作业', timeoutMs: 20000 })
+  assertEqual(job.succeeded, job.total, '成功项 = 总数')
+  assert(job.succeeded >= 1, '至少 1 项正式应用成功')
+  assertEqual(job.retryable, false, '作业不应可重试')
+})
+await step('自有资产治理任务完成 GET /governance/tasks/{id} → COMPLETED', async () => {
+  const res = await api(`/api/v1/governance/tasks/${ownTaskId}`)
+  assertEqual(res.status, 200, 'HTTP 状态')
+  assertEqual(res.json.status, 'COMPLETED', '治理任务应已完成')
+})
+await step('自有资产 SCOPE 问题已解决', async () => {
+  const res = await api(`/api/v1/governance/issues?assetId=${assetA.id}&status=RESOLVED`)
+  assert(res.json.some((issue) => issue.id === ownIssueId), 'SCOPE 问题应已解决')
 })
 
 /* ---- 阶段 5：知识文档 ---- */
