@@ -13,14 +13,19 @@ import com.tianshu.assets.asset.application.AssetWriteService;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.common.file.InMemoryFileStorage;
+import com.tianshu.assets.common.preview.DocumentPreviewConverter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
-import java.nio.charset.StandardCharsets;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 class AssetControllerTest {
 
@@ -263,5 +268,106 @@ class AssetControllerTest {
                         .header("X-User-Id", "content-admin")
                         .header("X-User-Roles", "CONTENT_ADMIN"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void convertsPreviewableDocxToPdfForInlinePreview() throws Exception {
+        var storage = new InMemoryFileStorage();
+        var key = storage.store(new ByteArrayInputStream("docx-bytes".getBytes(StandardCharsets.UTF_8)), 10,
+                "notes.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        var service = new AssetQueryService(repository);
+        var writeService = new AssetWriteService(repository);
+        var converter = new DocumentPreviewConverter() {
+            @Override
+            public boolean supports(String format) {
+                return "DOCX".equals(format);
+            }
+
+            @Override
+            public Optional<byte[]> toPdf(String format, byte[] source) {
+                return Optional.of("%PDF-converted".getBytes(StandardCharsets.UTF_8));
+            }
+        };
+        var mvc = standaloneSetup(new AssetController(service, writeService, storage, converter),
+                new FavoriteController(service, writeService))
+                .setControllerAdvice(new ApiExceptionHandler())
+                .build();
+
+        var request = """
+                {
+                  "assetNumber":"DM-DOCX-0001",
+                  "name":"DOCX 预览资产",
+                  "description":"用于 DOCX 在线预览转换测试",
+                  "assetType":"THREE_DIMENSIONAL_MODEL",
+                  "specialties":["机械"],
+                  "scopes":[{"platform":"乘用车","productLine":"H03","base":"宁德基地","productionLine":"A 拉线","processSection":"焊接段"}],
+                  "files":[{"id":0,"name":"notes.docx","format":"DOCX","sizeBytes":10,"role":"其他附件","previewable":true,"primary":true,"storageKey":"%s"}],
+                  "ownerName":"陈工",
+                  "ownerDepartment":"设备工程部"
+                }
+                """.formatted(key);
+        var created = mvc.perform(post("/api/v1/assets/drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        var json = new ObjectMapper().readTree(created);
+        var id = json.get("id").asLong();
+        var fileId = json.get("files").get(0).get("id").asLong();
+
+        mvc.perform(get("/api/v1/assets/{id}/files/{fileId}", id, fileId).param("preview", "true"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("inline")))
+                .andExpect(content().bytes("%PDF-converted".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void returnsServiceUnavailableWhenDocxConversionIsUnavailable() throws Exception {
+        var storage = new InMemoryFileStorage();
+        var key = storage.store(new ByteArrayInputStream("docx-bytes".getBytes(StandardCharsets.UTF_8)), 10,
+                "notes.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        var service = new AssetQueryService(repository);
+        var writeService = new AssetWriteService(repository);
+        var converter = new DocumentPreviewConverter() {
+            @Override
+            public boolean supports(String format) {
+                return "DOCX".equals(format);
+            }
+
+            @Override
+            public Optional<byte[]> toPdf(String format, byte[] source) {
+                return Optional.empty();
+            }
+        };
+        var mvc = standaloneSetup(new AssetController(service, writeService, storage, converter),
+                new FavoriteController(service, writeService))
+                .setControllerAdvice(new ApiExceptionHandler())
+                .build();
+
+        var request = """
+                {
+                  "assetNumber":"DM-DOCX-0002",
+                  "name":"DOCX 降级资产",
+                  "description":"用于 DOCX 预览降级测试",
+                  "assetType":"THREE_DIMENSIONAL_MODEL",
+                  "specialties":["机械"],
+                  "scopes":[{"platform":"乘用车","productLine":"H03","base":"宁德基地","productionLine":"A 拉线","processSection":"焊接段"}],
+                  "files":[{"id":0,"name":"notes.docx","format":"DOCX","sizeBytes":10,"role":"其他附件","previewable":true,"primary":true,"storageKey":"%s"}],
+                  "ownerName":"陈工",
+                  "ownerDepartment":"设备工程部"
+                }
+                """.formatted(key);
+        var created = mvc.perform(post("/api/v1/assets/drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        var json = new ObjectMapper().readTree(created);
+        var id = json.get("id").asLong();
+        var fileId = json.get("files").get(0).get("id").asLong();
+
+        mvc.perform(get("/api/v1/assets/{id}/files/{fileId}", id, fileId).param("preview", "true"))
+                .andExpect(status().isServiceUnavailable());
     }
 }

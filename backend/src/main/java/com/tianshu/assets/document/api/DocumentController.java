@@ -7,6 +7,8 @@ import com.tianshu.assets.document.domain.DocumentFile;
 import com.tianshu.assets.document.domain.DocumentSearchCriteria;
 import com.tianshu.assets.document.domain.DocumentScope;
 import com.tianshu.assets.document.domain.DocumentScopeMode;
+import com.tianshu.assets.common.preview.DocumentPreviewConverter;
+import com.tianshu.assets.common.preview.NoopDocumentPreviewConverter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -14,11 +16,13 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,10 +39,18 @@ public class DocumentController {
 
     private final DocumentCommandService commandService;
     private final DocumentQueryService queryService;
+    private final DocumentPreviewConverter previewConverter;
 
-    public DocumentController(DocumentCommandService commandService, DocumentQueryService queryService) {
+    @Autowired
+    public DocumentController(DocumentCommandService commandService, DocumentQueryService queryService,
+            DocumentPreviewConverter previewConverter) {
         this.commandService = commandService;
         this.queryService = queryService;
+        this.previewConverter = previewConverter;
+    }
+
+    public DocumentController(DocumentCommandService commandService, DocumentQueryService queryService) {
+        this(commandService, queryService, new NoopDocumentPreviewConverter());
     }
 
     @GetMapping
@@ -85,6 +97,17 @@ public class DocumentController {
             @PathVariable long fileId,
             @RequestParam(defaultValue = "false") boolean preview) {
         var access = queryService.openPublishedFile(documentId, versionId, fileId);
+        if (preview && access.file().previewable() && previewConverter.supports(access.file().format())) {
+            var converted = previewConverter.toPdf(access.file().format(), access.storedFile().content())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "文档预览转换服务不可用"));
+            var pdfName = access.file().name().replaceAll("(?i)\\.(docx|doc)$", "") + ".pdf";
+            var pdfDisposition = ContentDisposition.inline().filename(pdfName, StandardCharsets.UTF_8).build();
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .contentLength(converted.length)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, pdfDisposition.toString())
+                    .body(converted);
+        }
         var dispositionType = preview && access.file().previewable() ? "inline" : "attachment";
         var disposition = ContentDisposition.builder(dispositionType)
                 .filename(access.file().name(), StandardCharsets.UTF_8)

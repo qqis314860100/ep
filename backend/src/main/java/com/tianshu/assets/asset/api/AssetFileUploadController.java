@@ -21,7 +21,8 @@ public class AssetFileUploadController {
 
     private static final long MAX_FILE_SIZE = 500L * 1024 * 1024;
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of("EXE", "BAT", "CMD", "COM", "MSI", "SH", "JS", "JAR");
-    private static final Set<String> PREVIEWABLE_FORMATS = Set.of("PDF", "PNG", "JPG", "JPEG", "TIFF");
+    private static final Set<String> PREVIEWABLE_FORMATS = Set.of("PDF", "PNG", "JPG", "JPEG", "TIFF", "DOCX", "DOC");
+    private static final Set<String> IMAGE_PREVIEW_FORMATS = Set.of("PNG", "JPG", "JPEG", "TIFF");
     private final FileStorage storage;
 
     public AssetFileUploadController(FileStorage storage) {
@@ -60,6 +61,10 @@ public class AssetFileUploadController {
         if ((format.equals("JPG") || format.equals("JPEG")) && !(bytes.length >= 3 && (bytes[0] & 0xff) == 0xff && (bytes[1] & 0xff) == 0xd8 && (bytes[2] & 0xff) == 0xff)) {
             throw new AssetFileValidationException("文件扩展名与实际 JPEG 内容不一致");
         }
+        if (format.equals("DOCX") && !(bytes.length >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B
+                && bytes[2] == 0x03 && bytes[3] == 0x04)) {
+            throw new AssetFileValidationException("文件扩展名与实际 DOCX 内容不一致");
+        }
     }
 
     private boolean startsWith(byte[] content, byte[] prefix) {
@@ -77,7 +82,8 @@ public class AssetFileUploadController {
 
     private String defaultRole(String format) {
         if (Set.of("X_T", "STEP", "STP").contains(format)) return "三维源模型";
-        if (PREVIEWABLE_FORMATS.contains(format)) return format.equals("PDF") ? "二维图纸" : "预览文件";
+        if (IMAGE_PREVIEW_FORMATS.contains(format)) return "预览文件";
+        if (format.equals("PDF")) return "二维图纸";
         if (Set.of("DWG", "DXF").contains(format)) return "二维图纸";
         return "其他附件";
     }

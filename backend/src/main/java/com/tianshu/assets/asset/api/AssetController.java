@@ -9,6 +9,8 @@ import com.tianshu.assets.asset.domain.AssetSearchCriteria;
 import com.tianshu.assets.asset.domain.AssetStatus;
 import com.tianshu.assets.common.file.FileStorage;
 import com.tianshu.assets.common.file.InMemoryFileStorage;
+import com.tianshu.assets.common.preview.DocumentPreviewConverter;
+import com.tianshu.assets.common.preview.NoopDocumentPreviewConverter;
 import com.tianshu.assets.asset.domain.AssetType;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpStatus;
@@ -55,16 +58,23 @@ public class AssetController {
     private final AssetQueryService assetQueryService;
     private final AssetWriteService assetWriteService;
     private final FileStorage assetFileStorage;
+    private final DocumentPreviewConverter previewConverter;
 
     @Autowired
-    public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService, FileStorage assetFileStorage) {
+    public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService,
+            FileStorage assetFileStorage, DocumentPreviewConverter previewConverter) {
         this.assetQueryService = assetQueryService;
         this.assetWriteService = assetWriteService;
         this.assetFileStorage = assetFileStorage;
+        this.previewConverter = previewConverter;
+    }
+
+    public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService, FileStorage assetFileStorage) {
+        this(assetQueryService, assetWriteService, assetFileStorage, new NoopDocumentPreviewConverter());
     }
 
     public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService) {
-        this(assetQueryService, assetWriteService, new InMemoryFileStorage());
+        this(assetQueryService, assetWriteService, new InMemoryFileStorage(), new NoopDocumentPreviewConverter());
     }
 
     @GetMapping
@@ -110,6 +120,16 @@ public class AssetController {
         }
         var stored = assetFileStorage.open(file.storageKey())
                 .orElseThrow(() -> new com.tianshu.assets.asset.application.AssetNotFoundException(fileId));
+        if (preview && file.previewable() && previewConverter.supports(file.format())) {
+            var converted = previewConverter.toPdf(file.format(), stored.content())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "文档预览转换服务不可用"));
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .contentLength(converted.length)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + pdfPreviewName(file.name()) + "\"")
+                    .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                    .body(new ByteArrayResource(converted));
+        }
         var disposition = preview && file.previewable() ? "inline" : "attachment";
         var contentType = MediaType.parseMediaType(stored.contentType());
         return ResponseEntity.ok()
@@ -148,6 +168,10 @@ public class AssetController {
             }
         }
         return output.toByteArray();
+    }
+
+    private String pdfPreviewName(String name) {
+        return name.replaceAll("(?i)\\.(docx|doc)$", "") + ".pdf";
     }
 
     private String uniqueName(Set<String> usedNames, String name) {

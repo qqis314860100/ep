@@ -18,6 +18,7 @@ asset:
   governance-scan:
     enabled: ${ASSET_GOVERNANCE_SCAN_ENABLED:false}
     fixed-delay-ms: ${ASSET_GOVERNANCE_SCAN_FIXED_DELAY_MS:86400000}
+  libreoffice-binary: ${ASSET_LIBREOFFICE_BINARY:soffice}
 
 management:
   endpoints:
