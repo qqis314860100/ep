@@ -19,6 +19,8 @@ import com.tianshu.assets.document.application.DocumentPublishValidationExceptio
 import com.tianshu.assets.document.application.DocumentStateConflictException;
 import com.tianshu.assets.document.application.DuplicateDocumentNumberException;
 import com.tianshu.assets.documentrelation.application.AssetDocumentRelationConflictException;
+import com.tianshu.assets.system.application.SystemUserConflictException;
+import com.tianshu.assets.system.application.SystemUserNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -133,6 +135,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AssetDocumentRelationConflictException.class)
     ResponseEntity<ApiError> handleAssetDocumentRelationConflict(AssetDocumentRelationConflictException exception) {
         return response(HttpStatus.CONFLICT, "asset_document_relation_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(SystemUserNotFoundException.class)
+    ResponseEntity<ApiError> handleSystemUserNotFound(SystemUserNotFoundException exception) {
+        return response(HttpStatus.NOT_FOUND, "system_user_not_found", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(SystemUserConflictException.class)
+    ResponseEntity<ApiError> handleSystemUserConflict(SystemUserConflictException exception) {
+        return response(HttpStatus.CONFLICT, "system_user_conflict", exception.getMessage(), List.of());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
