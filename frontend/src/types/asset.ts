@@ -13,6 +13,7 @@ export type AssetStatus =
 export type RelationType =
   | 'CONTAINS'
   | 'REFERENCES'
+  | 'MATCHES'
   | 'ASSOCIATED_WITH'
   | 'REPLACES'
 
@@ -71,6 +72,11 @@ export interface AssetRelation {
   directionLabel: string
   primaryScope: string
   description: string
+  createdBy: string
+  createdAt: string
+  updatedBy: string
+  updatedAt: string
+  version: number
 }
 
 export interface AssetSearchParams {

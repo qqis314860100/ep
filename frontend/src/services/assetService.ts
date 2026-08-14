@@ -156,6 +156,37 @@ export async function getAssetRelations(id: number): Promise<AssetRelation[]> {
   return request<AssetRelation[]>(`/api/v1/assets/${id}/relations`)
 }
 
+export interface RelationInput {
+  targetAssetId: number
+  relationType: RelationType
+  description?: string
+}
+
+export async function createAssetRelation(assetId: number, input: RelationInput): Promise<AssetRelation> {
+  return request<AssetRelation>(`/api/v1/assets/${assetId}/relations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+export interface RelationUpdateInput extends RelationInput {
+  sourceAssetId: number
+  version: number
+}
+
+export async function updateAssetRelation(assetId: number, relationId: number, input: RelationUpdateInput): Promise<AssetRelation> {
+  return request<AssetRelation>(`/api/v1/assets/${assetId}/relations/${relationId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+}
+
+export async function removeAssetRelation(assetId: number, relationId: number): Promise<void> {
+  await request<unknown>(`/api/v1/assets/${assetId}/relations/${relationId}`, { method: 'DELETE' })
+}
+
 export interface AssetDocumentRelationResult {
   relation: AssetDocumentRelation
   document: KnowledgeDocument

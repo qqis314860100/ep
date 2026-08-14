@@ -1,6 +1,7 @@
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
+  EditOutlined,
   FileZipOutlined,
   LinkOutlined,
   RightOutlined,
@@ -16,14 +17,15 @@ import { AssetStatusTag } from '../../../features/assets/AssetTags'
 import { AssetDocumentRelationModal } from '../../../features/documents/components/AssetDocumentRelationModal'
 import { assetDocumentRelationLabels } from '../../../features/documents/assetDocumentRelationPresentation'
 import { useAsset, useAssetRelations, useFavorite } from '../../../hooks/useAssets'
-import { getAssetDocuments, getAssetFileUrl, getAssetPackageUrl, setFavorite } from '../../../services/assetService'
+import { getAssetDocuments, getAssetFileUrl, getAssetPackageUrl, removeAssetRelation, setFavorite } from '../../../services/assetService'
 import {
   changeAssetDocumentRelationType,
   createAssetDocumentRelation,
   removeAssetDocumentRelation,
 } from '../../../services/assetDocumentRelationService'
-import type { AssetFile } from '../../../types/asset'
+import type { AssetFile, AssetRelation } from '../../../types/asset'
 import type { AssetDocumentRelation, AssetDocumentRelationType } from '../../../types/document'
+import { AssetRelationDialog } from './components/AssetRelationDialog'
 import { CommentSection } from './components/CommentSection'
 import { DrawingGallery } from './components/DrawingGallery'
 import { DrawingInfoPanel } from './components/DrawingInfoPanel'
@@ -186,6 +188,17 @@ const RelationMeta = styled.div`
   white-space: nowrap;
 `
 
+const RelationNote = styled.div`
+  margin-top: 4px;
+  display: -webkit-box;
+  overflow: hidden;
+  color: #8b9590;
+  font-size: 10px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+`
+
 const RelationActions = styled.div`
   display: flex;
   align-items: center;
@@ -221,8 +234,28 @@ export default function DrawingDetailPage() {
   })
   const favoriteQuery = useFavorite(assetId)
   const [favoriteSaving, setFavoriteSaving] = useState(false)
+  const [documentRelationDialogOpen, setDocumentRelationDialogOpen] = useState(false)
   const [relationDialogOpen, setRelationDialogOpen] = useState(false)
+  const [editingRelation, setEditingRelation] = useState<AssetRelation>()
   const asset = assetQuery.data
+
+  const removeAssetRelationMutation = useMutation({
+    mutationFn: (relation: AssetRelation) => removeAssetRelation(assetId, relation.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['asset-relations'] })
+      void message.success('关系已解除')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '解除关系失败'),
+  })
+  const confirmRemoveRelation = (relation: AssetRelation) => {
+    modal.confirm({
+      title: '解除资产关系',
+      content: `将解除「${relation.directionLabel}」关系（仅删除关系，不删除任何资产或文件），是否继续？`,
+      okText: '解除',
+      okButtonProps: { danger: true },
+      onOk: () => removeAssetRelationMutation.mutate(relation),
+    })
+  }
 
   const refreshDocumentRelations = async () => {
     await Promise.all([
@@ -234,7 +267,7 @@ export default function DrawingDetailPage() {
     mutationFn: createAssetDocumentRelation,
     onSuccess: async () => {
       await refreshDocumentRelations()
-      setRelationDialogOpen(false)
+      setDocumentRelationDialogOpen(false)
       void message.success('关联已建立')
     },
     onError: (error) => void message.error(error instanceof Error ? error.message : '建立关联失败'),
@@ -326,7 +359,7 @@ export default function DrawingDetailPage() {
       <RelationSection>
         <SectionHeader>
           <SectionTitle>关联资料</SectionTitle>
-          <SectionMeta>{relations.length} 项业务关系</SectionMeta>
+          <Space size={8}><SectionMeta>{relations.length} 项业务关系</SectionMeta><Button size="small" icon={<LinkOutlined />} onClick={() => { setEditingRelation(undefined); setRelationDialogOpen(true) }}>新增关系</Button></Space>
         </SectionHeader>
         {relationsQuery.isLoading ? <Spin /> : relations.length > 0 ? (
           <RelationGrid>
@@ -339,6 +372,11 @@ export default function DrawingDetailPage() {
                   </RelationTop>
                   <RelationName>{relation.targetAssetName}</RelationName>
                   <RelationMeta>{relation.targetAssetNumber} · {relation.primaryScope}</RelationMeta>
+                  {relation.description && <RelationNote>{relation.description}</RelationNote>}
+                  <RelationActions>
+                    <Button size="small" type="link" icon={<EditOutlined />} onClick={(event) => { event.stopPropagation(); setEditingRelation(relation); setRelationDialogOpen(true) }}>修改</Button>
+                    <Button size="small" type="link" danger icon={<DeleteOutlined />} onClick={(event) => { event.stopPropagation(); confirmRemoveRelation(relation) }}>解除</Button>
+                  </RelationActions>
                 </RelationBody>
                 <RightOutlined style={{ color: '#819089' }} />
               </RelationCard>
@@ -350,7 +388,7 @@ export default function DrawingDetailPage() {
       <RelationSection>
         <SectionHeader>
           <SectionTitle>关联文档</SectionTitle>
-          <Space size={8}><SectionMeta>{documentRelationsQuery.data?.length ?? 0} 项知识文档</SectionMeta><Button size="small" icon={<LinkOutlined />} onClick={() => setRelationDialogOpen(true)}>关联文档</Button></Space>
+          <Space size={8}><SectionMeta>{documentRelationsQuery.data?.length ?? 0} 项知识文档</SectionMeta><Button size="small" icon={<LinkOutlined />} onClick={() => setDocumentRelationDialogOpen(true)}>关联文档</Button></Space>
         </SectionHeader>
         {documentRelationsQuery.isLoading ? <Spin /> : (documentRelationsQuery.data?.length ?? 0) > 0 ? (
           <RelationGrid>
@@ -373,11 +411,18 @@ export default function DrawingDetailPage() {
       </RelationSection>
 
       <CommentArea><CommentSection assetId={asset.id} /></CommentArea>
+      <AssetRelationDialog
+        open={relationDialogOpen}
+        assetId={asset.id}
+        relation={editingRelation}
+        onClose={() => setDocumentRelationDialogOpen(false)}
+        onSaved={() => void message.success(editingRelation ? '关系已更新' : '关系已建立')}
+      />
       <AssetDocumentRelationModal
         subject={{ kind: 'asset', id: asset.id }}
-        open={relationDialogOpen}
+        open={documentRelationDialogOpen}
         saving={createRelation.isPending}
-        onClose={() => setRelationDialogOpen(false)}
+        onClose={() => setDocumentRelationDialogOpen(false)}
         onSubmit={(input) => createRelation.mutate(input)}
       />
     </Page>
