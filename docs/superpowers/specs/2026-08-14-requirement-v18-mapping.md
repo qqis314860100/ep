@@ -1,7 +1,7 @@
 # 需求全景拆解:功能→模块/接口/数据映射(V1.8 基线)
 
 > **生成方法**:coding-implementation skill 的风险自适应 R2C 流程(intake → clarify → specify → plan → apply → verify)。
-> **需求基线**:根目录 `requirement.md` V1.8(2026-08-10)+ [文档中心模块需求](../requirements/document-center.md)。`仿真数模资产管理系统_产品需求文档_V1.5.docx` 仅作历史对照(差异见 §6.2)。
+> **需求基线**:根目录 `requirement.md` V1.8(2026-08-10)+ [文档中心模块需求](../requirements/document-center.md)。旧版 docx 快照(V1.3/V1.4/V1.5)已删除,由 `scripts/build_requirement_docx.py` 按需从 `requirement.md` 重新生成;V1.5 内容与 V1.8 的差异见 §6.2。
 > **配套计划**:[需求全景实施切片计划](../plans/2026-08-14-requirement-v18-slices.md)。
 > **术语**:以 `CONTEXT.md` 为准。需求文档中的"产品线"统一指"蓝本";API 字段 `productLine`、数据库列 `product_line` 为兼容旧数据暂不重命名。
 > **现状口径**:核对自 `docs/requirements/implementation-baseline.md`(2026-08-11)与 `docs/technical-design.md` 已列 API。✅=已具备可运行闭环;🟡=部分具备;❌=尚未开发;⏳=后续规划。

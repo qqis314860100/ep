@@ -16,7 +16,7 @@ from docx.shared import Cm, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "requirement.md"
-OUTPUT = ROOT / "仿真数模资产管理系统_产品需求文档_V1.5.docx"
+OUTPUT = ROOT / "仿真数模资产管理系统_产品需求文档_V1.8.docx"
 
 BODY_FONT = "PingFang SC"
 HEADING_FONT = "PingFang SC"
@@ -184,10 +184,10 @@ def add_cover(doc: Document):
     for _ in range(5):
         doc.add_paragraph()
     details = [
-        ("文档版本", "V1.5"),
-        ("文档状态", "需求基线"),
+        ("文档版本", "V1.8"),
+        ("文档状态", "产品需求基线"),
         ("适用终端", "PC Web"),
-        ("编制日期", "2026-07-18"),
+        ("编制日期", "2026-08-10"),
     ]
     table = doc.add_table(rows=len(details) + 1, cols=2)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -355,7 +355,7 @@ def main():
     doc.core_properties.subject = "仿真数模资产标准化治理、关联展示、产品功能与用户操作需求"
     doc.core_properties.author = "项目需求组"
     doc.core_properties.keywords = "图纸管理, 生产资料, 软件需求规格说明书, SRS"
-    doc.core_properties.comments = "面向产品、设计、开发、测试和外部评审的 V1.5 产品需求基线"
+    doc.core_properties.comments = "面向产品、设计、开发、测试和外部评审的 V1.8 产品需求基线"
 
     doc.save(OUTPUT)
     print(OUTPUT)

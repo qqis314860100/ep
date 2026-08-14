@@ -6,8 +6,8 @@
 
 - `frontend/`：React、Vite、Ant Design 5、styled-components。
 - `backend/`：Java 21、Spring Boot、OceanBase MySQL 兼容模式。
-- `requirement.md`：对外产品需求文档源文件。
-- `仿真数模资产管理系统_产品需求文档_V1.5.docx`：已排版的对外需求基线。
+- `requirement.md`：对外产品需求文档源文件（最新基线 V1.8）。
+- `仿真数模资产管理系统_产品需求文档_V1.8.docx`：由 `scripts/build_requirement_docx.py` 从 `requirement.md` 生成的对外需求基线；旧版本快照（V1.3/V1.4/V1.5）已删除，git 历史可恢复。
 - `docs/technical-design.md`：内部技术设计和开发约束。
 
 ## 本地启动
