@@ -19,6 +19,7 @@ import {
   Input,
   Pagination,
   Segmented,
+  Select,
   Skeleton,
   Space,
   Switch,
@@ -36,7 +37,7 @@ import { SearchSidebar } from '../../pages/main/search/components/SearchSidebar'
 import { DocumentSearchResultSection } from '../documents/components/DocumentSearchResultSection'
 import { getAssetFilePreviewUrl } from '../../services/assetService'
 import { searchDocuments } from '../../services/documentService'
-import type { Asset, AssetFile, AssetSearchParams, AssetStatus, AssetType } from '../../types/asset'
+import type { Asset, AssetFile, AssetSearchParams, AssetSort, AssetStatus, AssetType } from '../../types/asset'
 import { scopeLabel } from './assetPresentation'
 import { AssetStatusTag, AssetTypeTag } from './AssetTags'
 
@@ -449,6 +450,15 @@ export function AssetSearchPage() {
   const [platformVariant, setPlatformVariant] = useState<string>()
   const [base, setBase] = useState<string>()
   const [productionLine, setProductionLine] = useState<string>()
+  const [productLine, setProductLine] = useState<string>()
+  const [processSection, setProcessSection] = useState<string>()
+  const [specialty, setSpecialty] = useState<string>()
+  const [owner, setOwner] = useState<string>()
+  const [format, setFormat] = useState<string>()
+  const [updatedFrom, setUpdatedFrom] = useState<string>()
+  const [updatedTo, setUpdatedTo] = useState<string>()
+  const [missingScope, setMissingScope] = useState(false)
+  const [sort, setSort] = useState<AssetSort>('RELEVANCE')
   const [previewableOnly, setPreviewableOnly] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('gallery')
   const [directoryView, setDirectoryView] = useState<DirectoryView>('previewable')
@@ -463,6 +473,15 @@ export function AssetSearchPage() {
     platformVariant,
     base,
     productionLine,
+    productLine,
+    processSection,
+    specialty,
+    owner,
+    format,
+    updatedFrom,
+    updatedTo,
+    missingScope,
+    sort,
     previewable: previewableOnly,
     page,
     perPage: viewMode === 'gallery' ? 12 : 20,
@@ -482,7 +501,7 @@ export function AssetSearchPage() {
     }),
   })
 
-  useEffect(() => setPage(1), [debouncedQuery, assetType, status, platformFamily, platformVariant, base, productionLine, previewableOnly, viewMode])
+  useEffect(() => setPage(1), [debouncedQuery, assetType, status, platformFamily, platformVariant, base, productionLine, productLine, processSection, specialty, owner, format, updatedFrom, updatedTo, missingScope, sort, previewableOnly, viewMode])
 
   const columns = useMemo<ColumnsType<Asset>>(
     () => [
@@ -552,8 +571,17 @@ export function AssetSearchPage() {
     setStatus(undefined)
     setPlatformFamily(undefined)
     setPlatformVariant(undefined)
+    setProductLine(undefined)
     setBase(undefined)
     setProductionLine(undefined)
+    setProcessSection(undefined)
+    setSpecialty(undefined)
+    setOwner(undefined)
+    setFormat(undefined)
+    setUpdatedFrom(undefined)
+    setUpdatedTo(undefined)
+    setMissingScope(false)
+    setSort('RELEVANCE')
     setPreviewableOnly(false)
     setDirectoryView('all')
   }
@@ -623,6 +651,19 @@ export function AssetSearchPage() {
           <ResultsToolbar>
             <ResultTitle>{directoryLabels[directoryView]}<ResultCount>{total} 项资产</ResultCount></ResultTitle>
             <Space size={12}>
+              <Select<AssetSort>
+                size="small"
+                value={sort}
+                onChange={setSort}
+                aria-label="排序方式"
+                style={{ width: 110 }}
+                options={[
+                  { value: 'RELEVANCE', label: '相关度' },
+                  { value: 'UPDATED_AT', label: '更新时间' },
+                  { value: 'ASSET_NUMBER', label: '资料编号' },
+                  { value: 'NAME', label: '名称' },
+                ]}
+              />
               <Space size={7}><Typography.Text type="secondary" style={{ fontSize: 11 }}>仅看可预览</Typography.Text><Switch size="small" checked={previewableOnly} onChange={(value) => { setPreviewableOnly(value); setDirectoryView(value ? 'previewable' : 'custom') }} /></Space>
               <Segmented<ViewMode>
                 size="small"
@@ -641,12 +682,28 @@ export function AssetSearchPage() {
             platformVariant={platformVariant}
             base={base}
             productionLine={productionLine}
+            productLine={productLine}
+            processSection={processSection}
+            specialty={specialty}
+            owner={owner}
+            format={format}
+            updatedFrom={updatedFrom}
+            updatedTo={updatedTo}
+            missingScope={missingScope}
             status={status}
             onAssetTypeChange={(value) => { setAssetType(value); setDirectoryView('custom') }}
-            onPlatformFamilyChange={(value) => { setPlatformFamily(value); setPlatformVariant(undefined); setDirectoryView('custom') }}
-            onPlatformVariantChange={(value) => { setPlatformVariant(value); setDirectoryView('custom') }}
-            onBaseChange={(value) => { setBase(value); setDirectoryView('custom') }}
-            onProductionLineChange={(value) => { setProductionLine(value); setDirectoryView('custom') }}
+            onPlatformFamilyChange={(value) => { setPlatformFamily(value); setPlatformVariant(undefined); setProductLine(undefined); setDirectoryView('custom') }}
+            onPlatformVariantChange={(value) => { setPlatformVariant(value); setProductLine(undefined); setDirectoryView('custom') }}
+            onProductLineChange={(value) => { setProductLine(value); setDirectoryView('custom') }}
+            onBaseChange={(value) => { setBase(value); setProductionLine(undefined); setProcessSection(undefined); setDirectoryView('custom') }}
+            onProductionLineChange={(value) => { setProductionLine(value); setProcessSection(undefined); setDirectoryView('custom') }}
+            onProcessSectionChange={(value) => { setProcessSection(value); setDirectoryView('custom') }}
+            onSpecialtyChange={(value) => { setSpecialty(value); setDirectoryView('custom') }}
+            onOwnerChange={(value) => { setOwner(value); setDirectoryView('custom') }}
+            onFormatChange={(value) => { setFormat(value); setDirectoryView('custom') }}
+            onUpdatedFromChange={(value) => { setUpdatedFrom(value); setDirectoryView('custom') }}
+            onUpdatedToChange={(value) => { setUpdatedTo(value); setDirectoryView('custom') }}
+            onMissingScopeChange={(value) => { setMissingScope(value); setDirectoryView('custom') }}
             onStatusChange={(value) => { setStatus(value); setDirectoryView('custom') }}
             onClear={clearFilters}
           />

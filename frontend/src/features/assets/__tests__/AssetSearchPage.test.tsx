@@ -102,4 +102,26 @@ describe('AssetSearchPage unified results', () => {
     const timeCells = (await screen.findAllByRole('cell')).filter((cell) => cell.textContent === expectedTime)
     expect(timeCells.length).toBeGreaterThan(0)
   })
+
+  it('renders extended filters and applies updated-at sorting', async () => {
+    vi.mocked(useAssetSearch).mockReturnValue({
+      data: { data: [asset], meta: { ...pageMeta, total: 1, totalPages: 1 } },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useAssetSearch>)
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: '打开 底部水冷模组' })).toBeInTheDocument()
+    expect(screen.getAllByLabelText('排序方式').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText('仅看缺少标准适用范围的历史资料')).toBeInTheDocument()
+    expect(screen.getByText('蓝本')).toBeInTheDocument()
+    expect(screen.getByText('工序段')).toBeInTheDocument()
+    expect(screen.getByText('专业类别')).toBeInTheDocument()
+
+    const sortSelect = screen.getAllByLabelText('排序方式')[0]
+    await user.click(sortSelect.querySelector('.ant-select-selector')!)
+    await user.click(await screen.findByText('更新时间'))
+    expect(vi.mocked(useAssetSearch)).toHaveBeenCalledWith(expect.objectContaining({ sort: 'UPDATED_AT' }))
+  })
 })

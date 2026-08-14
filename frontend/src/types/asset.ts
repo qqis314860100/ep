@@ -81,10 +81,21 @@ export interface AssetSearchParams {
   platformVariant?: string
   base?: string
   productionLine?: string
+  productLine?: string
+  processSection?: string
+  specialty?: string
+  owner?: string
+  format?: string
+  updatedFrom?: string
+  updatedTo?: string
+  missingScope?: boolean
+  sort?: AssetSort
   previewable?: boolean
   page: number
   perPage: number
 }
+
+export type AssetSort = 'RELEVANCE' | 'UPDATED_AT' | 'ASSET_NUMBER' | 'NAME'
 
 export interface PageMeta {
   total: number

@@ -7,6 +7,7 @@ import type {
   AssetPage,
   AssetRelation,
   AssetSearchParams,
+  AssetSort,
   EquipmentInterconnection,
 } from '../types/asset'
 import type { AssetDocumentRelation, KnowledgeDocument } from '../types/document'
@@ -32,14 +33,40 @@ function matchesSearch(asset: Asset, params: AssetSearchParams) {
   const matchesType = !params.assetType || asset.assetType === params.assetType
   const matchesStatus = !params.status || asset.status === params.status
   const matchesPreviewable = !params.previewable || asset.files.some((file) => file.previewable)
+  const matchesSpecialty = !params.specialty || asset.specialties.includes(params.specialty)
+  const matchesFormat = !params.format || asset.files.some((file) => file.format === params.format)
+  const matchesOwner = !params.owner || asset.ownerName === params.owner
+  const matchesUpdatedRange =
+    (!params.updatedFrom || !asset.updatedAt || new Date(asset.updatedAt) >= new Date(`${params.updatedFrom}T00:00:00`)) &&
+    (!params.updatedTo || !asset.updatedAt || new Date(asset.updatedAt) <= new Date(`${params.updatedTo}T23:59:59`))
+  const matchesMissingScope = !params.missingScope || asset.scopes.every((scope) =>
+    [scope.platformFamily ?? scope.platform, scope.platformVariant, scope.productLine, scope.base, scope.productionLine, scope.processSection].some((value) => !value),
+  )
   const matchesScope = asset.scopes.some(
     (scope) =>
       (!params.platformFamily || (scope.platformFamily ?? scope.platform) === params.platformFamily) &&
       (!params.platformVariant || scope.platformVariant === params.platformVariant) &&
       (!params.base || scope.base === params.base) &&
-      (!params.productionLine || scope.productionLine === params.productionLine),
+      (!params.productionLine || scope.productionLine === params.productionLine) &&
+      (!params.productLine || scope.productLine === params.productLine) &&
+      (!params.processSection || scope.processSection === params.processSection),
   )
-  return matchesQuery && matchesType && matchesStatus && matchesPreviewable && matchesScope
+  return matchesQuery && matchesType && matchesStatus && matchesPreviewable && matchesSpecialty &&
+    matchesFormat && matchesOwner && matchesUpdatedRange && matchesMissingScope && matchesScope
+}
+
+function sortAssets(assets: Asset[], sort?: AssetSort): Asset[] {
+  const sorted = [...assets]
+  switch (sort) {
+    case 'UPDATED_AT':
+      return sorted.sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)))
+    case 'ASSET_NUMBER':
+      return sorted.sort((left, right) => left.assetNumber.localeCompare(right.assetNumber, undefined, { numeric: true }))
+    case 'NAME':
+      return sorted.sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
+    default:
+      return sorted
+  }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -60,7 +87,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function searchAssets(params: AssetSearchParams): Promise<AssetPage> {
   if (useMocks) {
     await delay(180)
-    const filtered = mockAssets.filter((asset) => matchesSearch(asset, params))
+    const filtered = sortAssets(mockAssets.filter((asset) => matchesSearch(asset, params)), params.sort)
     const offset = (params.page - 1) * params.perPage
     return {
       data: filtered.slice(offset, offset + params.perPage),
@@ -84,6 +111,15 @@ export async function searchAssets(params: AssetSearchParams): Promise<AssetPage
   if (params.platformVariant) query.set('platform_variant', params.platformVariant)
   if (params.base) query.set('base', params.base)
   if (params.productionLine) query.set('production_line', params.productionLine)
+  if (params.productLine) query.set('product_line', params.productLine)
+  if (params.processSection) query.set('process_section', params.processSection)
+  if (params.specialty) query.set('specialty', params.specialty)
+  if (params.owner) query.set('owner', params.owner)
+  if (params.format) query.set('format', params.format)
+  if (params.updatedFrom) query.set('updated_from', new Date(`${params.updatedFrom}T00:00:00`).toISOString())
+  if (params.updatedTo) query.set('updated_to', new Date(`${params.updatedTo}T23:59:59`).toISOString())
+  if (params.missingScope) query.set('missing_scope', 'true')
+  if (params.sort && params.sort !== 'RELEVANCE') query.set('sort', params.sort)
   if (params.previewable) query.set('previewable', 'true')
   return request<AssetPage>(`/api/v1/assets?${query.toString()}`)
 }
