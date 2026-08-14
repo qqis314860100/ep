@@ -313,7 +313,7 @@ export default function DrawingDetailPage() {
           <Button icon={<FileZipOutlined />} onClick={() => {
             const packageUrl = asset && getAssetPackageUrl(asset.id)
             if (packageUrl) window.open(packageUrl, '_blank', 'noopener,noreferrer')
-            else message.info('资产包打包下载将在对象存储适配器启用后提供')
+            else message.info('演示模式暂不支持资产包打包下载')
           }}>打包下载</Button>
         </Space>
       </Header>
