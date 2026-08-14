@@ -26,7 +26,7 @@
 
 **Files:**
 
-- Modify: `docs/superpowers/specs/2026-07-26-unified-search-document-linking-design.md`
+- Modify: `docs/specs/2026-07-26-unified-search-document-linking-design.md`
 - Modify: `docs/requirements/document-center.md`
 - Modify: `docs/requirements/implementation-baseline.md`
 - Create: `docs/migrations/V1_11__document_scope_and_relation.sql`

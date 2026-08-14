@@ -837,7 +837,7 @@ git commit -m "feat(前端): 实现文档中心检索工作台" -m "产品版本
 ## Task 14: Final Cross-Layer Acceptance
 
 **Files:**
-- Review: `docs/superpowers/specs/2026-07-25-document-center-v1-design.md`
+- Review: `docs/specs/2026-07-25-document-center-v1-design.md`
 - Review: `docs/requirements/document-center.md`
 - Review: relevant committed backend/frontend diffs
 

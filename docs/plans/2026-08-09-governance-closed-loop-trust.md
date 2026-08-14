@@ -2,7 +2,7 @@
 
 ## 目标
 
-落实 `docs/superpowers/specs/2026-08-09-data-governance-next-stage-design.md` 第一期：统一计划事实来源、修正甘特依赖方向、区分历史与闭环工作流，并将治理流程和计划工作区提升为任务详情核心内容。
+落实 `docs/specs/2026-08-09-data-governance-next-stage-design.md` 第一期：统一计划事实来源、修正甘特依赖方向、区分历史与闭环工作流，并将治理流程和计划工作区提升为任务详情核心内容。
 
 ## 约束
 

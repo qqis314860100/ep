@@ -269,7 +269,7 @@ Expected: build succeeds and `git diff --check` prints no errors.
 - [ ] **Step 5: Commit only the implementation and plan**
 
 ```bash
-git add frontend/src/features/upload/UploadPage.tsx docs/superpowers/plans/2026-07-25-compact-upload-file-panel.md
+git add frontend/src/features/upload/UploadPage.tsx docs/plans/2026-07-25-compact-upload-file-panel.md
 git commit -m "feat: compact upload file workspace"
 ```
 
