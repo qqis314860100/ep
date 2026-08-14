@@ -26,7 +26,7 @@ for entry in .* *; do
       continue
       ;;
     # Allowed dotfiles and root-level sources
-    .editorconfig|.env.example|.env.local|.gitignore|AGENTS.md|CONTEXT.md|README.md|requirement.md|sql结构.md)
+    .editorconfig|.env.example|.env.local|.gitignore|AGENTS.md|CONTEXT.md|README.md|requirement.md)
       continue
       ;;
     # Script-generated requirement docx only
