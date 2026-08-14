@@ -1,0 +1,65 @@
+version: 1
+method: risk-adaptive-r2c-harness
+
+risk:
+  dimensions:
+    - ambiguity
+    - blast-radius
+    - data
+    - auth-security
+    - public-contract
+    - production-operations
+    - reversibility
+  paths:
+    fast: 0-2
+    standard: 3-7
+    strict: 8-14
+  hard-strict:
+    - destructive-data
+    - auth-or-security-boundary
+    - breaking-public-contract
+    - production-operation
+    - irreversible-change
+    - compliance-or-safety
+
+stages:
+  - intake
+  - clarify
+  - specify
+  - plan
+  - apply
+  - verify
+  - archive
+
+records:
+  standard-and-strict: .ai/changes/<change-id>/change.md
+  template: .ai/templates/change.md
+
+evidence:
+  deterministic: required
+  behavior: required-for-user-facing-change
+  human-gate: required-for-subjective-or-irreversible-change
+
+checks:
+  fast:
+    frontend: pnpm typecheck
+    backend: mvn -Dtest=<受影响测试类> test
+  standard:
+    frontend: pnpm lint && pnpm typecheck && pnpm build
+    backend: mvn test
+  strict:
+    - standard 全部检查
+    - docs/migrations/ 迁移脚本失败性审查（无 DROP/DELETE/主键改写/回填）
+    - 权限、安全与回滚方案评审
+  noise: 用 rtk 包装 pnpm/mvn/git 输出；诊断失败时用 rtk proxy
+
+guardrails:
+  production: 禁止连接或变更生产数据库；默认内存 profile，本地联调用 local profile
+  data: 不修改 legacy 主键，不覆盖 legacy 源值；产品与生产筛选必须在同一 AssetScope 匹配
+  credentials: 凭据只从环境变量读取，禁止写入受版本控制文件
+  irreversible: 人工门批准后才可执行
+
+governance:
+  archive: commit 或 review 摘要
+  durable-decisions: docs/adr
+  repeated-failure: guide-then-sensor
