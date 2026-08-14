@@ -28,7 +28,7 @@ import {
   Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
@@ -43,6 +43,48 @@ import { AssetStatusTag, AssetTypeTag } from './AssetTags'
 
 type ViewMode = 'gallery' | 'list'
 type DirectoryView = 'all' | 'previewable' | 'pending' | 'standardized' | 'disabled' | 'ningde' | 'liyang' | 'custom'
+
+const SEARCH_STATE_KEY = 'asset-search-state-v1'
+
+interface SavedSearchState {
+  query: string
+  assetType?: AssetType
+  status?: AssetStatus
+  platformFamily?: string
+  platformVariant?: string
+  base?: string
+  productionLine?: string
+  productLine?: string
+  processSection?: string
+  specialty?: string
+  owner?: string
+  format?: string
+  updatedFrom?: string
+  updatedTo?: string
+  missingScope: boolean
+  sort: AssetSort
+  previewableOnly: boolean
+  viewMode: ViewMode
+  page: number
+  scrollY?: number
+}
+
+function readSavedSearchState(): SavedSearchState | null {
+  try {
+    const raw = sessionStorage.getItem(SEARCH_STATE_KEY)
+    return raw ? JSON.parse(raw) as SavedSearchState : null
+  } catch {
+    return null
+  }
+}
+
+function persistSearchState(state: SavedSearchState) {
+  try {
+    sessionStorage.setItem(SEARCH_STATE_KEY, JSON.stringify(state))
+  } catch {
+    // 隐私模式等场景下忽略保存失败
+  }
+}
 
 const Page = styled.div`
   min-width: 0;
@@ -443,26 +485,27 @@ function useDebouncedValue<T>(value: T, delay: number) {
 
 export function AssetSearchPage() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [assetType, setAssetType] = useState<AssetType>()
-  const [status, setStatus] = useState<AssetStatus>()
-  const [platformFamily, setPlatformFamily] = useState<string>()
-  const [platformVariant, setPlatformVariant] = useState<string>()
-  const [base, setBase] = useState<string>()
-  const [productionLine, setProductionLine] = useState<string>()
-  const [productLine, setProductLine] = useState<string>()
-  const [processSection, setProcessSection] = useState<string>()
-  const [specialty, setSpecialty] = useState<string>()
-  const [owner, setOwner] = useState<string>()
-  const [format, setFormat] = useState<string>()
-  const [updatedFrom, setUpdatedFrom] = useState<string>()
-  const [updatedTo, setUpdatedTo] = useState<string>()
-  const [missingScope, setMissingScope] = useState(false)
-  const [sort, setSort] = useState<AssetSort>('RELEVANCE')
-  const [previewableOnly, setPreviewableOnly] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('gallery')
-  const [directoryView, setDirectoryView] = useState<DirectoryView>('previewable')
-  const [page, setPage] = useState(1)
+  const savedSearch = useRef(readSavedSearchState()).current
+  const [query, setQuery] = useState(savedSearch?.query ?? '')
+  const [assetType, setAssetType] = useState<AssetType | undefined>(savedSearch?.assetType)
+  const [status, setStatus] = useState<AssetStatus | undefined>(savedSearch?.status)
+  const [platformFamily, setPlatformFamily] = useState<string | undefined>(savedSearch?.platformFamily)
+  const [platformVariant, setPlatformVariant] = useState<string | undefined>(savedSearch?.platformVariant)
+  const [base, setBase] = useState<string | undefined>(savedSearch?.base)
+  const [productionLine, setProductionLine] = useState<string | undefined>(savedSearch?.productionLine)
+  const [productLine, setProductLine] = useState<string | undefined>(savedSearch?.productLine)
+  const [processSection, setProcessSection] = useState<string | undefined>(savedSearch?.processSection)
+  const [specialty, setSpecialty] = useState<string | undefined>(savedSearch?.specialty)
+  const [owner, setOwner] = useState<string | undefined>(savedSearch?.owner)
+  const [format, setFormat] = useState<string | undefined>(savedSearch?.format)
+  const [updatedFrom, setUpdatedFrom] = useState<string | undefined>(savedSearch?.updatedFrom)
+  const [updatedTo, setUpdatedTo] = useState<string | undefined>(savedSearch?.updatedTo)
+  const [missingScope, setMissingScope] = useState(savedSearch?.missingScope ?? false)
+  const [sort, setSort] = useState<AssetSort>(savedSearch?.sort ?? 'RELEVANCE')
+  const [previewableOnly, setPreviewableOnly] = useState(savedSearch?.previewableOnly ?? true)
+  const [viewMode, setViewMode] = useState<ViewMode>(savedSearch?.viewMode ?? 'gallery')
+  const [directoryView, setDirectoryView] = useState<DirectoryView>(savedSearch ? 'custom' : 'previewable')
+  const [page, setPage] = useState(savedSearch?.page ?? 1)
   const debouncedQuery = useDebouncedValue(query, 280)
 
   const params: AssetSearchParams = {
@@ -502,6 +545,23 @@ export function AssetSearchPage() {
   })
 
   useEffect(() => setPage(1), [debouncedQuery, assetType, status, platformFamily, platformVariant, base, productionLine, productLine, processSection, specialty, owner, format, updatedFrom, updatedTo, missingScope, sort, previewableOnly, viewMode])
+
+  const openAsset = (id: number) => {
+    persistSearchState({
+      query, assetType, status, platformFamily, platformVariant, base, productionLine,
+      productLine, processSection, specialty, owner, format, updatedFrom, updatedTo,
+      missingScope, sort, previewableOnly, viewMode, page,
+      scrollY: window.scrollY,
+    })
+    navigate(`/assets/${id}`)
+  }
+
+  useEffect(() => {
+    if (!savedSearch?.scrollY) return
+    const restored = savedSearch.scrollY
+    const timer = window.setTimeout(() => window.scrollTo(0, restored), 0)
+    return () => window.clearTimeout(timer)
+  }, [savedSearch])
 
   const columns = useMemo<ColumnsType<Asset>>(
     () => [
@@ -721,7 +781,7 @@ export function AssetSearchPage() {
                     const previewUrl = file ? getAssetFilePreviewUrl(asset.id, file) : undefined
                     const scope = asset.scopes[0]
                     return (
-                      <AssetCard key={asset.id} type="button" onClick={() => navigate(`/assets/${asset.id}`)} aria-label={`打开 ${asset.name}`}>
+                      <AssetCard key={asset.id} type="button" onClick={() => openAsset(asset.id)} aria-label={`打开 ${asset.name}`}>
                         <PreviewFrame>
                           {previewUrl && file && imageFormats.has(file.format) ? <PreviewImage src={previewUrl} alt={`${asset.name}预览`} loading="lazy" /> : <FormatPreview><FormatIcon>{previewIcon(file)}</FormatIcon><PreviewFileName>{file?.name ?? '暂无预览文件'}</PreviewFileName></FormatPreview>}
                           {file && <PreviewBadge><EyeOutlined />{file.format} 可预览</PreviewBadge>}
@@ -757,7 +817,7 @@ export function AssetSearchPage() {
                   scroll={{ x: 1120 }}
                   locale={{ emptyText: <Empty description="没有符合条件的数模资产" /> }}
                   pagination={{ current: page, pageSize: params.perPage, total, showSizeChanger: false, onChange: setPage }}
-                  onRow={(record) => ({ onClick: () => navigate(`/assets/${record.id}`) })}
+                  onRow={(record) => ({ onClick: () => openAsset(record.id) })}
                 />
               )}
             </Results>

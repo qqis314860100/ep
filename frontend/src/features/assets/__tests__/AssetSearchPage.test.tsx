@@ -124,4 +124,23 @@ describe('AssetSearchPage unified results', () => {
     await user.click(await screen.findByText('更新时间'))
     expect(vi.mocked(useAssetSearch)).toHaveBeenCalledWith(expect.objectContaining({ sort: 'UPDATED_AT' }))
   })
+
+  it('restores the previous search filters and page on return from detail', async () => {
+    sessionStorage.setItem('asset-search-state-v1', JSON.stringify({
+      query: '水冷', sort: 'UPDATED_AT', base: '宁德基地', page: 2,
+      previewableOnly: false, viewMode: 'list', missingScope: true,
+    }))
+    vi.mocked(useAssetSearch).mockReturnValue({
+      data: { data: [asset], meta: { ...pageMeta, total: 1, totalPages: 1 } },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useAssetSearch>)
+    renderPage()
+
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('搜索资料编号、名称、功能说明或文件名')).toHaveValue('水冷')
+    expect(vi.mocked(useAssetSearch)).toHaveBeenCalledWith(expect.objectContaining({
+      query: '水冷', sort: 'UPDATED_AT', base: '宁德基地', page: 2, missingScope: true,
+    }))
+  })
 })
