@@ -27,3 +27,12 @@ scripts/e2e/.logs/
 
 # pnpm global cache accidentally created in repo root
 .pnpm-store/
+
+# Root hygiene: new root-level markdown must live under docs/
+/*.md
+/*.pdf
+/*.tmp
+/*.bak
+# Root allows only the script-generated requirement docx
+/*.docx
+!/仿真数模资产管理系统_产品需求文档_V*.docx
