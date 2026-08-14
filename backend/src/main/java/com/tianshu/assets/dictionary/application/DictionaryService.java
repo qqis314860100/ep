@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 
@@ -29,9 +30,16 @@ public class DictionaryService {
             new DictionaryCategory("DOCUMENT_CATEGORY", "文档分类", "文档中心", null, "知识文档的受控业务分类", 130));
 
     private final DictionaryStore store;
+    private final DictionaryUsageCounter usageCounter;
 
     public DictionaryService(DictionaryStore store) {
+        this(store, new NoopDictionaryUsageCounter());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public DictionaryService(DictionaryStore store, DictionaryUsageCounter usageCounter) {
         this.store = store;
+        this.usageCounter = usageCounter;
     }
 
     public List<DictionaryCategory> categories() {
@@ -40,6 +48,7 @@ public class DictionaryService {
 
     public List<DictionaryItem> list(String category, Long parentId, String query, DictionaryStatus status) {
         var normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        var counts = usageCounter.countsByCategory(category);
         return store.findAll().stream()
                 .filter(item -> category == null || category.isBlank() || item.category().equals(category))
                 .filter(item -> parentId == null || Objects.equals(item.parentId(), parentId))
@@ -48,7 +57,18 @@ public class DictionaryService {
                         || item.name().toLowerCase(Locale.ROOT).contains(normalizedQuery)
                         || item.code().toLowerCase(Locale.ROOT).contains(normalizedQuery))
                 .sorted(Comparator.comparingInt(DictionaryItem::sortOrder).thenComparing(DictionaryItem::name))
+                .map(item -> withUsageCount(item, counts))
                 .toList();
+    }
+
+    private DictionaryItem withUsageCount(DictionaryItem item, Map<String, Long> counts) {
+        if (counts.isEmpty()) return item;
+        var liveCount = counts.getOrDefault(item.name(), counts.getOrDefault(item.code(), item.usageCount()));
+        if (liveCount == item.usageCount()) return item;
+        return new DictionaryItem(item.id(), item.category(), item.code(), item.name(), item.parentId(),
+                item.status(), item.sortOrder(), liveCount, item.version(), item.description(),
+                item.forwardName(), item.reverseName(), item.directional(), item.allowDuplicate(),
+                item.mergeTargetId(), item.updatedAt());
     }
 
     public DictionaryItem create(String category, String code, String name, Long parentId, int sortOrder,

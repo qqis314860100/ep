@@ -43,6 +43,21 @@ class DictionaryControllerTest {
     }
 
     @Test
+    void keepsEightStandardPlatformVariantsWithBlueprintLinkage() throws Exception {
+        mockMvc.perform(get("/api/v1/dictionaries/items").param("category", "PLATFORM_VARIANT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(8))
+                .andExpect(jsonPath("$[?(@.name=='底部水冷')].parentId").value(org.hamcrest.Matchers.contains(1)))
+                .andExpect(jsonPath("$[?(@.name=='集装箱')].parentId").value(org.hamcrest.Matchers.contains(3)));
+
+        mockMvc.perform(get("/api/v1/dictionaries/items")
+                        .param("category", "PRODUCT_LINE")
+                        .param("parent_id", "12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("H03"));
+    }
+
+    @Test
     void exposesDocumentCategories() throws Exception {
         mockMvc.perform(get("/api/v1/dictionaries/items").param("category", "DOCUMENT_CATEGORY"))
                 .andExpect(status().isOk())
