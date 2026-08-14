@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
@@ -101,8 +102,8 @@ public class InMemoryAssetRepository implements AssetRepository {
     private final AtomicLong nextAssetId = new AtomicLong(106);
     private final AtomicLong nextFileId = new AtomicLong(1050);
 
-    private final List<AssetRelation> relations = List.of(
-            new AssetRelation(
+    private final List<AssetRelation> relations = new ArrayList<>(List.of(
+            seedRelation(
                     1,
                     101,
                     102,
@@ -114,7 +115,7 @@ public class InMemoryAssetRepository implements AssetRepository {
                     "引用",
                     "宁德基地 / A 拉线 / 焊接段",
                     "焊接总成引用该定位工装。"),
-            new AssetRelation(
+            seedRelation(
                     2,
                     101,
                     103,
@@ -125,7 +126,18 @@ public class InMemoryAssetRepository implements AssetRepository {
                     RelationType.CONTAINS,
                     "包含",
                     "宁德基地 / A 拉线 / 焊接段",
-                    "整线总成包含输送模块。"));
+                    "整线总成包含输送模块。")));
+    private final AtomicLong nextRelationId = new AtomicLong(3);
+
+    private static AssetRelation seedRelation(
+            long id, long source, long target, String number, String name,
+            AssetType type, AssetStatus status, RelationType relationType, String directionLabel,
+            String primaryScope, String description) {
+        return new AssetRelation(id, source, target, number, name, type, status, relationType,
+                directionLabel, primaryScope, description, "系统初始化",
+                Instant.parse("2026-07-01T00:00:00Z"), "系统初始化",
+                Instant.parse("2026-07-01T00:00:00Z"), 0);
+    }
 
     @Override
     public AssetPage search(AssetSearchCriteria criteria) {
@@ -156,8 +168,60 @@ public class InMemoryAssetRepository implements AssetRepository {
     }
 
     @Override
-    public List<AssetRelation> findRelations(long assetId) {
-        return relations.stream().filter(relation -> relation.sourceAssetId() == assetId).toList();
+    public synchronized List<AssetRelation> findRelations(long assetId) {
+        return relations.stream()
+                .filter(relation -> relation.sourceAssetId() == assetId || relation.targetAssetId() == assetId)
+                .toList();
+    }
+
+    @Override
+    public synchronized List<AssetRelation> findAllRelations() {
+        return List.copyOf(relations);
+    }
+
+    @Override
+    public synchronized Optional<AssetRelation> findRelationById(long relationId) {
+        return relations.stream().filter(relation -> relation.id() == relationId).findFirst();
+    }
+
+    @Override
+    public synchronized AssetRelation createRelation(AssetRelation relation) {
+        if (relation.id() != 0) throw new IllegalArgumentException("新关系 ID 必须由存储生成");
+        var created = withId(relation, nextRelationId.getAndIncrement());
+        relations.add(created);
+        return created;
+    }
+
+    @Override
+    public synchronized AssetRelation updateRelation(AssetRelation relation, long expectedVersion) {
+        var index = -1;
+        for (var i = 0; i < relations.size(); i++) {
+            if (relations.get(i).id() == relation.id()) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) throw new IllegalArgumentException("资产关系不存在：" + relation.id());
+        var current = relations.get(index);
+        if (current.version() != expectedVersion) {
+            throw new com.tianshu.assets.asset.application.AssetRelationVersionConflictException("资产关系已变化，请刷新后重试");
+        }
+        relations.set(index, relation);
+        return relation;
+    }
+
+    @Override
+    public synchronized void removeRelation(long relationId) {
+        var removed = relations.removeIf(relation -> relation.id() == relationId);
+        if (!removed) throw new IllegalArgumentException("资产关系不存在：" + relationId);
+    }
+
+    private AssetRelation withId(AssetRelation relation, long id) {
+        return new AssetRelation(id, relation.sourceAssetId(), relation.targetAssetId(),
+                relation.targetAssetNumber(), relation.targetAssetName(), relation.targetAssetType(),
+                relation.targetAssetStatus(), relation.relationType(), relation.directionLabel(),
+                relation.primaryScope(), relation.description(), relation.createdBy(), relation.createdAt(),
+                relation.updatedBy(), relation.updatedAt(), relation.version());
     }
 
     @Override

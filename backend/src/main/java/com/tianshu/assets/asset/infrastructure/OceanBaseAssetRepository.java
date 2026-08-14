@@ -13,6 +13,7 @@ import com.tianshu.assets.asset.domain.RelationType;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -189,14 +190,17 @@ public class OceanBaseAssetRepository implements AssetRepository {
         if (!extensionStore.enabled()) return List.of();
         return jdbcClient.sql("""
                 SELECT link.id, link.source_drawing_id, link.target_drawing_id, link.link_type, link.description,
-                       target.drawing_title, target.drawing_platform, target.drawing_line,
+                       other.drawing_title, other.drawing_platform, other.drawing_line,
                        package.asset_number, package.asset_type, package.status
                 FROM asset_module_link_ext link
-                JOIN sys_drawing target ON target.id = link.target_drawing_id
-                LEFT JOIN asset_package_ext package ON package.drawing_id = target.id
-                WHERE link.source_drawing_id = :assetId AND link.deleted_at IS NULL
+                JOIN sys_drawing other ON other.id = CASE WHEN link.target_drawing_id = :assetId
+                        THEN link.source_drawing_id ELSE link.target_drawing_id END
+                LEFT JOIN asset_package_ext package ON package.drawing_id = other.id
+                WHERE (link.source_drawing_id = :assetId OR link.target_drawing_id = :assetId)
+                  AND link.deleted_at IS NULL
                 ORDER BY link.id
                 """).param("assetId", assetId).query((rs, row) -> {
+                    var fromSource = rs.getLong("source_drawing_id") == assetId;
                     var type = enumValue(AssetType.class, rs.getString("asset_type"), AssetType.OTHER);
                     var status = enumValue(AssetStatus.class, rs.getString("status"), AssetStatus.PENDING_CURATION);
                     var relationType = "MODULE_REFERENCE".equals(rs.getString("link_type"))
@@ -205,10 +209,95 @@ public class OceanBaseAssetRepository implements AssetRepository {
                     return new AssetRelation(rs.getLong("id"), rs.getLong("source_drawing_id"),
                             rs.getLong("target_drawing_id"), nullable(rs.getString("asset_number")),
                             nullable(rs.getString("drawing_title")), type, status, relationType,
-                            relationType == RelationType.REFERENCES ? "引用" : "关联",
+                            relationLabel(relationType, fromSource),
                             nullable(rs.getString("drawing_platform")) + " / " + nullable(rs.getString("drawing_line")),
-                            nullable(rs.getString("description")));
+                            nullable(rs.getString("description")), "", Instant.EPOCH, "", Instant.EPOCH, 0);
                 }).list();
+    }
+
+    @Override
+    public List<AssetRelation> findAllRelations() {
+        if (!extensionStore.enabled()) return List.of();
+        return jdbcClient.sql("""
+                SELECT link.id, link.source_drawing_id, link.target_drawing_id, link.link_type, link.description,
+                       other.drawing_title, other.drawing_platform, other.drawing_line,
+                       package.asset_number, package.asset_type, package.status
+                FROM asset_module_link_ext link
+                JOIN sys_drawing other ON other.id = link.target_drawing_id
+                LEFT JOIN asset_package_ext package ON package.drawing_id = other.id
+                WHERE link.deleted_at IS NULL
+                ORDER BY link.id
+                """).query((rs, row) -> {
+                    var type = enumValue(AssetType.class, rs.getString("asset_type"), AssetType.OTHER);
+                    var status = enumValue(AssetStatus.class, rs.getString("status"), AssetStatus.PENDING_CURATION);
+                    var relationType = "MODULE_REFERENCE".equals(rs.getString("link_type"))
+                            ? RelationType.REFERENCES
+                            : enumValue(RelationType.class, rs.getString("link_type"), RelationType.ASSOCIATED_WITH);
+                    return new AssetRelation(rs.getLong("id"), rs.getLong("source_drawing_id"),
+                            rs.getLong("target_drawing_id"), nullable(rs.getString("asset_number")),
+                            nullable(rs.getString("drawing_title")), type, status, relationType,
+                            relationLabel(relationType, true),
+                            nullable(rs.getString("drawing_platform")) + " / " + nullable(rs.getString("drawing_line")),
+                            nullable(rs.getString("description")), "", Instant.EPOCH, "", Instant.EPOCH, 0);
+                }).list();
+    }
+
+    @Override
+    public Optional<AssetRelation> findRelationById(long relationId) {
+        if (!extensionStore.enabled()) return Optional.empty();
+        return findAllRelations().stream().filter(relation -> relation.id() == relationId).findFirst();
+    }
+
+    @Override
+    @Transactional
+    public AssetRelation createRelation(AssetRelation relation) {
+        requireWritesEnabled();
+        jdbcClient.sql("""
+                INSERT INTO asset_module_link_ext (source_drawing_id, target_drawing_id, link_type, description)
+                VALUES (:source, :target, :type, :description)
+                """).param("source", relation.sourceAssetId()).param("target", relation.targetAssetId())
+                .param("type", relation.relationType().name()).param("description", relation.description())
+                .update();
+        var id = jdbcClient.sql("SELECT LAST_INSERT_ID()").query(Long.class).single();
+        return findRelationById(id).orElseThrow(() -> new IllegalStateException("关系保存后无法读取"));
+    }
+
+    @Override
+    @Transactional
+    public AssetRelation updateRelation(AssetRelation relation, long expectedVersion) {
+        requireWritesEnabled();
+        var updated = jdbcClient.sql("""
+                UPDATE asset_module_link_ext
+                SET source_drawing_id = :source, target_drawing_id = :target,
+                    link_type = :type, description = :description
+                WHERE id = :id AND deleted_at IS NULL
+                """).param("source", relation.sourceAssetId()).param("target", relation.targetAssetId())
+                .param("type", relation.relationType().name()).param("description", relation.description())
+                .param("id", relation.id())
+                .update();
+        if (updated != 1) throw new IllegalStateException("资产关系不存在：" + relation.id());
+        return findRelationById(relation.id()).orElseThrow();
+    }
+
+    @Override
+    @Transactional
+    public void removeRelation(long relationId) {
+        requireWritesEnabled();
+        var removed = jdbcClient.sql("""
+                UPDATE asset_module_link_ext SET deleted_at = CURRENT_TIMESTAMP
+                WHERE id = :id AND deleted_at IS NULL
+                """).param("id", relationId).update();
+        if (removed != 1) throw new IllegalStateException("资产关系不存在：" + relationId);
+    }
+
+    private String relationLabel(RelationType relationType, boolean fromSource) {
+        return switch (relationType) {
+            case CONTAINS -> fromSource ? "包含" : "属于";
+            case REFERENCES -> fromSource ? "引用" : "被引用";
+            case REPLACES -> fromSource ? "替代" : "被替代";
+            case MATCHES -> "配套";
+            case ASSOCIATED_WITH -> "关联";
+        };
     }
 
     @Override

@@ -93,6 +93,18 @@ public class ApiExceptionHandler {
         return response(HttpStatus.CONFLICT, "governance_version_conflict", exception.getMessage(), List.of());
     }
 
+    @ExceptionHandler(com.tianshu.assets.asset.application.AssetRelationVersionConflictException.class)
+    ResponseEntity<ApiError> handleRelationVersionConflict(
+            com.tianshu.assets.asset.application.AssetRelationVersionConflictException exception) {
+        return response(HttpStatus.CONFLICT, "asset_relation_version_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(com.tianshu.assets.asset.application.AssetRelationConflictException.class)
+    ResponseEntity<ApiError> handleRelationConflict(
+            com.tianshu.assets.asset.application.AssetRelationConflictException exception) {
+        return response(HttpStatus.CONFLICT, "asset_relation_conflict", exception.getMessage(), List.of());
+    }
+
     @ExceptionHandler(GovernanceValidationException.class)
     ResponseEntity<ApiError> handleGovernanceValidation(GovernanceValidationException exception) {
         var details = exception.validationMessages().stream()

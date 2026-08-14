@@ -11,6 +11,16 @@ public interface AssetRepository {
 
     List<AssetRelation> findRelations(long assetId);
 
+    List<AssetRelation> findAllRelations();
+
+    Optional<AssetRelation> findRelationById(long relationId);
+
+    AssetRelation createRelation(AssetRelation relation);
+
+    AssetRelation updateRelation(AssetRelation relation, long expectedVersion);
+
+    void removeRelation(long relationId);
+
     Asset save(Asset asset);
 
     Asset update(Asset asset);

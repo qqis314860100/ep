@@ -1,20 +1,24 @@
 package com.tianshu.assets.asset.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.tianshu.assets.asset.application.AssetQueryService;
+import com.tianshu.assets.asset.application.AssetRelationService;
 import com.tianshu.assets.asset.application.AssetWriteService;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.common.file.InMemoryFileStorage;
 import com.tianshu.assets.common.preview.DocumentPreviewConverter;
 import com.tianshu.assets.common.preview.NoopDocumentPreviewConverter;
+import com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -32,13 +36,16 @@ class AssetControllerTest {
 
     private MockMvc mockMvc;
     private InMemoryAssetRepository repository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
         repository = new InMemoryAssetRepository();
         var service = new AssetQueryService(repository);
         var writeService = new AssetWriteService(repository);
-        mockMvc = standaloneSetup(new AssetController(service, writeService), new FavoriteController(service, writeService))
+        mockMvc = standaloneSetup(new AssetController(service, writeService),
+                new FavoriteController(service, writeService),
+                new AssetRelationController(new AssetRelationService(repository, new InMemoryOperationLogStore())))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
     }
@@ -90,6 +97,91 @@ class AssetControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].relationType").value("REFERENCES"))
                 .andExpect(jsonPath("$[1].relationType").value("CONTAINS"));
+    }
+
+    @Test
+    void createsRelationVisibleFromBothSides() throws Exception {
+        mockMvc.perform(post("/api/v1/assets/102/relations")
+                        .header("X-User-Id", "emp-chen")
+                        .header("X-User-Name", "陈工")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetAssetId\":104,\"relationType\":\"REFERENCES\",\"description\":\"定位工装引用历史设备图\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.relationType").value("REFERENCES"))
+                .andExpect(jsonPath("$.directionLabel").value("引用"))
+                .andExpect(jsonPath("$.targetAssetNumber").value("LEGACY-00000104"));
+
+        mockMvc.perform(get("/api/v1/assets/102/relations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.relationType=='REFERENCES' && @.targetAssetId==104)].directionLabel").value(org.hamcrest.Matchers.contains("引用")));
+        mockMvc.perform(get("/api/v1/assets/104/relations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.relationType=='REFERENCES' && @.sourceAssetId==102)].directionLabel").value(org.hamcrest.Matchers.contains("被引用")));
+    }
+
+    @Test
+    void rejectsSelfDuplicateAndContainsCycleRelations() throws Exception {
+        mockMvc.perform(post("/api/v1/assets/102/relations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetAssetId\":102,\"relationType\":\"CONTAINS\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("asset_relation_conflict"));
+
+        mockMvc.perform(post("/api/v1/assets/101/relations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetAssetId\":102,\"relationType\":\"REFERENCES\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("asset_relation_conflict"));
+
+        mockMvc.perform(post("/api/v1/assets/103/relations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetAssetId\":101,\"relationType\":\"CONTAINS\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("asset_relation_conflict"));
+
+        mockMvc.perform(post("/api/v1/assets/103/relations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetAssetId\":102,\"relationType\":\"CONTAINS\"}"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void updatesAndRemovesRelationWithAudit() throws Exception {
+        var createdJson = mockMvc.perform(post("/api/v1/assets/102/relations")
+                        .header("X-User-Id", "emp-chen")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetAssetId\":104,\"relationType\":\"MATCHES\",\"description\":\"配套\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        var created = objectMapper.readTree(createdJson);
+        var relationId = created.get("id").asLong();
+
+        var patchResult = mockMvc.perform(patch("/api/v1/assets/102/relations/{id}", relationId)
+                        .header("X-User-Id", "emp-chen")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sourceAssetId\":102,\"targetAssetId\":104,\"relationType\":\"REPLACES\",\"description\":\"替代说明\",\"version\":0}"))
+                .andReturn().getResponse();
+        if (patchResult.getStatus() != 200) {
+            throw new AssertionError("PATCH failed: " + patchResult.getStatus() + " " + patchResult.getContentAsString());
+        }
+
+        mockMvc.perform(patch("/api/v1/assets/102/relations/{id}", relationId)
+                        .header("X-User-Id", "emp-chen")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sourceAssetId\":102,\"targetAssetId\":104,\"relationType\":\"MATCHES\",\"version\":0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("asset_relation_version_conflict"));
+
+        mockMvc.perform(delete("/api/v1/assets/102/relations/{id}", relationId)
+                        .header("X-User-Id", "emp-chen"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/assets/102/relations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id==%d)]", relationId).isEmpty());
+        mockMvc.perform(get("/api/v1/assets/104"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(104));
     }
 
     @Test

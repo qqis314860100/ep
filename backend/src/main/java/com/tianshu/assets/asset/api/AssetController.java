@@ -122,13 +122,6 @@ public class AssetController {
         return AssetResponse.from(assetQueryService.get(id));
     }
 
-    @GetMapping("/{id}/relations")
-    public List<AssetRelationResponse> relations(@PathVariable @Min(1) long id) {
-        return assetQueryService.getRelations(id).stream()
-                .map(AssetRelationResponse::from)
-                .toList();
-    }
-
     @GetMapping("/{assetId}/files/{fileId}")
     public ResponseEntity<ByteArrayResource> file(
             @PathVariable @Min(1) long assetId,
