@@ -1,21 +1,36 @@
 import { DeleteOutlined, FileOutlined, SearchOutlined } from '@ant-design/icons'
-import { App as AntdApp, Button, Empty, List, Space, Spin, Tag, Typography } from 'antd'
+import { App as AntdApp, Button, Empty, Input, List, Select, Space, Spin, Tag, Typography } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
+import { getDictionaryItems } from '../../../services/dictionaryService'
 import { getFavoriteAssets, setFavorite } from '../../../services/assetService'
 import type { Asset } from '../../../types/asset'
 import { scopeLabel } from '../../../features/assets/assetPresentation'
 import { AssetStatusTag, AssetTypeTag } from '../../../features/assets/AssetTags'
+import { matchesFavoriteFilters } from './filter'
 
 const Header = styled.header`
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 20px;
   min-height: 44px;
   margin-bottom: 10px;
   padding: 0 2px;
+`
+
+const FilterBar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+
+  .ant-select {
+    font-size: 12px;
+  }
 `
 
 const Title = styled.h1`
@@ -84,7 +99,20 @@ export default function FavoritesPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { message } = AntdApp.useApp()
+  const [keyword, setKeyword] = useState('')
+  const [base, setBase] = useState<string>()
+  const [line, setLine] = useState<string>()
   const favoritesQuery = useQuery({ queryKey: ['favorites'], queryFn: getFavoriteAssets })
+  const dictionaryQuery = useQuery({ queryKey: ['dictionary-items'], queryFn: getDictionaryItems })
+  const enabledItems = (dictionaryQuery.data ?? []).filter((item) => item.status === 'ENABLED')
+  const bases = enabledItems.filter((item) => item.category === 'BASE')
+  const selectedBase = bases.find((item) => item.name === base)
+  const lines = enabledItems.filter((item) => item.category === 'PRODUCTION_LINE' && item.parentId === selectedBase?.id)
+
+  const filtered = useMemo(
+    () => (favoritesQuery.data ?? []).filter((asset) => matchesFavoriteFilters(asset, { keyword, base, line })),
+    [favoritesQuery.data, keyword, base, line],
+  )
 
   const removeFavorite = async (assetId: number) => {
     try {
@@ -106,8 +134,13 @@ export default function FavoritesPage() {
         </div>
         <Button icon={<SearchOutlined />} onClick={() => navigate('/')}>继续检索</Button>
       </Header>
+      <FilterBar aria-label="收藏筛选">
+        <Input allowClear placeholder="搜索名称、编号或说明" value={keyword} onChange={(event) => setKeyword(event.target.value)} style={{ width: 200, fontSize: 12 }} />
+        <Select allowClear placeholder="基地" value={base} onChange={(value) => { setBase(value); setLine(undefined) }} style={{ width: 128 }} options={bases.map((item) => ({ value: item.name, label: item.name }))} />
+        <Select allowClear placeholder="拉线" value={line} onChange={setLine} disabled={!selectedBase} style={{ width: 120 }} options={lines.map((item) => ({ value: item.name, label: item.name }))} />
+      </FilterBar>
       <Surface>
-        {favoritesQuery.isLoading ? <Spin style={{ display: 'block', padding: 56 }} /> : favoritesQuery.isError ? <Empty description="收藏列表加载失败"><Button type="primary" onClick={() => void favoritesQuery.refetch()}>重试</Button></Empty> : <List dataSource={favoritesQuery.data ?? []} locale={{ emptyText: <Empty description="还没有收藏资料"><Button type="link" onClick={() => navigate('/')}>去检索资料</Button></Empty> }} renderItem={(asset) => <FavoriteRow key={asset.id} asset={asset} onOpen={() => navigate(`/assets/${asset.id}`)} onRemove={() => void removeFavorite(asset.id)} />} />}
+        {favoritesQuery.isLoading ? <Spin style={{ display: 'block', padding: 56 }} /> : favoritesQuery.isError ? <Empty description="收藏列表加载失败"><Button type="primary" onClick={() => void favoritesQuery.refetch()}>重试</Button></Empty> : <List dataSource={filtered} locale={{ emptyText: <Empty description={keyword || base || line ? '没有符合筛选条件的收藏' : '还没有收藏资料'}><Button type="link" onClick={() => navigate('/')}>去检索资料</Button></Empty> }} renderItem={(asset) => <FavoriteRow key={asset.id} asset={asset} onOpen={() => navigate(`/assets/${asset.id}`)} onRemove={() => void removeFavorite(asset.id)} />} />}
       </Surface>
     </>
   )
