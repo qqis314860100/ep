@@ -122,7 +122,7 @@ scripts/check_repo_structure.sh
 cd frontend
 rtk pnpm lint
 rtk pnpm typecheck
-rtk pnpm build
+rtk pnpm build   # release gate only: routing/lazy-load/Vite config/cross-feature/release
 
 # One backend test class
 cd backend
@@ -133,8 +133,11 @@ cd backend
 rtk mvn test
 ```
 
-- Frontend-only changes: run lint and typecheck; run build for routing, bundling,
-  configuration, or cross-feature changes.
+- Frontend-only changes: the daily commit gate is lint + typecheck. Run
+  `pnpm build` only for whitelisted triggers (release gate): routing or
+  lazy-loaded entry points, Vite/bundler configuration, cross-feature page
+  mounting, or a release/acceptance checkpoint. When build is required, wrap it
+  in `rtk` and judge by exit code and failure summary, not full logs.
 - Backend-only changes: run the directly affected test class first; run the
   full suite for shared API, repository, configuration, or domain changes.
 - UI behavior without automated coverage: provide browser evidence for the

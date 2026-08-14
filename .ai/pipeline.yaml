@@ -45,7 +45,8 @@ checks:
     frontend: pnpm typecheck
     backend: mvn -Dtest=<受影响测试类> test
   standard:
-    frontend: pnpm lint && pnpm typecheck && pnpm build
+    frontend: pnpm lint && pnpm typecheck
+    frontend-build: 仅 build 触发白名单时执行（路由/懒加载/Vite 配置/跨功能/发布前），rtk 包装只看退出码
     backend: mvn test
   strict:
     - standard 全部检查
