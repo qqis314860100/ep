@@ -1,0 +1,185 @@
+<!-- Restored as the active visual direction. -->
+<style>
+  :root { --ink:#172a50; --muted:#697b99; }
+  .screen { height:460px; border-radius:18px; overflow:hidden; position:relative; color:var(--ink); background:linear-gradient(180deg,#e1eaf7 0%,#e5edf7 57%,#f2f6fb 75%,#fff 100%); border:1px solid #e5eaf2; }
+  .screen:before { content:""; position:absolute; inset:0; background-image:url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M9 0H71M0 9V71' fill='none' stroke='%23666' stroke-opacity='.12' stroke-width='1'/%3E%3Ccircle cx='0' cy='0' r='1.35' fill='%23666' fill-opacity='.12'/%3E%3C/svg%3E"); background-size:80px 80px; mask-image:linear-gradient(to bottom,rgba(0,0,0,.88) 0%,rgba(0,0,0,.68) 66%,transparent 82%); }
+  .cloud { position:absolute; border-radius:50%; filter:blur(48px); opacity:.13; pointer-events:none; mix-blend-mode:multiply; }
+  .fluid-canvas { position:absolute; z-index:1; inset:0; width:100%; height:100%; pointer-events:none; opacity:.82; }
+  .cloud.one { width:550px; height:210px; top:-74px; left:4%; background:radial-gradient(ellipse,#8eabe1 0%,#b6c9ed 42%,rgba(194,215,255,0) 74%); transform:rotate(-8deg); animation:cloud-one 18s ease-in-out infinite alternate; }
+  .cloud.two { width:440px; height:200px; top:8px; right:4%; background:radial-gradient(ellipse,#7694cf 0%,#afc3e9 43%,rgba(185,210,255,0) 75%); transform:rotate(18deg); animation:cloud-two 21s ease-in-out infinite alternate; }
+  .cloud.three { width:390px; height:140px; top:92px; left:28%; background:radial-gradient(ellipse,#dbe7f9 0%,rgba(220,235,255,0) 72%); animation:cloud-three 15s ease-in-out infinite alternate; }
+  @keyframes cloud-one { to { transform:translate(38px,15px) rotate(3deg) scale(1.06); } }
+  @keyframes cloud-two { to { transform:translate(-35px,20px) rotate(9deg) scale(1.06); } }
+  @keyframes cloud-three { to { transform:translate(-18px,-8px) scale(1.08); } }
+  .nav { position:absolute; z-index:3; inset:0 0 auto; height:55px; padding:0 30px; display:flex; justify-content:space-between; align-items:center; font-size:11px; }
+  .nav strong { font-size:15px; letter-spacing:-.06em; }
+  .nav span { color:#5e6e88; }
+  .body { position:absolute; z-index:2; inset:55px 0 0; display:grid; grid-template-columns:minmax(300px,360px) 320px; align-items:center; justify-content:center; column-gap:72px; padding:0 58px 25px; }
+  .slogan { width:310px; }
+  .slogan .tag { color:#6a7895; font-size:10px; letter-spacing:.13em; text-transform:uppercase; margin-bottom:14px; }
+  .slogan h1 { position:relative; display:inline-block; margin:0 0 15px; font-size:31px; line-height:1.2; letter-spacing:.31em; font-weight:650; color:#26385c; cursor:none; }
+  .slogan h1 > span { display:inline-block; white-space:nowrap; }
+  .slogan h1 .lens { position:absolute; left:0; top:0; color:#fff; font-size:31px; line-height:1.2; letter-spacing:.31em; transform:none; clip-path:circle(26px at var(--mx,0) var(--my,0)); pointer-events:none; opacity:0; transition:opacity .12s ease; }
+  .slogan h1:hover .lens { opacity:1; }
+  .slogan h1:before { content:""; position:absolute; width:52px; height:52px; border-radius:50%; background:#171207; left:var(--mx,0); top:var(--my,0); transform:translate(-50%,-50%); opacity:0; transition:opacity .12s ease; pointer-events:none; }
+  .slogan h1:hover:before { opacity:1; }
+  .slogan p { width:276px; margin:0; color:#657590; font-size:12px; line-height:1.7; cursor:pointer; transition:color .35s ease; }
+  .slogan p:hover { color:#121b2e; }
+  .slogan p:after { content:"  ↗"; opacity:0; color:#121b2e; transition:opacity .3s ease; }
+  .slogan p:hover:after { opacity:1; }
+  .join { width:320px; min-height:335px; border-radius:16px; overflow:hidden; position:relative; background:#2e609f; border:1px solid rgba(255,255,255,.4); box-shadow:0 20px 50px rgba(42,69,119,.25); transition:transform .72s cubic-bezier(.22,.76,.2,1),box-shadow .72s ease; }
+  .join:hover { transform:translateY(-8px) scale(1.022); box-shadow:0 30px 68px rgba(36,62,107,.31); }
+  .join:before { content:""; position:absolute; inset:-32%; background:radial-gradient(ellipse at 26% 35%,rgba(132,183,238,.5) 0%,rgba(84,137,207,.3) 26%,transparent 63%),radial-gradient(ellipse at 80% 67%,rgba(52,103,177,.75) 0%,rgba(52,103,177,.24) 33%,transparent 69%),radial-gradient(ellipse at 53% 13%,rgba(22,52,110,.72) 0%,transparent 38%); filter:blur(15px); transform:translateZ(0); will-change:transform; animation:fold-a 18s ease-in-out infinite alternate; }
+  .join:after { content:""; position:absolute; inset:-12%; background:radial-gradient(ellipse at 22% 77%,rgba(12,38,89,.72) 0%,transparent 27%),radial-gradient(ellipse at 70% 28%,rgba(159,201,249,.26) 0%,transparent 31%),radial-gradient(ellipse at 87% 78%,rgba(15,47,105,.56) 0%,transparent 33%); filter:blur(10px); transform:translateZ(0) rotate(-8deg) scale(1.08); will-change:transform; animation:fold-b 22s ease-in-out infinite alternate; }
+  .fold-glaze { position:absolute; z-index:1; inset:18% -12% 16% 6%; background:linear-gradient(139deg,transparent 14%,rgba(188,222,255,.2) 37%,transparent 56%,rgba(21,56,121,.24) 71%,transparent 86%); filter:blur(12px); transform:rotate(-15deg) skewX(-9deg); animation:fold-c 16s ease-in-out infinite alternate; }
+  @keyframes fold-a { to { transform:translate(18px,14px) rotate(5deg) scale(1.08,1.04); } }
+  @keyframes fold-b { to { transform:translate(-16px,10px) rotate(1deg) scale(1.12,1.07); } }
+  @keyframes fold-c { to { transform:translate(12px,-8px) rotate(-7deg) skewX(-3deg) scale(1.07); opacity:.72; } }
+  .join-content { position:relative; z-index:2; height:100%; padding:27px 24px; display:flex; flex-direction:column; justify-content:flex-end; transition:transform .72s cubic-bezier(.22,.76,.2,1); transform-origin:center bottom; }
+  .join:hover .join-content { transform:scale(1.012); }
+  .join-label { color:#fff; font-size:19px; line-height:1.35; letter-spacing:.04em; margin-bottom:17px; text-shadow:0 1px 12px rgba(8,25,55,.22); }
+  .form { padding-top:15px; border-top:1px solid rgba(255,255,255,.27); }
+  .input { height:29px; margin:7px 0; border-radius:7px; background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.34); display:flex; align-items:center; padding:0 10px; color:rgba(255,255,255,.7); font-size:10px; cursor:text; }
+  .submit { height:30px; margin-top:10px; border-radius:7px; background:#fff; color:#315cac; display:grid; place-items:center; font-size:10px; font-weight:650; cursor:pointer; }
+  .foot { margin-top:10px; color:rgba(255,255,255,.65); text-align:center; font-size:8px; }
+  .hint { margin-top:12px; color:#75829a; font-size:11px; }
+</style>
+
+<h2>方向 C · 深蓝云褶皱与黑色文字镜片</h2>
+<p class="subtitle">按参考图校准：黑色镜片不改变字号，卡片流体使用低频云层叠加，不使用圆环结构</p>
+
+<div class="screen">
+  <div class="cloud one"></div><div class="cloud two"></div><div class="cloud three"></div><canvas id="ambient-fluid" class="fluid-canvas"></canvas>
+  <div class="nav"><strong>OPERATION / HUB</strong><span>帮助&nbsp;&nbsp;&nbsp; 中文</span></div>
+  <div class="body"><div class="slogan"><div class="tag">Industrial operations</div><h1 id="magnify-title" data-cursor="blend"><span>探索现场之境</span><span class="lens">探索现场之境</span></h1><p>生产、设备、物流与质量状态，在一个清晰的工作入口中被看见</p></div><div class="join"><div class="fold-glaze"></div><div class="join-content"><div class="join-label">进入运营中心<br><span style="opacity:.84">让现场信息自然流动</span></div><div class="form"><div class="input">企业账号</div><div class="input">密码</div><div class="submit">登录</div><div class="foot">单点登录 · 企业内部系统</div></div></div></div></div>
+</div>
+<p class="hint">标题镜片是黑色透明圆形，镜片内文字只变白；描述文案悬停时变深，卡片保持稳定，只有输入框和按钮显示可点击光标。</p>
+<script>
+  const title = document.getElementById('magnify-title');
+  title?.addEventListener('mousemove', (event) => {
+    const rect = title.getBoundingClientRect();
+    title.style.setProperty('--mx', `${event.clientX - rect.left}px`);
+    title.style.setProperty('--my', `${event.clientY - rect.top}px`);
+  });
+
+  (() => {
+    const canvas = document.getElementById('ambient-fluid');
+    const host = canvas?.parentElement;
+    const gl = canvas?.getContext('webgl', { alpha: true, antialias: false });
+    if (!canvas || !host || !gl) return;
+
+    const vertex = `
+      attribute vec2 position;
+      void main() { gl_Position = vec4(position, 0.0, 1.0); }
+    `;
+    const fragment = `
+      precision mediump float;
+      uniform vec2 resolution;
+      uniform vec2 mouse;
+      uniform float time;
+      uniform float mouseStrength;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+                   mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      float fbm(vec2 p) {
+        float value = 0.0;
+        float amp = 0.55;
+        for (int i = 0; i < 4; i++) {
+          value += amp * noise(p);
+          p = p * 2.03 + vec2(17.1, 9.2);
+          amp *= 0.48;
+        }
+        return value;
+      }
+      void main() {
+        vec2 uv = gl_FragCoord.xy / resolution.xy;
+        vec2 p = uv;
+        p.x *= resolution.x / resolution.y;
+        vec2 m = mouse;
+        m.x *= resolution.x / resolution.y;
+
+        float distanceToMouse = length(p - m);
+        float influence = exp(-distanceToMouse * distanceToMouse * 12.0) * mouseStrength;
+        vec2 direction = normalize((p - m) + vec2(0.0001));
+        p += direction * influence * 0.025;
+
+        float slow = time * 0.045;
+        float fieldA = fbm(p * vec2(1.7, 2.3) + vec2(slow, -slow * 0.55));
+        float fieldB = fbm(p * vec2(2.5, 1.55) + vec2(-slow * 0.72, slow * 0.38) + fieldA * 0.42);
+        float folds = smoothstep(0.42, 0.79, fieldA * 0.58 + fieldB * 0.52);
+
+        float bottomMask = 1.0 - smoothstep(0.16, 0.58, uv.y);
+        float ambientMask = 1.0 - smoothstep(0.42, 0.9, uv.y);
+        float alpha = folds * (bottomMask * 0.19 + ambientMask * 0.045);
+        alpha += influence * fieldB * 0.045;
+
+        vec3 blue = mix(vec3(0.67, 0.77, 0.91), vec3(0.42, 0.59, 0.81), fieldB);
+        gl_FragColor = vec4(blue * alpha, alpha);
+      }
+    `;
+
+    const compile = (type, source) => {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      return shader;
+    };
+    const program = gl.createProgram();
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, vertex));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragment));
+    gl.linkProgram(program);
+    gl.useProgram(program);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+    const position = gl.getAttribLocation(program, 'position');
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+
+    const resolution = gl.getUniformLocation(program, 'resolution');
+    const mouse = gl.getUniformLocation(program, 'mouse');
+    const time = gl.getUniformLocation(program, 'time');
+    const mouseStrength = gl.getUniformLocation(program, 'mouseStrength');
+    const pointer = { x: 0.5, y: 0.28, targetX: 0.5, targetY: 0.28, strength: 0 };
+
+    const resize = () => {
+      const rect = host.getBoundingClientRect();
+      const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.round(rect.width * ratio);
+      canvas.height = Math.round(rect.height * ratio);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    };
+    host.addEventListener('pointermove', (event) => {
+      const rect = host.getBoundingClientRect();
+      pointer.targetX = (event.clientX - rect.left) / rect.width;
+      pointer.targetY = 1 - (event.clientY - rect.top) / rect.height;
+      pointer.strength = 1;
+    });
+    host.addEventListener('pointerleave', () => { pointer.strength = 0; });
+    resize();
+    window.addEventListener('resize', resize);
+
+    const started = performance.now();
+    const draw = (now) => {
+      pointer.x += (pointer.targetX - pointer.x) * 0.045;
+      pointer.y += (pointer.targetY - pointer.y) * 0.045;
+      pointer.strength *= 0.985;
+      gl.uniform2f(resolution, canvas.width, canvas.height);
+      gl.uniform2f(mouse, pointer.x, pointer.y);
+      gl.uniform1f(time, (now - started) / 1000);
+      gl.uniform1f(mouseStrength, pointer.strength);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+  })();
+</script>
