@@ -19,6 +19,7 @@ asset:
     enabled: ${ASSET_GOVERNANCE_SCAN_ENABLED:false}
     fixed-delay-ms: ${ASSET_GOVERNANCE_SCAN_FIXED_DELAY_MS:86400000}
   libreoffice-binary: ${ASSET_LIBREOFFICE_BINARY:soffice}
+  package-max-size-bytes: ${ASSET_PACKAGE_MAX_SIZE_BYTES:524288000}
 
 management:
   endpoints:

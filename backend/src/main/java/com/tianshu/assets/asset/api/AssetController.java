@@ -39,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
@@ -55,27 +56,36 @@ public class AssetController {
     private static final long MAX_COMMENT_IMAGE_SIZE = 10L * 1024 * 1024;
     private static final int MAX_COMMENT_IMAGES = 6;
     private static final Set<String> COMMENT_IMAGE_FORMATS = Set.of("PNG", "JPG", "JPEG", "WEBP");
+    private static final long DEFAULT_PACKAGE_MAX_SIZE_BYTES = 500L * 1024 * 1024;
 
     private final AssetQueryService assetQueryService;
     private final AssetWriteService assetWriteService;
     private final FileStorage assetFileStorage;
     private final DocumentPreviewConverter previewConverter;
+    private final long packageMaxSizeBytes;
 
     @Autowired
     public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService,
-            FileStorage assetFileStorage, DocumentPreviewConverter previewConverter) {
+            FileStorage assetFileStorage, DocumentPreviewConverter previewConverter,
+            @Value("${asset.package-max-size-bytes:524288000}") long packageMaxSizeBytes) {
         this.assetQueryService = assetQueryService;
         this.assetWriteService = assetWriteService;
         this.assetFileStorage = assetFileStorage;
         this.previewConverter = previewConverter;
+        this.packageMaxSizeBytes = packageMaxSizeBytes;
     }
 
     public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService, FileStorage assetFileStorage) {
-        this(assetQueryService, assetWriteService, assetFileStorage, new NoopDocumentPreviewConverter());
+        this(assetQueryService, assetWriteService, assetFileStorage, new NoopDocumentPreviewConverter(), DEFAULT_PACKAGE_MAX_SIZE_BYTES);
     }
 
     public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService) {
-        this(assetQueryService, assetWriteService, new InMemoryFileStorage(), new NoopDocumentPreviewConverter());
+        this(assetQueryService, assetWriteService, new InMemoryFileStorage(), new NoopDocumentPreviewConverter(), DEFAULT_PACKAGE_MAX_SIZE_BYTES);
+    }
+
+    public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService,
+            FileStorage assetFileStorage, DocumentPreviewConverter previewConverter) {
+        this(assetQueryService, assetWriteService, assetFileStorage, previewConverter, DEFAULT_PACKAGE_MAX_SIZE_BYTES);
     }
 
     @GetMapping
@@ -169,11 +179,17 @@ public class AssetController {
     private byte[] buildPackage(Asset asset) throws IOException {
         var output = new ByteArrayOutputStream();
         var usedNames = new HashSet<String>();
+        long totalBytes = 0;
         try (var zip = new ZipOutputStream(output)) {
             for (var file : asset.files()) {
                 if (file.storageKey().isBlank()) continue;
                 var stored = assetFileStorage.open(file.storageKey()).orElse(null);
                 if (stored == null) continue;
+                totalBytes += stored.size();
+                if (totalBytes > packageMaxSizeBytes) {
+                    throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
+                            "资产包总大小超过上限（" + (packageMaxSizeBytes / 1024 / 1024) + " MB），无法打包下载");
+                }
                 zip.putNextEntry(new ZipEntry(uniqueName(usedNames, file.name())));
                 zip.write(stored.content());
                 zip.closeEntry();

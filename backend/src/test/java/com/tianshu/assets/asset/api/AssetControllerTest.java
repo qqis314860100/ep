@@ -14,6 +14,7 @@ import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.common.file.InMemoryFileStorage;
 import com.tianshu.assets.common.preview.DocumentPreviewConverter;
+import com.tianshu.assets.common.preview.NoopDocumentPreviewConverter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -416,5 +417,41 @@ class AssetControllerTest {
         mockMvc.perform(get("/api/v1/assets").param("sort", "NAME"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].assetNumber").value("DM-LY-B-0012"));
+    }
+
+    @Test
+    void rejectsPackageDownloadWhenTotalSizeExceedsConfiguredCap() throws Exception {
+        var storage = new InMemoryFileStorage();
+        var key = storage.store(new ByteArrayInputStream("0123456789".getBytes(StandardCharsets.UTF_8)), 10,
+                "model.step", "application/octet-stream");
+        var service = new AssetQueryService(repository);
+        var writeService = new AssetWriteService(repository);
+        var mvc = standaloneSetup(new AssetController(service, writeService, storage,
+                new NoopDocumentPreviewConverter(), 9), new FavoriteController(service, writeService))
+                .setControllerAdvice(new ApiExceptionHandler())
+                .build();
+
+        var request = """
+                {
+                  "assetNumber":"DM-ZIP-CAP-1",
+                  "name":"打包超限资产",
+                  "description":"用于打包大小上限测试",
+                  "assetType":"THREE_DIMENSIONAL_MODEL",
+                  "specialties":["机械"],
+                  "scopes":[{"platform":"乘用车","productLine":"H03","base":"宁德基地","productionLine":"A 拉线","processSection":"焊接段"}],
+                  "files":[{"id":0,"name":"model.step","format":"STEP","sizeBytes":10,"role":"三维源模型","previewable":false,"primary":true,"storageKey":"%s"}],
+                  "ownerName":"陈工",
+                  "ownerDepartment":"设备工程部"
+                }
+                """.formatted(key);
+        var created = mvc.perform(post("/api/v1/assets/drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        var id = new ObjectMapper().readTree(created).get("id").asLong();
+
+        mvc.perform(get("/api/v1/assets/{id}/package", id))
+                .andExpect(status().isPayloadTooLarge());
     }
 }
