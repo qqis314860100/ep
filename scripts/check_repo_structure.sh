@@ -22,7 +22,7 @@ for entry in .* *; do
       continue
       ;;
     # Allowed directories
-    .ai|.claude|.git|.prompt|backend|docs|frontend|scripts)
+    .ai|.claude|.git|.prompt|backend|docs|frontend|scripts|skills)
       continue
       ;;
     # Allowed dotfiles and root-level sources

@@ -32,8 +32,14 @@ else lives in a named directory.
 Allowed at root: `AGENTS.md`, `CONTEXT.md`, `requirement.md`, `README.md`,
 the script-generated requirement docx
 (`仿真数模资产管理系统_产品需求文档_V*.docx`), `.ai/`, `.claude/`, `.prompt/`,
-`backend/`, `docs/`, `frontend/`, `scripts/`, and standard dotfiles
+`backend/`, `docs/`, `frontend/`, `scripts/`, `skills/`, and standard dotfiles
 (`.editorconfig`, `.env.example`, `.env.local`, `.gitignore`).
+
+The `skills/coding-implementation/` copy is the in-repo source of the
+risk-adaptive R2C workflow; when improving the workflow, update it and keep it
+in sync with the installed copy under `~/.codex/skills/coding-implementation`.
+Run `skills/coding-implementation/scripts/score_skill.py . --self-test` after
+changes.
 
 ### Document Locations
 
