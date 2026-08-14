@@ -370,4 +370,51 @@ class AssetControllerTest {
         mvc.perform(get("/api/v1/assets/{id}/files/{fileId}", id, fileId).param("preview", "true"))
                 .andExpect(status().isServiceUnavailable());
     }
+
+    @Test
+    void filtersAssetsBySpecialtyFormatOwnerScopeAndMissingScope() throws Exception {
+        mockMvc.perform(get("/api/v1/assets").param("specialty", "电气"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(1))
+                .andExpect(jsonPath("$.data[0].assetNumber").value("DM-LY-B-0012"));
+
+        mockMvc.perform(get("/api/v1/assets").param("format", "X_T"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(1))
+                .andExpect(jsonPath("$.data[0].assetNumber").value("DM-ND-A-0001"));
+
+        mockMvc.perform(get("/api/v1/assets").param("owner", "陈工"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(1))
+                .andExpect(jsonPath("$.data[0].assetNumber").value("DM-ND-A-0001"));
+
+        mockMvc.perform(get("/api/v1/assets")
+                        .param("product_line", "H03")
+                        .param("process_section", "焊接段"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(3));
+
+        mockMvc.perform(get("/api/v1/assets").param("missing_scope", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(2))
+                .andExpect(jsonPath("$.data[0].assetNumber").value("LEGACY-00000104"));
+    }
+
+    @Test
+    void filtersAssetsByUpdatedTimeRangeAndSortsResults() throws Exception {
+        mockMvc.perform(get("/api/v1/assets")
+                        .param("updated_from", "2026-07-13T20:30:00Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(1))
+                .andExpect(jsonPath("$.data[0].assetNumber").value("DM-ND-A-0001"));
+
+        mockMvc.perform(get("/api/v1/assets").param("sort", "ASSET_NUMBER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].assetNumber").value("DM-LY-B-0012"))
+                .andExpect(jsonPath("$.data[4].assetNumber").value("LEGACY-00000104"));
+
+        mockMvc.perform(get("/api/v1/assets").param("sort", "NAME"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].assetNumber").value("DM-LY-B-0012"));
+    }
 }

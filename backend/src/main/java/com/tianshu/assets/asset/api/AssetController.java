@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.HashSet;
+import java.time.Instant;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -86,11 +87,22 @@ public class AssetController {
             @RequestParam(name = "platform_variant", required = false) String platformVariant,
             @RequestParam(required = false) String base,
             @RequestParam(name = "production_line", required = false) String productionLine,
+            @RequestParam(name = "product_line", required = false) String productLine,
+            @RequestParam(name = "process_section", required = false) String processSection,
+            @RequestParam(required = false) String specialty,
+            @RequestParam(required = false) String owner,
+            @RequestParam(required = false) String format,
+            @RequestParam(name = "updated_from", required = false) Instant updatedFrom,
+            @RequestParam(name = "updated_to", required = false) Instant updatedTo,
+            @RequestParam(name = "missing_scope", required = false) Boolean missingScope,
+            @RequestParam(defaultValue = "RELEVANCE") String sort,
             @RequestParam(required = false) Boolean previewable,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(name = "per_page", defaultValue = "20") @Min(1) @Max(100) int perPage) {
         var result = assetQueryService.search(
-                new AssetSearchCriteria(q, assetType, status, "", platformFamily, platformVariant, base, productionLine, previewable, page, perPage));
+                new AssetSearchCriteria(q, assetType, status, owner, platformFamily, platformVariant, base,
+                        productionLine, previewable, page, perPage, productLine, processSection, specialty,
+                        format, updatedFrom, updatedTo, missingScope, sort));
         var data = result.items().stream().map(AssetResponse::from).toList();
         return new PageResponse<>(data, PageResponse.Meta.of(result.total(), result.page(), result.perPage()));
     }

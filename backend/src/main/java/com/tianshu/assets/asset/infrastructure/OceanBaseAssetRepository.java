@@ -12,6 +12,7 @@ import com.tianshu.assets.asset.domain.AssetType;
 import com.tianshu.assets.asset.domain.RelationType;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -127,6 +128,31 @@ public class OceanBaseAssetRepository implements AssetRepository {
         } else if (Boolean.TRUE.equals(criteria.previewable())) {
             where.add("((drawing_img IS NOT NULL AND drawing_img <> '') OR UPPER(drawing_format) IN ('PDF','PNG','JPG','JPEG','TIFF'))");
         }
+        if (hasText(criteria.specialty())) {
+            where.add("drawing_column LIKE :specialty");
+            parameters.put("specialty", "%" + criteria.specialty() + "%");
+        }
+        if (hasText(criteria.fileFormat())) {
+            where.add("UPPER(drawing_format) = :fileFormat");
+            parameters.put("fileFormat", criteria.fileFormat());
+        }
+        if (criteria.updatedFrom() != null) {
+            where.add("last_update_date >= :updatedFrom");
+            parameters.put("updatedFrom", Timestamp.from(criteria.updatedFrom()));
+        }
+        if (criteria.updatedTo() != null) {
+            where.add("last_update_date <= :updatedTo");
+            parameters.put("updatedTo", Timestamp.from(criteria.updatedTo()));
+        }
+        if (criteria.wantsMissingScope() && extensionStore.enabled()) {
+            where.add("NOT EXISTS (SELECT 1 FROM asset_scope_ext s WHERE s.drawing_id = sys_drawing.id "
+                    + "AND s.platform_family IS NOT NULL AND s.platform_family <> '' "
+                    + "AND s.platform_variant IS NOT NULL AND s.platform_variant <> '' "
+                    + "AND s.product_line IS NOT NULL AND s.product_line <> '' "
+                    + "AND s.base_name IS NOT NULL AND s.base_name <> '' "
+                    + "AND s.production_line IS NOT NULL AND s.production_line <> '' "
+                    + "AND s.process_section IS NOT NULL AND s.process_section <> '')");
+        }
 
         var whereClause = where.isEmpty() ? "" : " WHERE " + String.join(" AND ", where);
         var total = jdbcClient.sql("SELECT COUNT(*) FROM sys_drawing" + whereClause)
@@ -136,7 +162,14 @@ public class OceanBaseAssetRepository implements AssetRepository {
 
         parameters.put("limit", criteria.perPage());
         parameters.put("offset", (criteria.page() - 1) * criteria.perPage());
-        var items = jdbcClient.sql(SELECT_COLUMNS + whereClause + " ORDER BY last_update_date DESC, id DESC LIMIT :limit OFFSET :offset")
+        var orderBy = switch (criteria.sort()) {
+            case "NAME" -> "drawing_title ASC, id DESC";
+            case "ASSET_NUMBER" -> extensionStore.enabled()
+                    ? "(SELECT ap.asset_number FROM asset_package_ext ap WHERE ap.drawing_id = sys_drawing.id) ASC, id DESC"
+                    : "drawing_title ASC, id DESC";
+            default -> "last_update_date DESC, id DESC";
+        };
+        var items = jdbcClient.sql(SELECT_COLUMNS + whereClause + " ORDER BY " + orderBy + " LIMIT :limit OFFSET :offset")
                 .params(parameters)
                 .query(this::mapAsset)
                 .list();

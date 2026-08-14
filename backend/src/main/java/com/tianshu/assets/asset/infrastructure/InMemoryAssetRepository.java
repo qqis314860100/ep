@@ -12,6 +12,7 @@ import com.tianshu.assets.asset.domain.AssetType;
 import com.tianshu.assets.asset.domain.RelationType;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -128,10 +129,25 @@ public class InMemoryAssetRepository implements AssetRepository {
 
     @Override
     public AssetPage search(AssetSearchCriteria criteria) {
-        var filtered = assets.stream().filter(asset -> matches(asset, criteria)).toList();
+        var filtered = assets.stream()
+                .filter(asset -> matches(asset, criteria))
+                .sorted(comparator(criteria.sort()))
+                .toList();
         var offset = (long) (criteria.page() - 1) * criteria.perPage();
         var pageItems = filtered.stream().skip(offset).limit(criteria.perPage()).toList();
         return new AssetPage(pageItems, filtered.size(), criteria.page(), criteria.perPage());
+    }
+
+    private Comparator<Asset> comparator(String sort) {
+        return switch (sort) {
+            case "UPDATED_AT" -> Comparator.comparing(Asset::updatedAt,
+                    Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(Comparator.comparingLong(Asset::id).reversed());
+            case "ASSET_NUMBER" -> Comparator.comparing(Asset::assetNumber,
+                    String.CASE_INSENSITIVE_ORDER).thenComparing(Comparator.comparingLong(Asset::id));
+            case "NAME" -> Comparator.comparing(Asset::name, String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(Comparator.comparingLong(Asset::id));
+            default -> Comparator.comparingLong(Asset::id);
+        };
     }
 
     @Override
@@ -194,6 +210,15 @@ public class InMemoryAssetRepository implements AssetRepository {
         var matchesPreviewable = criteria.previewable() == null
                 || !criteria.previewable()
                 || asset.files().stream().anyMatch(AssetFile::previewable);
+        var matchesSpecialty = criteria.specialty().isBlank()
+                || asset.specialties().contains(criteria.specialty());
+        var matchesFormat = criteria.fileFormat().isBlank()
+                || asset.files().stream().anyMatch(file -> file.format().equalsIgnoreCase(criteria.fileFormat()));
+        var matchesUpdatedRange = (criteria.updatedFrom() == null
+                || asset.updatedAt() == null || !asset.updatedAt().isBefore(criteria.updatedFrom()))
+                && (criteria.updatedTo() == null
+                || asset.updatedAt() == null || !asset.updatedAt().isAfter(criteria.updatedTo()));
+        var matchesMissingScope = !criteria.wantsMissingScope() || asset.scopes().stream().noneMatch(AssetScope::complete);
         var matchesScope = asset.scopes().stream().anyMatch(scope ->
                 (criteria.platformFamily() == null || criteria.platformFamily().isBlank()
                         || criteria.platformFamily().equals(scope.platformFamily()))
@@ -206,7 +231,8 @@ public class InMemoryAssetRepository implements AssetRepository {
                                 || criteria.productionLine().equals(scope.productionLine()))
                         && (criteria.productLine().isBlank() || criteria.productLine().equals(scope.productLine()))
                         && (criteria.processSection().isBlank() || criteria.processSection().equals(scope.processSection())));
-        return matchesQuery && matchesType && matchesStatus && matchesOwner && matchesPreviewable && matchesScope;
+        return matchesQuery && matchesType && matchesStatus && matchesOwner && matchesPreviewable
+                && matchesSpecialty && matchesFormat && matchesUpdatedRange && matchesMissingScope && matchesScope;
     }
 
     private static Asset asset(
