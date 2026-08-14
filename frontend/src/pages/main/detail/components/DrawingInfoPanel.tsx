@@ -1,11 +1,24 @@
 import { DatabaseOutlined, LinkOutlined, RightOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Tag } from 'antd'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { scopeLabel } from '../../../../features/assets/assetPresentation'
 import { AssetStatusTag, AssetTypeTag } from '../../../../features/assets/AssetTags'
+import { getGovernanceIssues } from '../../../../features/governance/api'
 import type { Asset } from '../../../../types/asset'
 import { useEquipmentInterconnections } from '../../../../hooks/useAssets'
+
+const issueTypeLabels: Record<string, string> = {
+  MISSING_REQUIRED_FIELD: '缺少必填字段',
+  MISSING_FIELD: '缺少字段',
+  INVALID_DICTIONARY_VALUE: '字典值非法',
+  INVALID_SCOPE: '适用范围不完整',
+  INVALID_RESPONSIBILITY: '责任人失效',
+  ANOMALOUS_FILE: '文件异常',
+  DUPLICATE_ASSET_NUMBER: '编号重复',
+  MAPPING_SUGGESTION: '映射建议',
+}
 
 const Panel = styled.aside`
   min-width: 0;
@@ -144,6 +157,40 @@ const LineIcon = styled.span`
   border-radius: 4px;
 `
 
+const IssueList = styled.ul`
+  margin: 0;
+  padding: 0;
+  list-style: none;
+`
+
+const IssueItem = styled.li`
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px dashed #edf0ee;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+`
+
+const IssueType = styled.span`
+  color: #b3562b;
+  font-size: 12px;
+  font-weight: 600;
+`
+
+const IssuePath = styled.span`
+  overflow: hidden;
+  color: #87918c;
+  font-size: 10px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+
 const LineName = styled.div`
   overflow: hidden;
   color: #304139;
@@ -171,6 +218,11 @@ export function DrawingInfoPanel({ asset }: DrawingInfoPanelProps) {
   const linkedModuleAssetIds = asset.linkedModuleAssetIds ?? []
   const interconnectionsQuery = useEquipmentInterconnections(asset.equipmentInterconnectCode)
   const interconnections = interconnectionsQuery.data ?? []
+  const pendingIssuesQuery = useQuery({
+    queryKey: ['asset-pending-issues', asset.id],
+    queryFn: () => getGovernanceIssues({ assetId: asset.id, status: 'OPEN' }),
+  })
+  const pendingIssues = pendingIssuesQuery.data ?? []
 
   return (
     <Panel aria-label="资产信息">
@@ -246,6 +298,21 @@ export function DrawingInfoPanel({ asset }: DrawingInfoPanelProps) {
           <Divider />
           <Label>业务标签</Label>
           <Tags style={{ marginBottom: 0 }}>{asset.tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Tags>
+        </>
+      )}
+
+      {pendingIssues.length > 0 && (
+        <>
+          <Divider />
+          <Label>补充要求</Label>
+          <IssueList>
+            {pendingIssues.map((issue) => (
+              <IssueItem key={issue.id}>
+                <IssueType>{issueTypeLabels[issue.issueType] ?? issue.issueType}</IssueType>
+                <IssuePath>{issue.targetPath}</IssuePath>
+              </IssueItem>
+            ))}
+          </IssueList>
         </>
       )}
     </Panel>

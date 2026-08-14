@@ -4,12 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getMyUploads } from '../../../services/assetService'
+import { getGovernanceIssues } from '../../../features/governance/api'
 import MyUploadsPage from './index'
 
 vi.mock('../../../services/assetService', async (importOriginal) => ({
   ...await importOriginal<typeof import('../../../services/assetService')>(),
   getMyUploads: vi.fn(),
 }))
+vi.mock('../../../features/governance/api', () => ({ getGovernanceIssues: vi.fn() }))
 
 const asset = {
   id: 11,
@@ -41,6 +43,9 @@ describe('MyUploadsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getMyUploads).mockResolvedValue({ data: [asset], meta: { total: 1, page: 1, perPage: 20, totalPages: 1 } })
+    vi.mocked(getGovernanceIssues).mockResolvedValue([
+      { id: 9001, assetId: 11, targetField: 'DESCRIPTION', issueType: 'MISSING_REQUIRED_FIELD', targetPath: '/description', originalFactJson: '{}', severity: 'HIGH', blocking: true, status: 'OPEN', taskId: null, version: 0, createdAt: '2026-08-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z' },
+    ])
   })
 
   it('loads uploads and filters by status through the backend', async () => {
@@ -52,5 +57,12 @@ describe('MyUploadsPage', () => {
 
     await user.click(screen.getByText('待整理'))
     expect(getMyUploads).toHaveBeenCalledWith('PENDING_CURATION')
+  })
+
+  it('shows pending supplement requirements for assets with open issues', async () => {
+    renderPage()
+
+    expect(await screen.findByText('需补充信息 1 项')).toBeInTheDocument()
+    expect(screen.getByText('补充要求 1 项')).toBeInTheDocument()
   })
 })
