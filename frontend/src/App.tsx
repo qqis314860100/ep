@@ -15,6 +15,7 @@ const MyUploadsPage = lazy(() => import('./pages/main/uploads'))
 const DocumentSearchPage = lazy(() => import('./features/documents/DocumentSearchPage'))
 const DocumentCreatePage = lazy(() => import('./features/documents/DocumentCreatePage'))
 const DocumentDetailPage = lazy(() => import('./pages/main/document-detail'))
+const MyDocumentsPage = lazy(() => import('./pages/main/document-mine'))
 const GovernancePage = lazy(() =>
   import('./pages/sys/drawing'),
 )
@@ -96,6 +97,7 @@ export default function App() {
                   <Route path="/assets/:id" element={<DetailPage />} />
                   <Route path="/assets/:id/relations" element={<RelationBrowserPage />} />
                   <Route path="/documents" element={<DocumentSearchPage />} />
+                  <Route path="/documents/mine" element={<MyDocumentsPage />} />
                   <Route path="/documents/new" element={<DocumentCreatePage />} />
                   <Route path="/documents/:id" element={<DocumentDetailPage />} />
                   <Route path="/upload" element={<UploadPage />} />

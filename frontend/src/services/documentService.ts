@@ -145,3 +145,64 @@ export async function publishDocumentVersion(documentId: number, versionId: numb
   }
   return response.json()
 }
+
+export interface DocumentComment {
+  id: number
+  documentId: number
+  versionId: number
+  authorId: string
+  authorName: string
+  content: string
+  imageKeys: string[]
+  likeCount: number
+  deleted: boolean
+  likedByCurrentUser: boolean
+  createdAt: string
+}
+
+async function documentRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    headers: { Accept: 'application/json', ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers },
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as ApiErrorBody
+    throw new Error(body.error?.message || `请求失败：${response.status}`)
+  }
+  return response.json() as Promise<T>
+}
+
+export function getDocumentFavorite(documentId: number): Promise<{ documentId: number; favorite: boolean }> {
+  return documentRequest(`/api/v1/documents/${documentId}/favorite`)
+}
+
+export function setDocumentFavorite(documentId: number, favorite: boolean): Promise<{ documentId: number; favorite: boolean }> {
+  return documentRequest(`/api/v1/documents/${documentId}/favorite`, { method: favorite ? 'POST' : 'DELETE' })
+}
+
+export function getDocumentComments(documentId: number): Promise<DocumentComment[]> {
+  return documentRequest(`/api/v1/documents/${documentId}/comments`)
+}
+
+export function addDocumentComment(documentId: number, input: { versionId: number; content: string; imageKeys?: string[] }): Promise<DocumentComment> {
+  return documentRequest(`/api/v1/documents/${documentId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+export function likeDocumentComment(documentId: number, commentId: number, liked: boolean): Promise<{ liked: boolean; likeCount: number }> {
+  return documentRequest(`/api/v1/documents/${documentId}/comments/${commentId}/like`, { method: liked ? 'POST' : 'DELETE' })
+}
+
+export function removeDocumentComment(documentId: number, commentId: number): Promise<void> {
+  return documentRequest(`/api/v1/documents/${documentId}/comments/${commentId}`, { method: 'DELETE' })
+}
+
+export function getMyFavoriteDocuments(): Promise<KnowledgeDocument[]> {
+  return documentRequest('/api/v1/documents/my/favorites')
+}
+
+export function getMyDocuments(status?: string): Promise<KnowledgeDocument[]> {
+  return documentRequest(`/api/v1/documents/mine${status ? `?status=${encodeURIComponent(status)}` : ''}`)
+}

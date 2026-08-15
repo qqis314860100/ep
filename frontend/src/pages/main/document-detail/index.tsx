@@ -15,6 +15,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { DocumentPreview } from '../../../features/documents/components/DocumentPreview'
+import { DocumentCommentSection } from '../../../features/documents/components/DocumentCommentSection'
+import { StarFilled, StarOutlined } from '@ant-design/icons'
 import {
   documentCategoryName,
   formatDocumentTime,
@@ -24,9 +26,11 @@ import { getDictionaryItems } from '../../../services/dictionaryService'
 import {
   getDocument,
   getDocumentAssetRelations,
+  getDocumentFavorite,
   getDocumentFileUrl,
   getDocumentVersions,
   publishDocumentVersion,
+  setDocumentFavorite,
 } from '../../../services/documentService'
 import {
   changeAssetDocumentRelationType,
@@ -290,6 +294,19 @@ export default function DocumentDetailPage() {
     queryFn: () => getDocumentVersions(documentId),
     enabled: Number.isFinite(documentId),
   })
+  const favoriteQuery = useQuery({
+    queryKey: ['document-favorite', documentId],
+    queryFn: () => getDocumentFavorite(documentId),
+    enabled: Number.isFinite(documentId),
+  })
+  const favoriteMutation = useMutation({
+    mutationFn: (favorite: boolean) => setDocumentFavorite(documentId, favorite),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['document-favorite', documentId] })
+      void message.success(favoriteQuery.data?.favorite ? '已取消收藏' : '已收藏')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '收藏操作失败'),
+  })
   const [selectedFileId, setSelectedFileId] = useState<number>()
   const [relationDialogOpen, setRelationDialogOpen] = useState(false)
   const [versionDialogOpen, setVersionDialogOpen] = useState(false)
@@ -377,6 +394,14 @@ export default function DocumentDetailPage() {
           <DocumentNumber>{document.documentNumber}</DocumentNumber>
         </div>
         <Spacer />
+        <Button
+          type={favoriteQuery.data?.favorite ? 'primary' : 'default'}
+          icon={favoriteQuery.data?.favorite ? <StarFilled /> : <StarOutlined />}
+          loading={favoriteMutation.isPending}
+          onClick={() => favoriteMutation.mutate(!favoriteQuery.data?.favorite)}
+        >
+          {favoriteQuery.data?.favorite ? '已收藏' : '收藏'}
+        </Button>
         <Button icon={<PlusOutlined />} onClick={() => setVersionDialogOpen(true)}>创建新版本</Button>
         <Button icon={<LinkOutlined />} aria-label="关联资产" onClick={() => setRelationDialogOpen(true)}>关联资产</Button>
         <Tag color="green">已发布</Tag>
@@ -496,6 +521,8 @@ export default function DocumentDetailPage() {
           </VersionCard>
         ))}
       </VersionSection>
+
+      <DocumentCommentSection documentId={document.id} currentVersionId={document.currentVersion.id} />
     </Page>
   )
 }
