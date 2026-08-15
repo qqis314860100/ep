@@ -146,6 +146,19 @@ export async function publishDocumentVersion(documentId: number, versionId: numb
   return response.json()
 }
 
+export async function disableDocument(documentId: number, reason: string): Promise<unknown> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/documents/${documentId}/disable`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as ApiErrorBody
+    throw new Error(body.error?.message || `停用失败：${response.status}`)
+  }
+  return response.json()
+}
+
 export interface DocumentComment {
   id: number
   documentId: number

@@ -8,6 +8,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
   SendOutlined,
+  StopOutlined,
 } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, App as AntdApp, Button, Select, Skeleton, Space, Tag, Tooltip, Typography } from 'antd'
@@ -29,6 +30,7 @@ import {
   getDocumentFavorite,
   getDocumentFileUrl,
   getDocumentVersions,
+  disableDocument,
   publishDocumentVersion,
   setDocumentFavorite,
 } from '../../../services/documentService'
@@ -41,6 +43,7 @@ import type { AssetDocumentRelation, AssetDocumentRelationType, DocumentFile, Do
 import { AssetDocumentRelationModal } from '../../../features/documents/components/AssetDocumentRelationModal'
 import { assetDocumentRelationLabels } from '../../../features/documents/assetDocumentRelationPresentation'
 import { NewDocumentVersionModal } from './NewDocumentVersionModal'
+import { DisableDialog } from '../detail/components/DisableDialog'
 
 const Page = styled.div`
   min-width: 0;
@@ -310,7 +313,16 @@ export default function DocumentDetailPage() {
   const [selectedFileId, setSelectedFileId] = useState<number>()
   const [relationDialogOpen, setRelationDialogOpen] = useState(false)
   const [versionDialogOpen, setVersionDialogOpen] = useState(false)
+  const [disableDialogOpen, setDisableDialogOpen] = useState(false)
   const document = documentQuery.data
+  const disableMutation = useMutation({
+    mutationFn: (reason: string) => disableDocument(documentId, reason),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['document', documentId] })
+      void message.success('文档已停用，默认不再出现在普通检索中')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '停用失败'),
+  })
   const publishVersionMutation = useMutation({
     mutationFn: (version: DocumentVersion) => publishDocumentVersion(documentId, version.id),
     onSuccess: async () => {
@@ -394,6 +406,9 @@ export default function DocumentDetailPage() {
           <DocumentNumber>{document.documentNumber}</DocumentNumber>
         </div>
         <Spacer />
+        {document.status === 'PUBLISHED' && (
+          <Button danger icon={<StopOutlined />} onClick={() => setDisableDialogOpen(true)}>停用</Button>
+        )}
         <Button
           type={favoriteQuery.data?.favorite ? 'primary' : 'default'}
           icon={favoriteQuery.data?.favorite ? <StarFilled /> : <StarOutlined />}
@@ -404,7 +419,7 @@ export default function DocumentDetailPage() {
         </Button>
         <Button icon={<PlusOutlined />} onClick={() => setVersionDialogOpen(true)}>创建新版本</Button>
         <Button icon={<LinkOutlined />} aria-label="关联资产" onClick={() => setRelationDialogOpen(true)}>关联资产</Button>
-        <Tag color="green">已发布</Tag>
+        <Tag color={document.status === 'PUBLISHED' ? 'green' : 'red'}>{document.status === 'PUBLISHED' ? '已发布' : '已停用'}</Tag>
         <Tag color="blue">当前版本 {document.currentVersion.versionNumber}</Tag>
       </PageBar>
       <Workspace>
@@ -523,6 +538,16 @@ export default function DocumentDetailPage() {
       </VersionSection>
 
       <DocumentCommentSection documentId={document.id} currentVersionId={document.currentVersion.id} />
+
+      <DisableDialog
+        open={disableDialogOpen}
+        assetName={document.title}
+        onClose={() => setDisableDialogOpen(false)}
+        onSubmit={async (reason) => {
+          await disableMutation.mutateAsync(reason)
+          setDisableDialogOpen(false)
+        }}
+      />
     </Page>
   )
 }
