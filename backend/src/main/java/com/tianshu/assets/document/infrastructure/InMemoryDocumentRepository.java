@@ -22,6 +22,7 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,6 +80,7 @@ public class InMemoryDocumentRepository implements DocumentRepository {
             """);
 
     private final List<KnowledgeDocument> documents = new ArrayList<>();
+    private final Map<Long, DocumentVersion> versions = new java.util.LinkedHashMap<>();
     private final AtomicLong nextDocumentId = new AtomicLong(104);
     private final AtomicLong nextVersionId = new AtomicLong(1004);
     private final AtomicLong nextFileId = new AtomicLong(2004);
@@ -104,6 +106,7 @@ public class InMemoryDocumentRepository implements DocumentRepository {
                         List.of(seedFile(fileStorage, 2003, "commissioning-notes.docx", "DOCX",
                                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "draft")),
                         "王工", now, "", null), now, now, 0));
+        documents.forEach(document -> versions.put(document.currentVersion().id(), document.currentVersion()));
     }
 
     @Override
@@ -137,6 +140,7 @@ public class InMemoryDocumentRepository implements DocumentRepository {
                 .map(file -> withId(file, nextFileId.getAndIncrement()))
                 .toList();
         var savedVersion = copyVersion(document.currentVersion(), versionId, documentId, files);
+        versions.put(savedVersion.id(), savedVersion);
         var number = document.documentNumber().isBlank() ? "DOC-%06d".formatted(documentId) : document.documentNumber();
         var saved = new KnowledgeDocument(documentId, number, document.title(), document.summary(), document.categoryCode(),
                 document.maintainerId(), document.maintainerName(), document.maintainerDepartment(), document.scopeMode(),
@@ -157,11 +161,37 @@ public class InMemoryDocumentRepository implements DocumentRepository {
                 if (current.version() != expectedVersion) {
                     throw new IllegalStateException("文档已被其他用户更新");
                 }
+                if (document.currentVersion() != null) {
+                    versions.put(document.currentVersion().id(), document.currentVersion());
+                }
                 documents.set(index, document);
                 return document;
             }
         }
         throw new IllegalArgumentException("文档不存在：" + document.id());
+    }
+
+    @Override
+    public synchronized List<DocumentVersion> findVersions(long documentId) {
+        return versions.values().stream()
+                .filter(version -> version.documentId() == documentId)
+                .sorted(Comparator.comparingLong(DocumentVersion::id).reversed())
+                .toList();
+    }
+
+    @Override
+    public synchronized Optional<DocumentVersion> findVersion(long documentId, long versionId) {
+        var version = versions.get(versionId);
+        return version != null && version.documentId() == documentId ? Optional.of(version) : Optional.empty();
+    }
+
+    @Override
+    public synchronized DocumentVersion saveVersion(DocumentVersion version) {
+        var saved = version.id() > 0
+                ? version
+                : copyVersion(version, nextVersionId.getAndIncrement(), version.documentId(), version.files());
+        versions.put(saved.id(), saved);
+        return saved;
     }
 
     private boolean matches(KnowledgeDocument document, DocumentSearchCriteria criteria) {

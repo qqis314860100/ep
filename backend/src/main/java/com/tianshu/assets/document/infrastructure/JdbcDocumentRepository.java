@@ -91,7 +91,7 @@ public class JdbcDocumentRepository implements DocumentRepository {
                 resultSet.getTimestamp("updated_at").toInstant(), resultSet.getLong("version")), id);
         if (rows.isEmpty()) return Optional.empty();
         var row = rows.getFirst();
-        var documentVersion = findVersion(row.id(), row.currentVersionId());
+        var documentVersion = queryVersion(row.id(), row.currentVersionId());
         return Optional.of(new KnowledgeDocument(row.id(), row.documentNumber(), row.title(), row.summary(),
                 row.categoryCode(), row.maintainerId(), row.maintainerName(), row.maintainerDepartment(),
                 row.scopeMode(), findScopes(row.id()), row.status(), row.currentVersionId(), documentVersion,
@@ -191,7 +191,7 @@ public class JdbcDocumentRepository implements DocumentRepository {
         return findRequired(documentId);
     }
 
-    private DocumentVersion findVersion(long documentId, Long currentVersionId) {
+    private DocumentVersion queryVersion(long documentId, Long currentVersionId) {
         var sql = currentVersionId == null
                 ? """
                   SELECT id, document_id, version_number, change_summary, status, created_by, created_at,
@@ -214,6 +214,62 @@ public class JdbcDocumentRepository implements DocumentRepository {
         }, arguments);
         if (versions.isEmpty()) throw new IllegalStateException("文档缺少版本数据：" + documentId);
         return versions.getFirst();
+    }
+
+    @Override
+    public List<DocumentVersion> findVersions(long documentId) {
+        return jdbcTemplate.query("""
+                SELECT id, document_id, version_number, change_summary, status, created_by, created_at,
+                       published_by, published_at
+                FROM document_version WHERE document_id = ? ORDER BY id DESC
+                """, (resultSet, rowNumber) -> {
+                    var versionId = resultSet.getLong("id");
+                    return new DocumentVersion(versionId, resultSet.getLong("document_id"),
+                            resultSet.getString("version_number"), resultSet.getString("change_summary"),
+                            DocumentVersionStatus.valueOf(resultSet.getString("status")), findFiles(documentId, versionId),
+                            resultSet.getString("created_by"), resultSet.getTimestamp("created_at").toInstant(),
+                            resultSet.getString("published_by"), instant(resultSet.getTimestamp("published_at")));
+                }, documentId);
+    }
+
+    @Override
+    public Optional<DocumentVersion> findVersion(long documentId, long versionId) {
+        try {
+            return Optional.of(queryVersion(documentId, versionId));
+        } catch (IllegalStateException exception) {
+            return Optional.empty();
+        }
+    }
+
+    @Override
+    public DocumentVersion saveVersion(DocumentVersion version) {
+        if (version.id() > 0) {
+            jdbcTemplate.update("""
+                    UPDATE document_version
+                    SET status = ?, published_by = ?, published_at = ?
+                    WHERE id = ? AND document_id = ?
+                    """, version.status().name(), version.publishedBy(), timestamp(version.publishedAt()),
+                    version.id(), version.documentId());
+            return queryVersion(version.documentId(), version.id());
+        }
+        var versionId = insertAndReturnKey("""
+                INSERT INTO document_version
+                    (document_id, version_number, change_summary, status, created_by, created_at,
+                     published_by, published_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, version.documentId(), version.versionNumber(), version.changeSummary(), version.status().name(),
+                version.createdBy(), Timestamp.from(version.createdAt()), version.publishedBy(),
+                timestamp(version.publishedAt()));
+        for (var file : version.files()) {
+            jdbcTemplate.update("""
+                    INSERT INTO document_file
+                        (document_id, version_id, original_name, format, size_bytes, previewable,
+                         storage_key, content_sha256)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, version.documentId(), versionId, file.name(), file.format(), file.sizeBytes(),
+                    file.previewable(), file.storageKey(), file.contentSha256());
+        }
+        return queryVersion(version.documentId(), versionId);
     }
 
     private List<DocumentFile> findFiles(long documentId, long versionId) {

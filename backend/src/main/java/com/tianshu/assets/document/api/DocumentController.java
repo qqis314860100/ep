@@ -15,6 +15,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ContentDisposition;
@@ -74,6 +75,33 @@ public class DocumentController {
     @GetMapping("/{id}")
     public DocumentResponse detail(@PathVariable long id) {
         return DocumentResponse.from(queryService.getPublished(id));
+    }
+
+    @GetMapping("/{id}/versions")
+    public List<DocumentVersionResponse> versions(@PathVariable long id) {
+        return queryService.listVersions(id).stream().map(DocumentVersionResponse::from).toList();
+    }
+
+    @PostMapping("/{id}/versions")
+    @ResponseStatus(HttpStatus.CREATED)
+    public DocumentVersionResponse createVersion(
+            @PathVariable long id,
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String publisherId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String publisherName,
+            @Valid @RequestBody CreateVersionRequest request) {
+        return DocumentVersionResponse.from(commandService.createVersionDraft(
+                new DocumentCommandService.CreateVersionDraftCommand(
+                        id, request.versionNumber(), request.changeSummary(),
+                        request.files().stream().map(DocumentFileRequest::toDomain).toList())));
+    }
+
+    @PostMapping("/{id}/versions/{versionId}/publish")
+    public DocumentResponse publishVersion(
+            @PathVariable long id,
+            @PathVariable long versionId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String publisherId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String publisherName) {
+        return DocumentResponse.from(commandService.publishVersion(id, versionId, publisherId, publisherName));
     }
 
     @PostMapping("/drafts")
@@ -173,6 +201,31 @@ public class DocumentController {
 
         DocumentFile toDomain() {
             return new DocumentFile(id, name, format, sizeBytes, previewable, storageKey, contentSha256);
+        }
+    }
+
+    public record CreateVersionRequest(
+            @NotBlank(message = "版本号不能为空") String versionNumber,
+            @NotBlank(message = "变更说明不能为空") String changeSummary,
+            @NotEmpty(message = "请至少上传一个文件") List<@Valid DocumentFileRequest> files) {}
+
+    public record DocumentVersionResponse(
+            long id,
+            long documentId,
+            String versionNumber,
+            String changeSummary,
+            com.tianshu.assets.document.domain.DocumentVersionStatus status,
+            List<DocumentResponse.FileResponse> files,
+            String createdBy,
+            Instant createdAt,
+            String publishedBy,
+            Instant publishedAt) {
+
+        static DocumentVersionResponse from(com.tianshu.assets.document.domain.DocumentVersion version) {
+            return new DocumentVersionResponse(version.id(), version.documentId(), version.versionNumber(),
+                    version.changeSummary(), version.status(),
+                    version.files().stream().map(DocumentResponse.FileResponse::from).toList(),
+                    version.createdBy(), version.createdAt(), version.publishedBy(), version.publishedAt());
         }
     }
 

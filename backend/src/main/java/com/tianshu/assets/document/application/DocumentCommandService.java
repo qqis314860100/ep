@@ -11,6 +11,7 @@ import com.tianshu.assets.document.domain.DocumentVersionStatus;
 import com.tianshu.assets.document.domain.KnowledgeDocument;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -71,6 +72,69 @@ public class DocumentCommandService {
             throw new DocumentStateConflictException("文档已被其他用户更新，请刷新后重试", exception);
         }
     }
+
+    /** 创建新版本草稿（DOC-VERSION-01）：仅已发布文档，版本号唯一，至少一个文件。 */
+    public DocumentVersion createVersionDraft(CreateVersionDraftCommand command) {
+        var document = repository.findById(command.documentId())
+                .orElseThrow(() -> new DocumentNotFoundException("文档不存在"));
+        if (document.status() != DocumentStatus.PUBLISHED) {
+            throw new DocumentStateConflictException("只有已发布文档可以创建新版本");
+        }
+        var versionNumber = text(command.versionNumber());
+        require(versionNumber, "版本号不能为空");
+        require(text(command.changeSummary()), "变更说明不能为空");
+        if (command.files().isEmpty()) {
+            throw new IllegalArgumentException("新版本至少需要一个文件");
+        }
+        command.files().forEach(this::validateDraftFile);
+        var duplicated = repository.findVersions(document.id()).stream()
+                .anyMatch(version -> version.versionNumber().equalsIgnoreCase(versionNumber));
+        if (duplicated) {
+            throw new DocumentStateConflictException("版本号已存在：" + versionNumber);
+        }
+        var now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        var draft = new DocumentVersion(0, document.id(), versionNumber, text(command.changeSummary()),
+                DocumentVersionStatus.DRAFT, command.files(), document.maintainerName(), now, "", null);
+        return repository.saveVersion(draft);
+    }
+
+    /** 发布新版本（DOC-VERSION-02）：成功后替换当前有效版本，原版本转为历史。 */
+    public KnowledgeDocument publishVersion(long documentId, long versionId, String publisherId, String publisherName) {
+        var document = repository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException("文档不存在"));
+        if (document.status() != DocumentStatus.PUBLISHED) {
+            throw new DocumentStateConflictException("只有已发布文档可以发布新版本");
+        }
+        var version = repository.findVersion(documentId, versionId)
+                .orElseThrow(() -> new DocumentNotFoundException("版本不存在"));
+        if (version.status() != DocumentVersionStatus.DRAFT) {
+            throw new DocumentStateConflictException("只有草稿版本可以发布");
+        }
+        if (version.files().isEmpty() || version.files().stream()
+                .anyMatch(file -> file.storageKey().isBlank() || fileStorage.open(file.storageKey()).isEmpty())) {
+            throw new DocumentPublishValidationException("版本文件不存在或尚未完成上传");
+        }
+        var now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        var publishedVersion = new DocumentVersion(version.id(), documentId, version.versionNumber(),
+                version.changeSummary(), DocumentVersionStatus.PUBLISHED, version.files(), version.createdBy(),
+                version.createdAt(), defaultText(publisherName, publisherId), now);
+        repository.saveVersion(publishedVersion);
+        var updated = new KnowledgeDocument(document.id(), document.documentNumber(), document.title(),
+                document.summary(), document.categoryCode(), document.maintainerId(), document.maintainerName(),
+                document.maintainerDepartment(), document.scopeMode(), document.scopes(), DocumentStatus.PUBLISHED,
+                publishedVersion.id(), publishedVersion, document.createdAt(), now, document.version() + 1);
+        try {
+            return repository.update(updated, document.version());
+        } catch (IllegalStateException exception) {
+            throw new DocumentStateConflictException("文档已被其他用户更新，请刷新后重试", exception);
+        }
+    }
+
+    public record CreateVersionDraftCommand(
+            long documentId,
+            String versionNumber,
+            String changeSummary,
+            List<DocumentFile> files) {}
 
     private void validateForPublish(KnowledgeDocument document) {
         if (document.documentNumber().isBlank() || document.title().isBlank() || document.summary().isBlank()

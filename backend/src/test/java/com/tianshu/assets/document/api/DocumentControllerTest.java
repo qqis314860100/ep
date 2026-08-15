@@ -187,6 +187,49 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.error.code").value("document_state_conflict"));
     }
 
+    @Test
+    void createsPublishesAndReplacesDocumentVersions() throws Exception {
+        var draft = objectMapper.readTree(mockMvc.perform(post("/api/v1/documents/drafts")
+                        .contentType(APPLICATION_JSON)
+                        .content(validDraftJson("DOC-VER-0001")))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+        var id = draft.get("id").asLong();
+        var firstVersionId = draft.get("currentVersion").get("id").asLong();
+        var firstFileId = draft.get("currentVersion").get("files").get(0).get("id").asLong();
+        mockMvc.perform(post("/api/v1/documents/{id}/publish", id)).andExpect(status().isOk());
+
+        var newVersion = objectMapper.readTree(mockMvc.perform(post("/api/v1/documents/{id}/versions", id)
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"versionNumber":"V2.0","changeSummary":"补充验收要求","files":[%s]}
+                                """.formatted(fileJson("V2.pdf", "PDF"))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+        var secondVersionId = newVersion.get("id").asLong();
+
+        mockMvc.perform(post("/api/v1/documents/{id}/versions/{versionId}/publish", id, secondVersionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentVersion.versionNumber").value("V2.0"));
+
+        mockMvc.perform(get("/api/v1/documents/{id}/versions", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].versionNumber").value("V2.0"))
+                .andExpect(jsonPath("$[1].versionNumber").value("V1.0"));
+
+        mockMvc.perform(get("/api/v1/documents/{id}/versions/{versionId}/files/{fileId}", id, firstVersionId, firstFileId)
+                        .param("preview", "true"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("inline")));
+    }
+
+    private String fileJson(String name, String format) {
+        return """
+                {"id":0,"name":"%s","format":"%s","sizeBytes":10,"previewable":true,"storageKey":"%s","contentSha256":"%s"}
+                """.formatted(name, format, storageKey, sha256);
+    }
+
     private String validDraftJson(String documentNumber) {
         return """
                 {
