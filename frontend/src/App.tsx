@@ -101,6 +101,7 @@ export default function App() {
                   <Route path="/upload" element={<UploadPage />} />
                   <Route path="/governance" element={<Navigate to="/sys/drawing" replace />} />
                   <Route path="/sys/drawing" element={<GovernancePage />} />
+                  <Route path="/sys/drawing/inventory" element={<GovernancePage />} />
                   <Route path="/sys/drawing/issues" element={<GovernanceIssuePoolPage />} />
                   <Route path="/sys/drawing/standards" element={<GovernanceStandardsPage />} />
                   <Route path="/sys/drawing/mappings" element={<GovernanceMappingsPage />} />

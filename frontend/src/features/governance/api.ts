@@ -103,6 +103,59 @@ export function getGovernanceTasks(filters: {
   return request(`/api/v1/governance/tasks${queryString(filters)}`)
 }
 
+export interface InventoryView {
+  totals: {
+    total: number
+    pendingCuration: number
+    claimed: number
+    standardized: number
+    duplicateSuspects: number
+    anomalousFiles: number
+  }
+  rates: {
+    completeness: number
+    scopeCoverage: number
+    ownerCoverage: number
+    fileAvailability: number
+  }
+  items: Array<{
+    assetId: number
+    assetNumber: string
+    assetName: string
+    assetType: string
+    status: string
+    ownerName: string
+    legacyPlatform: string
+    legacyLine: string
+    missingBase: boolean
+    missingLine: boolean
+    missingDescription: boolean
+    missingOwner: boolean
+    missingFile: boolean
+    claimed: boolean
+  }>
+  meta: { total: number; page: number; perPage: number }
+}
+
+export interface InventoryFilters {
+  legacyPlatform?: string
+  legacyLine?: string
+  legacyCategory?: string
+  owner?: string
+  format?: string
+  missingBase?: boolean
+  missingLine?: boolean
+  missingDescription?: boolean
+  missingOwner?: boolean
+  missingFile?: boolean
+  page?: number
+  perPage?: number
+}
+
+export function getInventory(filters: InventoryFilters = {}): Promise<InventoryView> {
+  return request(`/api/v1/governance/inventory${queryString(filters)}`)
+}
+
 export function getGovernanceTask(taskId: number): Promise<GovernanceTaskDetail> {
   return request(`/api/v1/governance/tasks/${taskId}`)
 }
