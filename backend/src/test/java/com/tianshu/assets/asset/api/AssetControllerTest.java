@@ -243,6 +243,22 @@ class AssetControllerTest {
     }
 
     @Test
+    void confirmsLegacyNumberConflictWithAuditAndKeepsOriginalNumber() throws Exception {
+        mockMvc.perform(post("/api/v1/assets/104/confirm-number-conflict")
+                        .header("X-User-Roles", "UPLOADER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"note\":\"历史重复编号，确认保留\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/assets/104/confirm-number-conflict")
+                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"note\":\"历史重复编号，确认保留\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assetNumber").value("LEGACY-00000104"));
+    }
+
+    @Test
     void updatesAndRemovesRelationWithAudit() throws Exception {
         var createdJson = mockMvc.perform(post("/api/v1/assets/102/relations")
                         .header("X-User-Id", "emp-chen")

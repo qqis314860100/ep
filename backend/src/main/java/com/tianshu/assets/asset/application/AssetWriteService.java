@@ -160,6 +160,30 @@ public class AssetWriteService {
         }
     }
 
+    /** 历史编号冲突处理留痕（UPLOAD-09）：原编号原样保留，确认结果与操作记录落库。 */
+    public Asset confirmNumberConflict(long assetId, String note, String operatorUserId, String operatorName,
+            String roles) {
+        if (roles == null || java.util.Arrays.stream(roles.split(","))
+                .map(value -> value.trim().toUpperCase(java.util.Locale.ROOT))
+                .noneMatch(GOVERNANCE_ROLES::contains)) {
+            throw new ForbiddenOperationException("仅内容管理员或系统管理员可以处理编号冲突");
+        }
+        var asset = assetRepository.findById(assetId)
+                .orElseThrow(() -> new AssetNotFoundException(assetId));
+        try {
+            operationLogs.append(new OperationLog(0, operatorUserId, "ASSET_NUMBER_CONFLICT_RESOLVED",
+                    "ASSET", assetId,
+                    objectMapper.writeValueAsString(Map.of(
+                            "assetNumber", asset.assetNumber(),
+                            "note", note == null ? "" : note.trim(),
+                            "operatorName", operatorName == null ? "" : operatorName)),
+                    Instant.now()));
+        } catch (Exception exception) {
+            throw new IllegalStateException("编号冲突处理审计写入失败", exception);
+        }
+        return asset;
+    }
+
     public boolean isFavorite(long assetId, String userId) {
         ensureAssetExists(assetId);
         return collaborationStore.isFavorite(assetId, userId);

@@ -243,6 +243,19 @@ public class AssetController {
         return AssetResponse.from(assetWriteService.disable(id, request.reason(), userId, userName, roles));
     }
 
+    @PostMapping("/{id}/confirm-number-conflict")
+    public AssetResponse confirmNumberConflict(
+            @PathVariable @Min(1) long id,
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String userName,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
+            @RequestBody(required = false) NumberConflictRequest request) {
+        return AssetResponse.from(assetWriteService.confirmNumberConflict(id,
+                request == null ? null : request.note(), userId, userName, roles));
+    }
+
+    public record NumberConflictRequest(String note) {}
+
     @GetMapping("/{id}/favorite")
     public FavoriteResponse favorite(
             @PathVariable @Min(1) long id,
