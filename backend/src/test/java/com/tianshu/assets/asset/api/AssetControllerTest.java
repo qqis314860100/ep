@@ -146,6 +146,42 @@ class AssetControllerTest {
     }
 
     @Test
+    void disablesAssetWithReasonAndHidesItFromDefaultSearch() throws Exception {
+        mockMvc.perform(post("/api/v1/assets/103/disable")
+                        .header("X-User-Roles", "UPLOADER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"该产线已停产\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("operation_forbidden"));
+
+        mockMvc.perform(post("/api/v1/assets/103/disable")
+                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("validation_error"));
+
+        mockMvc.perform(post("/api/v1/assets/103/disable")
+                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"该产线已停产\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DISABLED"));
+
+        mockMvc.perform(get("/api/v1/assets").param("q", "输送模块"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(0));
+
+        mockMvc.perform(get("/api/v1/assets").param("status", "DISABLED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].assetNumber").value("DM-ND-A-0003"));
+
+        mockMvc.perform(get("/api/v1/assets/103"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(103));
+    }
+
+    @Test
     void updatesAndRemovesRelationWithAudit() throws Exception {
         var createdJson = mockMvc.perform(post("/api/v1/assets/102/relations")
                         .header("X-User-Id", "emp-chen")

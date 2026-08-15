@@ -268,7 +268,9 @@ public class InMemoryAssetRepository implements AssetRepository {
                 || asset.files().stream()
                         .anyMatch(file -> file.name().toLowerCase(Locale.ROOT).contains(normalizedQuery));
         var matchesType = criteria.assetType() == null || asset.assetType() == criteria.assetType();
-        var matchesStatus = criteria.status() == null || asset.status() == criteria.status();
+        var matchesStatus = criteria.status() == null
+                ? asset.status() != AssetStatus.DISABLED
+                : asset.status() == criteria.status();
         var matchesOwner = criteria.ownerName() == null || criteria.ownerName().isBlank()
                 || criteria.ownerName().equals(asset.ownerName());
         var matchesPreviewable = criteria.previewable() == null

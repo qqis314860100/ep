@@ -12,8 +12,10 @@ import com.tianshu.assets.common.file.InMemoryFileStorage;
 import com.tianshu.assets.common.preview.DocumentPreviewConverter;
 import com.tianshu.assets.common.preview.NoopDocumentPreviewConverter;
 import com.tianshu.assets.asset.domain.AssetType;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -218,6 +220,16 @@ public class AssetController {
         return AssetResponse.from(assetWriteService.submit(id));
     }
 
+    @PostMapping("/{id}/disable")
+    public AssetResponse disable(
+            @PathVariable @Min(1) long id,
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String userName,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
+            @Valid @RequestBody DisableRequest request) {
+        return AssetResponse.from(assetWriteService.disable(id, request.reason(), userId, userName, roles));
+    }
+
     @GetMapping("/{id}/favorite")
     public FavoriteResponse favorite(
             @PathVariable @Min(1) long id,
@@ -412,4 +424,6 @@ public class AssetController {
     private record ValidatedCommentImage(String filename, String contentType, byte[] content) {}
 
     public record CommentRequest(String authorName, String content, List<String> imageKeys) {}
+
+    public record DisableRequest(@NotBlank(message = "停用原因不能为空") String reason) {}
 }

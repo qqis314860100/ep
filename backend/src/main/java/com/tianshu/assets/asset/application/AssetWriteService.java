@@ -1,32 +1,48 @@
 package com.tianshu.assets.asset.application;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.asset.domain.Asset;
 import com.tianshu.assets.asset.domain.AssetComment;
 import com.tianshu.assets.asset.domain.AssetFile;
 import com.tianshu.assets.asset.domain.AssetRepository;
 import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.domain.AssetStatus;
+import com.tianshu.assets.system.domain.OperationLog;
+import com.tianshu.assets.system.domain.OperationLogStore;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Collection;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
+import com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AssetWriteService {
 
+    private static final java.util.Set<String> GOVERNANCE_ROLES = java.util.Set.of("CONTENT_ADMIN", "SYSTEM_ADMIN");
+
     private final AssetRepository assetRepository;
     private final AssetCollaborationStore collaborationStore;
+    private final OperationLogStore operationLogs;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
-    public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore) {
+    public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore,
+            OperationLogStore operationLogs) {
         this.assetRepository = assetRepository;
         this.collaborationStore = collaborationStore;
+        this.operationLogs = operationLogs;
+    }
+
+    public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore) {
+        this(assetRepository, collaborationStore, new InMemoryOperationLogStore());
     }
 
     public AssetWriteService(AssetRepository assetRepository) {
-        this(assetRepository, new InMemoryAssetCollaborationStore());
+        this(assetRepository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
     }
 
     public Asset saveDraft(AssetDraft draft) {
@@ -85,6 +101,63 @@ public class AssetWriteService {
                 asset.ownerDepartment(),
                 Instant.now(),
                 asset.legacy()));
+    }
+
+    /** 停用资料（DISABLE-01/02）：仅待整理/已标准化可停用，原因必填，停用后默认不进入普通检索。 */
+    public Asset disable(long id, String reason, String operatorUserId, String operatorName, String roles) {
+        if (!hasGovernanceRole(roles)) {
+            throw new ForbiddenOperationException("仅内容管理员或系统管理员可以停用资料");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("停用原因不能为空");
+        }
+        var asset = assetRepository.findById(id).orElseThrow(() -> new AssetNotFoundException(id));
+        if (asset.status() != AssetStatus.PENDING_CURATION && asset.status() != AssetStatus.STANDARDIZED) {
+            throw new IllegalArgumentException("仅待整理或已标准化资料可以停用");
+        }
+        var disabled = assetRepository.update(new Asset(
+                asset.id(),
+                asset.assetNumber(),
+                asset.name(),
+                asset.description(),
+                asset.assetType(),
+                AssetStatus.DISABLED,
+                asset.specialties(),
+                asset.tags(),
+                asset.moduleTags(),
+                asset.standardEquipmentModule(),
+                asset.linkedModuleAssetIds(),
+                asset.equipmentInterconnectCode(),
+                asset.scopes(),
+                asset.files(),
+                asset.ownerName(),
+                asset.ownerDepartment(),
+                Instant.now(),
+                asset.legacy()));
+        appendDisableAudit(disabled, reason, operatorUserId, operatorName, asset.status().name());
+        return disabled;
+    }
+
+    private boolean hasGovernanceRole(String roles) {
+        if (roles == null) return false;
+        return java.util.Arrays.stream(roles.split(","))
+                .map(value -> value.trim().toUpperCase(Locale.ROOT))
+                .anyMatch(GOVERNANCE_ROLES::contains);
+    }
+
+    private void appendDisableAudit(Asset asset, String reason, String operatorUserId, String operatorName,
+            String fromStatus) {
+        try {
+            operationLogs.append(new OperationLog(0, operatorUserId, "ASSET_DISABLE", "ASSET", asset.id(),
+                    objectMapper.writeValueAsString(Map.of(
+                            "reason", reason,
+                            "operatorName", operatorName == null ? "" : operatorName,
+                            "fromStatus", fromStatus,
+                            "toStatus", AssetStatus.DISABLED.name())),
+                    Instant.now()));
+        } catch (Exception exception) {
+            throw new IllegalStateException("停用审计写入失败", exception);
+        }
     }
 
     public boolean isFavorite(long assetId, String userId) {

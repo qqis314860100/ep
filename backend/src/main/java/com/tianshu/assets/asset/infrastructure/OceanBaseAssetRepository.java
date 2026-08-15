@@ -72,6 +72,8 @@ public class OceanBaseAssetRepository implements AssetRepository {
         } else if (criteria.status() != null && extensionStore.enabled()) {
             where.add("EXISTS (SELECT 1 FROM asset_package_ext ap WHERE ap.drawing_id = sys_drawing.id AND ap.status = :status)");
             parameters.put("status", criteria.status().name());
+        } else if (criteria.status() == null && extensionStore.enabled()) {
+            where.add("NOT EXISTS (SELECT 1 FROM asset_package_ext ap WHERE ap.drawing_id = sys_drawing.id AND ap.status = 'DISABLED')");
         }
         if (!extensionStore.enabled() && criteria.platformFamily() != null && !criteria.platformFamily().isBlank()) {
             where.add("drawing_platform = :platformFamily");
