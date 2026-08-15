@@ -17,12 +17,67 @@ import org.springframework.stereotype.Service;
 @Service
 public class DocumentCommandService {
 
+    private static final java.util.Set<String> GOVERNANCE_ROLES = java.util.Set.of("CONTENT_ADMIN", "SYSTEM_ADMIN");
+
     private final DocumentRepository repository;
     private final FileStorage fileStorage;
+    private final com.tianshu.assets.system.domain.OperationLogStore operationLogs;
 
     public DocumentCommandService(DocumentRepository repository, FileStorage fileStorage) {
+        this(repository, fileStorage, new com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public DocumentCommandService(DocumentRepository repository, FileStorage fileStorage,
+            com.tianshu.assets.system.domain.OperationLogStore operationLogs) {
         this.repository = repository;
         this.fileStorage = fileStorage;
+        this.operationLogs = operationLogs;
+    }
+
+    /** 停用文档（DOC-06）：原因必填、管理员操作、默认隐藏于普通检索、历史全部保留。 */
+    public KnowledgeDocument disable(long documentId, String reason, String operatorUserId,
+            String operatorName, String roles) {
+        if (roles == null || java.util.Arrays.stream(roles.split(","))
+                .map(value -> value.trim().toUpperCase(java.util.Locale.ROOT))
+                .noneMatch(GOVERNANCE_ROLES::contains)) {
+            throw new com.tianshu.assets.asset.application.ForbiddenOperationException("仅内容管理员或系统管理员可以停用文档");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("停用原因不能为空");
+        }
+        var document = repository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException("文档不存在"));
+        if (document.status() != DocumentStatus.PUBLISHED) {
+            throw new DocumentStateConflictException("只有已发布文档可以停用");
+        }
+        var now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        var disabled = new KnowledgeDocument(document.id(), document.documentNumber(), document.title(),
+                document.summary(), document.categoryCode(), document.maintainerId(), document.maintainerName(),
+                document.maintainerDepartment(), document.scopeMode(), document.scopes(), DocumentStatus.DISABLED,
+                document.currentVersionId(), document.currentVersion(), document.createdAt(), now, document.version() + 1);
+        try {
+            var saved = repository.update(disabled, document.version());
+            appendDisableAudit(saved, reason, operatorUserId, operatorName);
+            return saved;
+        } catch (IllegalStateException exception) {
+            throw new DocumentStateConflictException("文档已被其他用户更新，请刷新后重试", exception);
+        }
+    }
+
+    private void appendDisableAudit(KnowledgeDocument document, String reason, String operatorUserId,
+            String operatorName) {
+        try {
+            operationLogs.append(new com.tianshu.assets.system.domain.OperationLog(0, operatorUserId,
+                    "DOCUMENT_DISABLE", "DOCUMENT", document.id(),
+                    new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(java.util.Map.of(
+                            "reason", reason,
+                            "operatorName", operatorName == null ? "" : operatorName,
+                            "toStatus", DocumentStatus.DISABLED.name())),
+                    Instant.now()));
+        } catch (Exception exception) {
+            throw new IllegalStateException("停用审计写入失败", exception);
+        }
     }
 
     public KnowledgeDocument createDraft(CreateDocumentDraftCommand command) {

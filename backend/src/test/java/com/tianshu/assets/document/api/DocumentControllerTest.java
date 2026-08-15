@@ -230,6 +230,38 @@ class DocumentControllerTest {
                 """.formatted(name, format, storageKey, sha256);
     }
 
+    @Test
+    void disablesDocumentWithReasonAndHidesItFromSearch() throws Exception {
+        var draft = objectMapper.readTree(mockMvc.perform(post("/api/v1/documents/drafts")
+                        .contentType(APPLICATION_JSON)
+                        .content(validDraftJson("DOC-DISABLE-1")))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+        var id = draft.get("id").asLong();
+        mockMvc.perform(post("/api/v1/documents/{id}/publish", id)).andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/documents/{id}/disable", id)
+                        .header("X-User-Roles", "UPLOADER")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reason\":\"已下线\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/documents/{id}/disable", id)
+                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"reason\":\"该规范已被新版替代\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DISABLED"));
+
+        mockMvc.perform(get("/api/v1/documents").param("q", "接口测试文档"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.meta.total").value(0));
+
+        mockMvc.perform(get("/api/v1/documents/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DISABLED"));
+    }
+
     private String validDraftJson(String documentNumber) {
         return """
                 {

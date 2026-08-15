@@ -29,7 +29,8 @@ public class DocumentQueryService {
 
     public KnowledgeDocument getPublished(long documentId) {
         return repository.findById(documentId)
-                .filter(document -> document.status() == DocumentStatus.PUBLISHED)
+                .filter(document -> document.status() == DocumentStatus.PUBLISHED
+                        || document.status() == DocumentStatus.DISABLED)
                 .orElseThrow(() -> new DocumentNotFoundException("文档不存在或不可访问"));
     }
 

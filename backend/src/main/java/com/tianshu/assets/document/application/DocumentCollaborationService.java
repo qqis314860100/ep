@@ -40,13 +40,14 @@ public class DocumentCollaborationService {
         return store.setFavorite(documentId, userId, favorite);
     }
 
-    /** 我的收藏文档（仅已发布）。 */
+    /** 我的收藏文档（已发布与已停用均保留，草稿除外）。 */
     public List<KnowledgeDocument> myFavorites(String userId) {
         return store.favoriteDocumentIds(userId).stream()
                 .map(repository::findById)
                 .filter(java.util.Optional::isPresent)
                 .map(java.util.Optional::get)
-                .filter(document -> document.status() == DocumentStatus.PUBLISHED)
+                .filter(document -> document.status() == DocumentStatus.PUBLISHED
+                        || document.status() == DocumentStatus.DISABLED)
                 .toList();
     }
 

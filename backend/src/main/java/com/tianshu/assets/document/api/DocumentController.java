@@ -118,6 +118,18 @@ public class DocumentController {
         return DocumentResponse.from(commandService.publish(id, publisherId, publisherName));
     }
 
+    @PostMapping("/{id}/disable")
+    public DocumentResponse disable(
+            @PathVariable long id,
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String operatorUserId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String operatorName,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
+            @Valid @RequestBody DisableRequest request) {
+        return DocumentResponse.from(commandService.disable(id, request.reason(), operatorUserId, operatorName, roles));
+    }
+
+    public record DisableRequest(@NotBlank(message = "停用原因不能为空") String reason) {}
+
     @GetMapping("/{documentId}/versions/{versionId}/files/{fileId}")
     public ResponseEntity<byte[]> file(
             @PathVariable long documentId,
