@@ -3,6 +3,7 @@ import type {
   DocumentFile,
   DocumentPage,
   DocumentSearchParams,
+  DocumentVersion,
   KnowledgeDocument,
   AssetDocumentRelation,
 } from '../types/document'
@@ -107,4 +108,40 @@ export function getDocumentFileUrl(
 ): string {
   const path = `/api/v1/documents/${documentId}/versions/${versionId}/files/${fileId}`
   return `${apiBaseUrl}${path}${preview ? '?preview=true' : ''}`
+}
+
+export async function getDocumentVersions(documentId: number): Promise<DocumentVersion[]> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/documents/${documentId}/versions`, {
+    headers: { Accept: 'application/json' },
+  })
+  if (!response.ok) throw new Error(`版本清单加载失败：${response.status}`)
+  return response.json() as Promise<DocumentVersion[]>
+}
+
+export async function createDocumentVersion(
+  documentId: number,
+  input: { versionNumber: string; changeSummary: string; files: DocumentFile[] },
+): Promise<DocumentVersion> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/documents/${documentId}/versions`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as ApiErrorBody
+    throw new Error(body.error?.message || `版本创建失败：${response.status}`)
+  }
+  return response.json() as Promise<DocumentVersion>
+}
+
+export async function publishDocumentVersion(documentId: number, versionId: number): Promise<unknown> {
+  const response = await fetch(`${apiBaseUrl}/api/v1/documents/${documentId}/versions/${versionId}/publish`, {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+  })
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as ApiErrorBody
+    throw new Error(body.error?.message || `版本发布失败：${response.status}`)
+  }
+  return response.json()
 }

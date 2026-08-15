@@ -5,10 +5,12 @@ import {
   FileOutlined,
   FilePdfOutlined,
   LinkOutlined,
+  PlusOutlined,
   ReloadOutlined,
+  SendOutlined,
 } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, App as AntdApp, Button, Select, Skeleton, Tag, Tooltip } from 'antd'
+import { Alert, App as AntdApp, Button, Select, Skeleton, Space, Tag, Tooltip, Typography } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
@@ -19,15 +21,22 @@ import {
   formatFileSize,
 } from '../../../features/documents/documentPresentation'
 import { getDictionaryItems } from '../../../services/dictionaryService'
-import { getDocument, getDocumentAssetRelations } from '../../../services/documentService'
+import {
+  getDocument,
+  getDocumentAssetRelations,
+  getDocumentFileUrl,
+  getDocumentVersions,
+  publishDocumentVersion,
+} from '../../../services/documentService'
 import {
   changeAssetDocumentRelationType,
   createAssetDocumentRelation,
   removeAssetDocumentRelation,
 } from '../../../services/assetDocumentRelationService'
-import type { AssetDocumentRelation, AssetDocumentRelationType, DocumentFile } from '../../../types/document'
+import type { AssetDocumentRelation, AssetDocumentRelationType, DocumentFile, DocumentVersion } from '../../../types/document'
 import { AssetDocumentRelationModal } from '../../../features/documents/components/AssetDocumentRelationModal'
 import { assetDocumentRelationLabels } from '../../../features/documents/assetDocumentRelationPresentation'
+import { NewDocumentVersionModal } from './NewDocumentVersionModal'
 
 const Page = styled.div`
   min-width: 0;
@@ -137,6 +146,69 @@ const InfoPanel = styled.aside`
   border-left: 1px solid #dbe2de;
 `
 
+const VersionSection = styled.section`
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #dfe6e2;
+  border-radius: 6px;
+`
+
+const SectionHeading = styled.h2`
+  margin: 0 0 10px;
+  color: #2a3b34;
+  font-size: 14px;
+  font-weight: 650;
+`
+
+const SectionCount = styled.span`
+  margin-left: 8px;
+  color: #8b9590;
+  font-size: 11px;
+  font-weight: 400;
+`
+
+const VersionCard = styled.div`
+  padding: 10px 0;
+  border-bottom: 1px dashed #edf0ee;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+`
+
+const VersionHeader = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+`
+
+const VersionSummary = styled.div`
+  margin: 5px 0;
+  color: #5e6b65;
+  font-size: 12px;
+`
+
+const VersionFiles = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`
+
+const VersionFile = styled.div`
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  color: #3f4d46;
+  font-size: 11px;
+  background: #f5f8f6;
+  border: 1px solid #e3e9e5;
+  border-radius: 4px;
+`
+
 const InfoBody = styled.div`
   padding: 12px 14px;
 `
@@ -213,9 +285,26 @@ export default function DocumentDetailPage() {
   const categoryQuery = useQuery({ queryKey: ['document-categories'], queryFn: getDictionaryItems })
   const categories = useMemo(() => (categoryQuery.data ?? [])
     .filter((item) => item.category === 'DOCUMENT_CATEGORY'), [categoryQuery.data])
+  const versionsQuery = useQuery({
+    queryKey: ['document-versions', documentId],
+    queryFn: () => getDocumentVersions(documentId),
+    enabled: Number.isFinite(documentId),
+  })
   const [selectedFileId, setSelectedFileId] = useState<number>()
   const [relationDialogOpen, setRelationDialogOpen] = useState(false)
+  const [versionDialogOpen, setVersionDialogOpen] = useState(false)
   const document = documentQuery.data
+  const publishVersionMutation = useMutation({
+    mutationFn: (version: DocumentVersion) => publishDocumentVersion(documentId, version.id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['document', documentId] }),
+        queryClient.invalidateQueries({ queryKey: ['document-versions', documentId] }),
+      ])
+      void message.success('新版本已发布并成为当前版本')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '版本发布失败'),
+  })
   useEffect(() => {
     if (document && selectedFileId === undefined) setSelectedFileId(document.currentVersion.files[0]?.id)
   }, [document, selectedFileId])
@@ -288,6 +377,7 @@ export default function DocumentDetailPage() {
           <DocumentNumber>{document.documentNumber}</DocumentNumber>
         </div>
         <Spacer />
+        <Button icon={<PlusOutlined />} onClick={() => setVersionDialogOpen(true)}>创建新版本</Button>
         <Button icon={<LinkOutlined />} aria-label="关联资产" onClick={() => setRelationDialogOpen(true)}>关联资产</Button>
         <Tag color="green">已发布</Tag>
         <Tag color="blue">当前版本 {document.currentVersion.versionNumber}</Tag>
@@ -363,6 +453,49 @@ export default function DocumentDetailPage() {
         onClose={() => setRelationDialogOpen(false)}
         onSubmit={(input) => createRelation.mutate(input)}
       />
+      <NewDocumentVersionModal
+        open={versionDialogOpen}
+        documentId={document.id}
+        currentVersionNumber={document.currentVersion.versionNumber}
+        onClose={() => setVersionDialogOpen(false)}
+        onCreated={async () => {
+          await queryClient.invalidateQueries({ queryKey: ['document-versions', documentId] })
+          setVersionDialogOpen(false)
+        }}
+      />
+
+      <VersionSection>
+        <SectionHeading>版本历史 <SectionCount>{versionsQuery.data?.length ?? 0} 个版本</SectionCount></SectionHeading>
+        {versionsQuery.isLoading ? <Skeleton active paragraph={{ rows: 2 }} /> : versionsQuery.isError ? <Alert type="error" showIcon message="版本清单加载失败" /> : (versionsQuery.data ?? []).map((version) => (
+          <VersionCard key={version.id}>
+            <VersionHeader>
+              <Space size={8}>
+                <Typography.Text strong style={{ fontSize: 13 }}>{version.versionNumber}</Typography.Text>
+                {version.id === document.currentVersion.id
+                  ? <Tag color="blue">当前版本</Tag>
+                  : version.status === 'DRAFT' ? <Tag>草稿版本</Tag> : <Tag>历史版本</Tag>}
+              </Space>
+              <Space size={6}>
+                {version.status === 'DRAFT'
+                  ? <Button size="small" type="primary" icon={<SendOutlined />} loading={publishVersionMutation.isPending} onClick={() => publishVersionMutation.mutate(version)}>发布</Button>
+                  : <Typography.Text type="secondary" style={{ fontSize: 11 }}>{formatDocumentTime(version.publishedAt)} · {version.publishedBy || '-'}</Typography.Text>}
+              </Space>
+            </VersionHeader>
+            <VersionSummary>{version.changeSummary || '—'}</VersionSummary>
+            <VersionFiles>
+              {version.files.map((file) => (
+                <VersionFile key={file.id}>
+                  <FileOutlined />
+                  <span>{file.name}</span>
+                  <span style={{ color: '#8b9590' }}>{file.format} · {formatFileSize(file.sizeBytes)}</span>
+                  <Button size="small" type="link" href={getDocumentFileUrl(document.id, version.id, file.id, true)} target="_blank">预览</Button>
+                  <Button size="small" type="link" href={getDocumentFileUrl(document.id, version.id, file.id, false)}>下载</Button>
+                </VersionFile>
+              ))}
+            </VersionFiles>
+          </VersionCard>
+        ))}
+      </VersionSection>
     </Page>
   )
 }
