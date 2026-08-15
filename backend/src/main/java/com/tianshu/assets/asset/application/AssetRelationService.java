@@ -5,12 +5,16 @@ import com.tianshu.assets.asset.domain.Asset;
 import com.tianshu.assets.asset.domain.AssetRelation;
 import com.tianshu.assets.asset.domain.AssetRepository;
 import com.tianshu.assets.asset.domain.AssetScope;
+import com.tianshu.assets.asset.domain.AssetStatus;
+import com.tianshu.assets.asset.domain.AssetType;
 import com.tianshu.assets.asset.domain.RelationType;
 import com.tianshu.assets.system.domain.OperationLog;
 import com.tianshu.assets.system.domain.OperationLogStore;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -95,6 +99,47 @@ public class AssetRelationService {
         assets.removeRelation(relationId);
         audit("RELATION_REMOVE", relationId, current, null, operatorUserId, Instant.now());
     }
+
+    /** 以当前资产为中心的多层关系图（RELATION-02），按层展开、环安全、停用节点带状态标记。 */
+    public RelationGraph relationGraph(long rootAssetId, int depth) {
+        var boundedDepth = Math.min(Math.max(depth, 1), 3);
+        var nodes = new LinkedHashMap<Long, GraphNode>();
+        var edges = new LinkedHashMap<Long, GraphEdge>();
+        var visited = new HashSet<Long>();
+        nodes.put(rootAssetId, graphNode(requireAsset(rootAssetId), 0));
+        visited.add(rootAssetId);
+        var level = List.of(rootAssetId);
+        for (var currentDepth = 1; currentDepth <= boundedDepth && !level.isEmpty(); currentDepth++) {
+            var next = new ArrayList<Long>();
+            for (var assetId : level) {
+                for (var relation : assets.findRelations(assetId)) {
+                    var otherId = relation.fromSourceSide(assetId)
+                            ? relation.targetAssetId() : relation.sourceAssetId();
+                    edges.putIfAbsent(relation.id(), new GraphEdge(relation.id(),
+                            relation.sourceAssetId(), relation.targetAssetId(), relation.relationType(),
+                            labels(relation.relationType())[0], relation.description()));
+                    if (!visited.add(otherId)) continue;
+                    nodes.put(otherId, graphNode(requireAsset(otherId), currentDepth));
+                    next.add(otherId);
+                }
+            }
+            level = next;
+        }
+        return new RelationGraph(List.copyOf(nodes.values()), List.copyOf(edges.values()));
+    }
+
+    private GraphNode graphNode(Asset asset, int depth) {
+        return new GraphNode(asset.id(), asset.assetNumber(), asset.name(), asset.assetType(),
+                asset.status(), depth);
+    }
+
+    public record RelationGraph(List<GraphNode> nodes, List<GraphEdge> edges) {}
+
+    public record GraphNode(long assetId, String assetNumber, String assetName, AssetType assetType,
+            AssetStatus status, int depth) {}
+
+    public record GraphEdge(long id, long sourceAssetId, long targetAssetId, RelationType relationType,
+            String directionLabel, String description) {}
 
     private AssetRelation view(long id, long sourceAssetId, Asset target, RelationType relationType,
             String description, String operatorUserId, String operatorName, Instant now, long version) {

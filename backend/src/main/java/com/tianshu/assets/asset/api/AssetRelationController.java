@@ -4,6 +4,7 @@ import com.tianshu.assets.asset.application.AssetRelationService;
 import com.tianshu.assets.asset.domain.AssetRelation;
 import com.tianshu.assets.asset.domain.RelationType;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -40,6 +42,13 @@ public class AssetRelationController {
     @GetMapping("/{assetId}/relations")
     public List<AssetRelation> list(@PathVariable @Min(1) long assetId) {
         return relations.findRelations(assetId);
+    }
+
+    @GetMapping("/{assetId}/relation-graph")
+    public AssetRelationService.RelationGraph graph(
+            @PathVariable @Min(1) long assetId,
+            @RequestParam(defaultValue = "2") @Min(1) @Max(3) int depth) {
+        return relations.relationGraph(assetId, depth);
     }
 
     @PostMapping("/{assetId}/relations")

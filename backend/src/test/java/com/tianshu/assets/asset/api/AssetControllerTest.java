@@ -182,6 +182,25 @@ class AssetControllerTest {
     }
 
     @Test
+    void returnsMultiLevelRelationGraphWithDepthLimit() throws Exception {
+        mockMvc.perform(post("/api/v1/assets/104/relations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetAssetId\":102,\"relationType\":\"REFERENCES\",\"description\":\"历史图被引用\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/assets/104/relation-graph").param("depth", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nodes.length()").value(2))
+                .andExpect(jsonPath("$.edges.length()").value(1))
+                .andExpect(jsonPath("$.edges[0].directionLabel").value("引用"));
+
+        mockMvc.perform(get("/api/v1/assets/104/relation-graph").param("depth", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nodes[?(@.assetId==101)].depth").value(org.hamcrest.Matchers.contains(2)))
+                .andExpect(jsonPath("$.nodes[?(@.assetId==102)].depth").value(org.hamcrest.Matchers.contains(1)));
+    }
+
+    @Test
     void updatesAndRemovesRelationWithAudit() throws Exception {
         var createdJson = mockMvc.perform(post("/api/v1/assets/102/relations")
                         .header("X-User-Id", "emp-chen")
