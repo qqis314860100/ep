@@ -232,6 +232,19 @@ export async function disableAsset(assetId: number, reason: string): Promise<Ass
   })
 }
 
+export interface BatchDraftResult {
+  assets: Asset[]
+  duplicateFiles: { fileName: string; contentSha256: string }[]
+}
+
+export async function saveAssetDraftsBatch(inputs: AssetDraftInput[]): Promise<BatchDraftResult> {
+  return request<BatchDraftResult>('/api/v1/assets/batch-drafts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(inputs),
+  })
+}
+
 export async function saveAssetDraft(input: AssetDraftInput): Promise<Asset> {
   if (useMocks) {
     await delay(180)

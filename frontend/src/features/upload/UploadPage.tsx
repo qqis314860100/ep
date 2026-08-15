@@ -14,6 +14,7 @@ import {
   Button,
   Form,
   Input,
+  Modal,
   Select,
   Space,
   Switch,
@@ -28,8 +29,9 @@ import type { UploadChangeParam, UploadFile } from 'antd/es/upload/interface'
 import type { ColumnsType } from 'antd/es/table'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
-import { saveAssetDraft, submitAsset, uploadAssetFile } from '../../services/assetService'
+import { saveAssetDraft, saveAssetDraftsBatch, submitAsset, uploadAssetFile } from '../../services/assetService'
 import { getDictionaryItems } from '../../services/dictionaryService'
 import type { AssetDraftInput, AssetFile, AssetType } from '../../types/asset'
 
@@ -542,6 +544,95 @@ export function UploadPage() {
     setRoles(Object.fromEntries(fileList.map((file) => [file.uid, batchRole])))
   }
 
+  const navigate = useNavigate()
+  const [batchOpen, setBatchOpen] = useState(false)
+  const [batchRows, setBatchRows] = useState<Record<string, { name: string; assetNumber: string; description: string; specialties: string[] }>>({})
+  const [batchSaving, setBatchSaving] = useState(false)
+  const [batchError, setBatchError] = useState<string>()
+  const groupIds = useMemo(() => [...new Set(Object.values(groups))], [groups])
+  const filesByGroup = useMemo(() => {
+    const map: Record<string, UploadFile[]> = {}
+    fileList.forEach((file) => {
+      const group = groups[file.uid] ?? '资产组 1'
+      ;(map[group] ??= []).push(file)
+    })
+    return map
+  }, [fileList, groups])
+  const batchScope = form.getFieldsValue()
+  const scopeComplete = Boolean(batchScope.platform && batchScope.productLine && batchScope.base && batchScope.productionLine)
+  const batchNumbers = Object.values(batchRows).map((row) => row.assetNumber.trim().toLowerCase())
+  const duplicateNumbers = new Set(batchNumbers.filter((number, index) => number && batchNumbers.indexOf(number) !== index))
+  const incompleteBatch = groupIds.some((groupId) => {
+    const row = batchRows[groupId]
+    return !row || !row.name.trim() || !row.assetNumber.trim() || !row.description.trim()
+      || (row.specialties ?? []).length === 0 || !scopeComplete
+  })
+
+  const openBatch = () => {
+    const values = form.getFieldsValue()
+    setBatchRows(Object.fromEntries(groupIds.map((groupId) => [groupId, {
+      name: groupId,
+      assetNumber: '',
+      description: '',
+      specialties: values.specialties ?? [],
+    }])))
+    setBatchError(undefined)
+    setBatchOpen(true)
+  }
+
+  const submitBatch = async () => {
+    setBatchSaving(true)
+    setBatchError(undefined)
+    try {
+      const uploadedFiles = await uploadSelectedFiles()
+      const values = form.getFieldsValue()
+      const inputs = groupIds.map((groupId) => {
+        const row = batchRows[groupId]
+        const groupFiles = filesByGroup[groupId] ?? []
+        const files = groupFiles.map((file, index) => {
+          const uploadedIndex = fileList.findIndex((item) => item.uid === file.uid)
+          const uploaded = uploadedFiles[Math.max(uploadedIndex, 0)]
+          return { ...uploaded, role: roles[file.uid] ?? uploaded.role, primary: index === 0 }
+        })
+        return {
+          assetNumber: row?.assetNumber.trim() ?? '',
+          name: row?.name.trim() ?? '',
+          description: row?.description.trim() ?? '',
+          assetType: values.assetType,
+          specialties: row?.specialties ?? [],
+          tags: [],
+          moduleTags: values.moduleTags ?? [],
+          standardEquipmentModule: values.standardEquipmentModule ?? false,
+          linkedModuleAssetIds: [],
+          equipmentInterconnectCode: values.equipmentInterconnectCode?.trim() ?? '',
+          scopes: scopeComplete ? [{
+            platform: values.platform ?? '',
+            productLine: values.productLine ?? '',
+            base: values.base ?? '',
+            productionLine: values.productionLine ?? '',
+            processSection: values.processSection ?? '',
+            platformFamily: values.platform ?? '',
+            platformVariant: values.platformVariant ?? '',
+          }] : [],
+          files,
+          ownerName: '陈工',
+          ownerDepartment: '设备工程部',
+        }
+      })
+      const result = await saveAssetDraftsBatch(inputs)
+      if (result.duplicateFiles.length > 0) {
+        void message.warning(`检测到 ${result.duplicateFiles.length} 个内容完全相同的文件，已原样保留并提示，未自动处理`)
+      }
+      void message.success(`已批量创建 ${result.assets.length} 份资产草稿`)
+      setBatchOpen(false)
+      navigate('/my-uploads')
+    } catch (error) {
+      setBatchError(error instanceof Error ? error.message : '批量创建失败')
+    } finally {
+      setBatchSaving(false)
+    }
+  }
+
   const columns: ColumnsType<UploadFile> = [
     {
       title: '文件名 / 后缀',
@@ -731,7 +822,10 @@ export function UploadPage() {
               locale={{ emptyText: '选择文件后显示处理队列' }}
             />
           </FilesTable>
-          <Button block size="small" disabled={fileList.length === 0} onClick={autoGroup}>自动归组</Button>
+          <Space.Compact style={{ width: '100%' }}>
+            <Button block size="small" disabled={fileList.length === 0} onClick={autoGroup}>自动归组</Button>
+            <Button block size="small" type="primary" disabled={groupIds.length < 2} onClick={openBatch}>按归组批量创建</Button>
+          </Space.Compact>
         </UploadPanel>
         </UploadScrollArea>
 
@@ -741,6 +835,82 @@ export function UploadPage() {
           <Button type="primary" htmlType="submit" loading={saving || uploading} icon={<CloudUploadOutlined />}>提交待整理</Button>
         </ActionBar>
       </Form>
+
+      <Modal
+        title={`批量创建资产（${groupIds.length} 组）`}
+        open={batchOpen}
+        onCancel={() => setBatchOpen(false)}
+        onOk={() => void submitBatch()}
+        okText="批量创建草稿"
+        okButtonProps={{ disabled: incompleteBatch }}
+        confirmLoading={batchSaving}
+        width={860}
+        destroyOnClose
+      >
+        <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
+          每个归组创建一份资产草稿；适用范围与平台信息取自上方表单的批量设置（平台族/子类/蓝本/基地/拉线/工序段），专业类别可在行内单独覆盖。
+        </Typography.Paragraph>
+        {batchError && <Alert type="error" showIcon message={batchError} style={{ marginBottom: 12 }} />}
+        <Table
+          rowKey="groupId"
+          size="small"
+          dataSource={groupIds.map((groupId) => ({ groupId, ...(batchRows[groupId] ?? { name: '', assetNumber: '', description: '', specialties: [] }) }))}
+          pagination={false}
+          scroll={{ x: 760 }}
+          columns={[
+            { title: '归组', dataIndex: 'groupId', width: 120 },
+            {
+              title: '资产名称',
+              dataIndex: 'name',
+              width: 160,
+              render: (_, row) => (
+                <Input size="small" value={row.name} onChange={(event) => setBatchRows((current) => ({ ...current, [row.groupId]: { ...current[row.groupId], name: event.target.value } }))} placeholder="必填" />
+              ),
+            },
+            {
+              title: '资料编号',
+              dataIndex: 'assetNumber',
+              width: 150,
+              render: (_, row) => (
+                <Input size="small" value={row.assetNumber} status={row.assetNumber.trim() && duplicateNumbers.has(row.assetNumber.trim().toLowerCase()) ? 'error' : undefined}
+                  onChange={(event) => setBatchRows((current) => ({ ...current, [row.groupId]: { ...current[row.groupId], assetNumber: event.target.value } }))} placeholder="必填，全局唯一" />
+              ),
+            },
+            {
+              title: '功能说明',
+              dataIndex: 'description',
+              width: 180,
+              render: (_, row) => (
+                <Input size="small" value={row.description} onChange={(event) => setBatchRows((current) => ({ ...current, [row.groupId]: { ...current[row.groupId], description: event.target.value } }))} placeholder="必填" />
+              ),
+            },
+            {
+              title: '专业类别',
+              dataIndex: 'specialties',
+              width: 170,
+              render: (_, row) => (
+                <Select mode="multiple" size="small" value={row.specialties ?? []} style={{ width: 160 }}
+                  options={specialtyOptions.map((value) => ({ value, label: value }))}
+                  onChange={(values) => setBatchRows((current) => ({ ...current, [row.groupId]: { ...current[row.groupId], specialties: values } }))} />
+              ),
+            },
+            {
+              title: '状态',
+              key: 'status',
+              width: 150,
+              render: (_, row) => {
+                const missing = !row.name.trim() || !row.assetNumber.trim() || !row.description.trim() || (row.specialties ?? []).length === 0 || !scopeComplete
+                const duplicated = row.assetNumber.trim() && duplicateNumbers.has(row.assetNumber.trim().toLowerCase())
+                return <Space size={4} wrap>
+                  {missing && <Tag color="orange">未完整</Tag>}
+                  {duplicated && <Tag color="red">编号重复</Tag>}
+                  {!missing && !duplicated && <Tag color="green">可提交</Tag>}
+                </Space>
+              },
+            },
+          ]}
+        />
+      </Modal>
     </UploadFrame>
   )
 }
