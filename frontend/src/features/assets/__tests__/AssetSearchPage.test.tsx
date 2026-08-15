@@ -114,10 +114,14 @@ describe('AssetSearchPage unified results', () => {
 
     expect(await screen.findByRole('button', { name: '打开 底部水冷模组' })).toBeInTheDocument()
     expect(screen.getAllByLabelText('排序方式').length).toBeGreaterThan(0)
-    expect(screen.getByLabelText('仅看缺少标准适用范围的历史资料')).toBeInTheDocument()
+    expect(screen.getByText('专业类别')).toBeInTheDocument()
+    // 蓝本/工序段等低频筛选默认折叠，展开后再断言
+    if (screen.queryByText(/更多筛选/)) {
+      await user.click(screen.getByText(/更多筛选/))
+    }
     expect(screen.getByText('蓝本')).toBeInTheDocument()
     expect(screen.getByText('工序段')).toBeInTheDocument()
-    expect(screen.getByText('专业类别')).toBeInTheDocument()
+    expect(screen.getByLabelText('仅看缺少标准适用范围的历史资料')).toBeInTheDocument()
 
     const sortSelect = screen.getAllByLabelText('排序方式')[0]
     await user.click(sortSelect.querySelector('.ant-select-selector')!)
