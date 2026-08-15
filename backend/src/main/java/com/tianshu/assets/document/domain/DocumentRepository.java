@@ -15,6 +15,8 @@ public interface DocumentRepository {
 
     KnowledgeDocument update(KnowledgeDocument document, long expectedVersion);
 
+    List<KnowledgeDocument> findAll();
+
     List<DocumentVersion> findVersions(long documentId);
 
     Optional<DocumentVersion> findVersion(long documentId, long versionId);

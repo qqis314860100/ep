@@ -122,6 +122,11 @@ public class InMemoryDocumentRepository implements DocumentRepository {
     }
 
     @Override
+    public synchronized List<KnowledgeDocument> findAll() {
+        return List.copyOf(documents);
+    }
+
+    @Override
     public synchronized Optional<KnowledgeDocument> findById(long id) {
         return documents.stream().filter(document -> document.id() == id).findFirst();
     }

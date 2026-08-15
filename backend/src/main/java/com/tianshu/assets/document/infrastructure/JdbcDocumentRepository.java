@@ -75,6 +75,12 @@ public class JdbcDocumentRepository implements DocumentRepository {
     }
 
     @Override
+    public List<KnowledgeDocument> findAll() {
+        var ids = jdbcTemplate.queryForList("SELECT id FROM knowledge_document ORDER BY id", Long.class);
+        return ids.stream().map(this::findRequired).toList();
+    }
+
+    @Override
     public Optional<KnowledgeDocument> findById(long id) {
         var rows = jdbcTemplate.query("""
                 SELECT id, document_number, title, summary, category_code, maintainer_id, maintainer_name,
