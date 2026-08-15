@@ -12,7 +12,7 @@ import {
 } from '@ant-design/icons'
 import { App as AntdApp, Button, Empty, Select, Space, Spin, Tag, Tooltip } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { AssetStatusTag } from '../../../features/assets/AssetTags'
