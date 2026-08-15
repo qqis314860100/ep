@@ -2,7 +2,6 @@ import {
   ApartmentOutlined,
   ArrowLeftOutlined,
   DeleteOutlined,
-  EditOutlined,
   FileZipOutlined,
   LinkOutlined,
   RightOutlined,
@@ -206,9 +205,19 @@ const RelationNote = styled.div`
 const RelationActions = styled.div`
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 10px;
 
   .ant-select { width: 74px; }
+`
+
+const RelationActionLink = styled.span<{ $danger?: boolean }>`
+  color: ${(props) => (props.$danger ? '#c2452f' : '#2f7567')};
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
 `
 
 const CommentArea = styled.div`
@@ -405,8 +414,8 @@ export default function DrawingDetailPage() {
                   <RelationMeta>{relation.targetAssetNumber} · {relation.primaryScope}</RelationMeta>
                   {relation.description && <RelationNote>{relation.description}</RelationNote>}
                   <RelationActions>
-                    <Button size="small" type="link" icon={<EditOutlined />} onClick={(event) => { event.stopPropagation(); setEditingRelation(relation); setRelationDialogOpen(true) }}>修改</Button>
-                    <Button size="small" type="link" danger icon={<DeleteOutlined />} onClick={(event) => { event.stopPropagation(); confirmRemoveRelation(relation) }}>解除</Button>
+                    <RelationActionLink onClick={(event) => { event.stopPropagation(); setEditingRelation(relation); setRelationDialogOpen(true) }}>修改</RelationActionLink>
+                    <RelationActionLink $danger onClick={(event) => { event.stopPropagation(); confirmRemoveRelation(relation) }}>解除</RelationActionLink>
                   </RelationActions>
                 </RelationBody>
                 <RightOutlined style={{ color: '#819089' }} />
