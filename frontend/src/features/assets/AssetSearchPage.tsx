@@ -486,9 +486,11 @@ function useDebouncedValue<T>(value: T, delay: number) {
 export function AssetSearchPage() {
   const navigate = useNavigate()
   const savedSearch = useRef(readSavedSearchState()).current
-  const [query, setQuery] = useState(savedSearch?.query ?? '')
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), [])
+  const urlStatus = urlParams.get('status') as AssetStatus | null
+  const [query, setQuery] = useState(urlParams.get('q') ?? savedSearch?.query ?? '')
   const [assetType, setAssetType] = useState<AssetType | undefined>(savedSearch?.assetType)
-  const [status, setStatus] = useState<AssetStatus | undefined>(savedSearch?.status)
+  const [status, setStatus] = useState<AssetStatus | undefined>(urlStatus ?? savedSearch?.status)
   const [platformFamily, setPlatformFamily] = useState<string | undefined>(savedSearch?.platformFamily)
   const [platformVariant, setPlatformVariant] = useState<string | undefined>(savedSearch?.platformVariant)
   const [base, setBase] = useState<string | undefined>(savedSearch?.base)

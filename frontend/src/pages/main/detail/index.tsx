@@ -20,6 +20,7 @@ import { AssetDocumentRelationModal } from '../../../features/documents/componen
 import { assetDocumentRelationLabels } from '../../../features/documents/assetDocumentRelationPresentation'
 import { useAsset, useAssetRelations, useFavorite } from '../../../hooks/useAssets'
 import { getAssetDocuments, getAssetFileUrl, getAssetPackageUrl, disableAsset, removeAssetRelation, setFavorite } from '../../../services/assetService'
+import { recordRecentAssetView } from '../../../services/recentViews'
 import {
   changeAssetDocumentRelationType,
   createAssetDocumentRelation,
@@ -242,6 +243,9 @@ export default function DrawingDetailPage() {
   const [editingRelation, setEditingRelation] = useState<AssetRelation>()
   const [disableDialogOpen, setDisableDialogOpen] = useState(false)
   const asset = assetQuery.data
+  useEffect(() => {
+    if (asset) recordRecentAssetView(asset)
+  }, [asset])
 
   const disableMutation = useMutation({
     mutationFn: (reason: string) => disableAsset(assetId, reason),

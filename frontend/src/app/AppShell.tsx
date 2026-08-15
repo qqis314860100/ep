@@ -6,6 +6,7 @@ import {
   FileSearchOutlined,
   FileTextOutlined,
   HeartOutlined,
+  HomeOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   QuestionCircleOutlined,
@@ -267,6 +268,7 @@ interface NavigationItem {
 }
 
 const primaryItems: NavigationItem[] = [
+  { key: 'home', label: '首页', path: '/home', icon: <HomeOutlined />, active: (path) => path === '/home' },
   { key: 'search', label: '资料检索', path: '/', icon: <FileSearchOutlined />, active: (path) => path === '/' || path.startsWith('/assets') },
   { key: 'documents', label: '文档中心', path: '/documents', icon: <FileTextOutlined />, active: (path) => path.startsWith('/documents') },
   { key: 'upload', label: '上传资料', path: '/upload', icon: <CloudUploadOutlined />, active: (path) => path === '/upload' || path === '/sys/file' },

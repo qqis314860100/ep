@@ -7,6 +7,7 @@ import { AppShell } from './app/AppShell'
 import { GlobalStyle } from './styles/GlobalStyle'
 
 const SearchPage = lazy(() => import('./pages/main/search'))
+const HomePage = lazy(() => import('./pages/main/home'))
 const DetailPage = lazy(() => import('./pages/main/detail'))
 const RelationBrowserPage = lazy(() => import('./pages/main/relation-browser'))
 const FavoritesPage = lazy(() => import('./pages/main/favorites'))
@@ -90,6 +91,7 @@ export default function App() {
               <Suspense fallback={<Spin fullscreen tip="正在加载" />}>
                 <Routes>
                   <Route path="/" element={<SearchPage />} />
+                  <Route path="/home" element={<HomePage />} />
                   <Route path="/assets" element={<SearchPage />} />
                   <Route path="/assets/:id" element={<DetailPage />} />
                   <Route path="/assets/:id/relations" element={<RelationBrowserPage />} />
