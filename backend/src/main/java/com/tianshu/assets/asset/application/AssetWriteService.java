@@ -170,6 +170,9 @@ public class AssetWriteService {
         if (drafts == null || drafts.isEmpty()) {
             throw new IllegalArgumentException("请至少提供一份资产");
         }
+        if (drafts.size() > 100) {
+            throw new IllegalArgumentException("单批最多创建 100 份资产");
+        }
         var numbers = new java.util.HashSet<String>();
         for (var draft : drafts) {
             validateCommon(draft);

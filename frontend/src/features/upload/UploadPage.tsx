@@ -389,6 +389,7 @@ export function UploadPage() {
   const [roles, setRoles] = useState<Record<string, string>>({})
   const [groups, setGroups] = useState<Record<string, string>>({})
   const [fileStages, setFileStages] = useState<Record<string, FileStage>>({})
+  const [uploadedByUid, setUploadedByUid] = useState<Record<string, AssetFile>>({})
   const [batchRole, setBatchRole] = useState('')
   const [draftId, setDraftId] = useState<number>()
   const [saving, setSaving] = useState(false)
@@ -442,7 +443,7 @@ export function UploadPage() {
     accept: '.x_t,.step,.stp,.iges,.igs,.dwg,.dxf,.pdf,.png,.jpg,.jpeg,.tiff,.webp,.doc,.docx,.zip,.rar',
   }
 
-  const valuesToInput = (values: UploadFormValues, uploadedFiles: AssetFile[]): AssetDraftInput => ({
+  const valuesToInput = (values: UploadFormValues): AssetDraftInput => ({
     assetNumber: values.assetNumber?.trim() ?? '',
     name: values.name?.trim() ?? '',
     description: values.description?.trim() ?? '',
@@ -468,42 +469,72 @@ export function UploadPage() {
         platformVariant: values.platformVariant ?? '',
       }]
       : [],
-    files: uploadedFiles.map((file, index) => ({
-      ...file,
-      role: roles[fileList[index]?.uid] ?? file.role,
-      primary: index === 0,
-    })),
+    files: fileList.map((file, index) => {
+      const uploaded = uploadedByUid[file.uid]
+      return uploaded ? { ...uploaded, role: roles[file.uid] ?? uploaded.role, primary: index === 0 } : null
+    }).filter((file): file is AssetFile => file !== null),
     ownerName: '陈工',
     ownerDepartment: '设备工程部',
   })
 
-  const uploadSelectedFiles = async () => {
+  const uploadSelectedFiles = async (): Promise<AssetFile[]> => {
     setUploading(true)
+    const results: AssetFile[] = []
+    for (const file of fileList) {
+      const cached = uploadedByUid[file.uid]
+      if (cached) {
+        results.push(cached)
+        continue
+      }
+      if (!file.originFileObj) {
+        setFileStages((current) => ({ ...current, [file.uid]: '失败' }))
+        continue
+      }
+      setFileStages((current) => ({ ...current, [file.uid]: '上传中' }))
+      try {
+        const uploaded = await uploadAssetFile(file.originFileObj)
+        setFileStages((current) => ({ ...current, [file.uid]: '校验中' }))
+        await new Promise((resolve) => window.setTimeout(resolve, 180))
+        setFileStages((current) => ({ ...current, [file.uid]: '可用' }))
+        setUploadedByUid((current) => ({ ...current, [file.uid]: uploaded }))
+        results.push(uploaded)
+      } catch (error) {
+        setFileStages((current) => ({ ...current, [file.uid]: '失败' }))
+        void message.error(`${file.name} 上传失败：${error instanceof Error ? error.message : '未知错误'}，可单独重试`)
+      }
+    }
+    setUploading(false)
+    return results
+  }
+
+  const retryFailedFile = async (uid: string) => {
+    const file = fileList.find((item) => item.uid === uid)
+    if (!file?.originFileObj) return
+    setFileStages((current) => ({ ...current, [uid]: '上传中' }))
     try {
-      return await Promise.all(fileList.map(async (file) => {
-        if (!file.originFileObj) throw new Error(`文件不可读取：${file.name}`)
-        setFileStages((current) => ({ ...current, [file.uid]: '上传中' }))
-        try {
-          const uploaded = await uploadAssetFile(file.originFileObj)
-          setFileStages((current) => ({ ...current, [file.uid]: '校验中' }))
-          await new Promise((resolve) => window.setTimeout(resolve, 180))
-          setFileStages((current) => ({ ...current, [file.uid]: '可用' }))
-          return uploaded
-        } catch (error) {
-          setFileStages((current) => ({ ...current, [file.uid]: '失败' }))
-          throw error
-        }
-      }))
-    } finally {
-      setUploading(false)
+      const uploaded = await uploadAssetFile(file.originFileObj)
+      setFileStages((current) => ({ ...current, [uid]: '校验中' }))
+      await new Promise((resolve) => window.setTimeout(resolve, 180))
+      setFileStages((current) => ({ ...current, [uid]: '可用' }))
+      setUploadedByUid((current) => ({ ...current, [uid]: uploaded }))
+      void message.success(`${file.name} 已重试成功`)
+    } catch (error) {
+      setFileStages((current) => ({ ...current, [uid]: '失败' }))
+      void message.error(`${file.name} 重试失败：${error instanceof Error ? error.message : '未知错误'}`)
     }
   }
+
+  const hasUploadFailures = () => fileList.some((file) => fileStages[file.uid] === '失败')
 
   const saveDraft = async () => {
     setSaving(true)
     try {
-      const uploadedFiles = await uploadSelectedFiles()
-      const asset = await saveAssetDraft(valuesToInput(form.getFieldsValue(), uploadedFiles))
+      await uploadSelectedFiles()
+      if (hasUploadFailures()) {
+        void message.error('存在上传失败的文件，请单独重试后再保存草稿')
+        return
+      }
+      const asset = await saveAssetDraft(valuesToInput(form.getFieldsValue()))
       setDraftId(asset.id)
       message.success(`草稿已保存：${asset.assetNumber || asset.name || asset.id}`)
     } catch (error) {
@@ -516,9 +547,14 @@ export function UploadPage() {
   const submit = async (values: UploadFormValues) => {
     setSaving(true)
     try {
+      await uploadSelectedFiles()
+      if (hasUploadFailures()) {
+        void message.error('存在上传失败的文件，请单独重试后再提交')
+        return
+      }
       const asset = draftId
         ? { id: draftId }
-        : await saveAssetDraft(valuesToInput(values, await uploadSelectedFiles()))
+        : await saveAssetDraft(valuesToInput(values))
       const submitted = await submitAsset(asset.id)
       setDraftId(submitted.id)
       message.success('已提交，资产进入待整理状态')
@@ -584,16 +620,19 @@ export function UploadPage() {
     setBatchSaving(true)
     setBatchError(undefined)
     try {
-      const uploadedFiles = await uploadSelectedFiles()
+      await uploadSelectedFiles()
+      if (hasUploadFailures()) {
+        void message.error('存在上传失败的文件，请单独重试后再批量创建')
+        return
+      }
       const values = form.getFieldsValue()
       const inputs = groupIds.map((groupId) => {
         const row = batchRows[groupId]
         const groupFiles = filesByGroup[groupId] ?? []
         const files = groupFiles.map((file, index) => {
-          const uploadedIndex = fileList.findIndex((item) => item.uid === file.uid)
-          const uploaded = uploadedFiles[Math.max(uploadedIndex, 0)]
-          return { ...uploaded, role: roles[file.uid] ?? uploaded.role, primary: index === 0 }
-        })
+          const uploaded = uploadedByUid[file.uid]
+          return uploaded ? { ...uploaded, role: roles[file.uid] ?? uploaded.role, primary: index === 0 } : null
+        }).filter((file): file is AssetFile => file !== null)
         return {
           assetNumber: row?.assetNumber.trim() ?? '',
           name: row?.name.trim() ?? '',
@@ -672,7 +711,16 @@ export function UploadPage() {
         />
       ),
     },
-    { title: '处理状态', width: 86, render: (_, record) => stageTag(fileStages[record.uid] ?? '待上传') },
+    {
+      title: '处理状态',
+      width: 116,
+      render: (_, record) => (
+        <Space size={4}>
+          {stageTag(fileStages[record.uid] ?? '待上传')}
+          {fileStages[record.uid] === '失败' && <Button size="small" type="link" onClick={() => void retryFailedFile(record.uid)}>重试</Button>}
+        </Space>
+      ),
+    },
   ]
 
   return (
