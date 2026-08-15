@@ -156,6 +156,33 @@ export async function getAssetRelations(id: number): Promise<AssetRelation[]> {
   return request<AssetRelation[]>(`/api/v1/assets/${id}/relations`)
 }
 
+export interface RelationGraphNode {
+  assetId: number
+  assetNumber: string
+  assetName: string
+  assetType: AssetType
+  status: AssetStatus
+  depth: number
+}
+
+export interface RelationGraphEdge {
+  id: number
+  sourceAssetId: number
+  targetAssetId: number
+  relationType: RelationType
+  directionLabel: string
+  description: string
+}
+
+export interface RelationGraph {
+  nodes: RelationGraphNode[]
+  edges: RelationGraphEdge[]
+}
+
+export async function getRelationGraph(assetId: number, depth = 2): Promise<RelationGraph> {
+  return request<RelationGraph>(`/api/v1/assets/${assetId}/relation-graph?depth=${depth}`)
+}
+
 export interface RelationInput {
   targetAssetId: number
   relationType: RelationType

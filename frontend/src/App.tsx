@@ -8,6 +8,7 @@ import { GlobalStyle } from './styles/GlobalStyle'
 
 const SearchPage = lazy(() => import('./pages/main/search'))
 const DetailPage = lazy(() => import('./pages/main/detail'))
+const RelationBrowserPage = lazy(() => import('./pages/main/relation-browser'))
 const FavoritesPage = lazy(() => import('./pages/main/favorites'))
 const MyUploadsPage = lazy(() => import('./pages/main/uploads'))
 const DocumentSearchPage = lazy(() => import('./features/documents/DocumentSearchPage'))
@@ -91,6 +92,7 @@ export default function App() {
                   <Route path="/" element={<SearchPage />} />
                   <Route path="/assets" element={<SearchPage />} />
                   <Route path="/assets/:id" element={<DetailPage />} />
+                  <Route path="/assets/:id/relations" element={<RelationBrowserPage />} />
                   <Route path="/documents" element={<DocumentSearchPage />} />
                   <Route path="/documents/new" element={<DocumentCreatePage />} />
                   <Route path="/documents/:id" element={<DocumentDetailPage />} />

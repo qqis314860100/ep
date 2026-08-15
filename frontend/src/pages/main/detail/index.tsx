@@ -1,4 +1,5 @@
 import {
+  ApartmentOutlined,
   ArrowLeftOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -385,7 +386,7 @@ export default function DrawingDetailPage() {
       <RelationSection>
         <SectionHeader>
           <SectionTitle>关联资料</SectionTitle>
-          <Space size={8}><SectionMeta>{relations.length} 项业务关系</SectionMeta><Button size="small" icon={<LinkOutlined />} onClick={() => { setEditingRelation(undefined); setRelationDialogOpen(true) }}>新增关系</Button></Space>
+          <Space size={8}><SectionMeta>{relations.length} 项业务关系</SectionMeta><Button size="small" icon={<ApartmentOutlined />} onClick={() => navigate(`/assets/${assetId}/relations`)}>关系浏览</Button><Button size="small" icon={<LinkOutlined />} onClick={() => { setEditingRelation(undefined); setRelationDialogOpen(true) }}>新增关系</Button></Space>
         </SectionHeader>
         {relationsQuery.isLoading ? <Spin /> : relations.length > 0 ? (
           <RelationGrid>
