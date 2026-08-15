@@ -7,6 +7,7 @@ import {
   RightOutlined,
   StarFilled,
   StarOutlined,
+  StopOutlined,
 } from '@ant-design/icons'
 import { App as AntdApp, Button, Empty, Select, Space, Spin, Tag, Tooltip } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,7 +18,7 @@ import { AssetStatusTag } from '../../../features/assets/AssetTags'
 import { AssetDocumentRelationModal } from '../../../features/documents/components/AssetDocumentRelationModal'
 import { assetDocumentRelationLabels } from '../../../features/documents/assetDocumentRelationPresentation'
 import { useAsset, useAssetRelations, useFavorite } from '../../../hooks/useAssets'
-import { getAssetDocuments, getAssetFileUrl, getAssetPackageUrl, removeAssetRelation, setFavorite } from '../../../services/assetService'
+import { getAssetDocuments, getAssetFileUrl, getAssetPackageUrl, disableAsset, removeAssetRelation, setFavorite } from '../../../services/assetService'
 import {
   changeAssetDocumentRelationType,
   createAssetDocumentRelation,
@@ -27,6 +28,7 @@ import type { AssetFile, AssetRelation } from '../../../types/asset'
 import type { AssetDocumentRelation, AssetDocumentRelationType } from '../../../types/document'
 import { AssetRelationDialog } from './components/AssetRelationDialog'
 import { CommentSection } from './components/CommentSection'
+import { DisableDialog } from './components/DisableDialog'
 import { DrawingGallery } from './components/DrawingGallery'
 import { DrawingInfoPanel } from './components/DrawingInfoPanel'
 
@@ -237,7 +239,18 @@ export default function DrawingDetailPage() {
   const [documentRelationDialogOpen, setDocumentRelationDialogOpen] = useState(false)
   const [relationDialogOpen, setRelationDialogOpen] = useState(false)
   const [editingRelation, setEditingRelation] = useState<AssetRelation>()
+  const [disableDialogOpen, setDisableDialogOpen] = useState(false)
   const asset = assetQuery.data
+
+  const disableMutation = useMutation({
+    mutationFn: (reason: string) => disableAsset(assetId, reason),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['asset', assetId] })
+      await queryClient.invalidateQueries({ queryKey: ['asset-relations'] })
+      void message.success('资料已停用，默认不再出现在普通检索中')
+    },
+    onError: (error) => void message.error(error instanceof Error ? error.message : '停用失败'),
+  })
 
   const removeAssetRelationMutation = useMutation({
     mutationFn: (relation: AssetRelation) => removeAssetRelation(assetId, relation.id),
@@ -348,8 +361,21 @@ export default function DrawingDetailPage() {
             if (packageUrl) window.open(packageUrl, '_blank', 'noopener,noreferrer')
             else message.info('演示模式暂不支持资产包打包下载')
           }}>打包下载</Button>
+          {asset.status !== 'DISABLED' && (
+            <Button danger icon={<StopOutlined />} disabled={asset.status !== 'PENDING_CURATION' && asset.status !== 'STANDARDIZED'} onClick={() => setDisableDialogOpen(true)}>停用</Button>
+          )}
         </Space>
       </Header>
+
+      <DisableDialog
+        open={disableDialogOpen}
+        assetName={asset.name}
+        onClose={() => setDisableDialogOpen(false)}
+        onSubmit={async (reason) => {
+          await disableMutation.mutateAsync(reason)
+          setDisableDialogOpen(false)
+        }}
+      />
 
       <PrimaryGrid>
         <DrawingGallery assetId={asset.id} files={asset.files} onPreview={(file) => openFile(file, true)} onDownload={(file) => openFile(file, false)} />

@@ -197,6 +197,14 @@ export async function getAssetDocuments(id: number): Promise<AssetDocumentRelati
   return request<AssetDocumentRelationResult[]>(`/api/v1/assets/${id}/documents`)
 }
 
+export async function disableAsset(assetId: number, reason: string): Promise<Asset> {
+  return request<Asset>(`/api/v1/assets/${assetId}/disable`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  })
+}
+
 export async function saveAssetDraft(input: AssetDraftInput): Promise<Asset> {
   if (useMocks) {
     await delay(180)
