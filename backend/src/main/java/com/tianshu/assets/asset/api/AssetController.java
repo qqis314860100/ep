@@ -215,6 +215,19 @@ public class AssetController {
         return AssetResponse.from(assetWriteService.saveDraft(request.toDraft()));
     }
 
+    @PostMapping("/batch-drafts")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BatchDraftResponse saveDraftsBatch(@Valid @RequestBody List<AssetWriteRequest> requests) {
+        var result = assetWriteService.saveDraftsBatch(requests.stream().map(AssetWriteRequest::toDraft).toList());
+        return new BatchDraftResponse(
+                result.assets().stream().map(AssetResponse::from).toList(),
+                result.duplicateFiles().stream().map(info -> new DuplicateFileResponse(info.fileName(), info.contentSha256())).toList());
+    }
+
+    public record DuplicateFileResponse(String fileName, String contentSha256) {}
+
+    public record BatchDraftResponse(List<AssetResponse> assets, List<DuplicateFileResponse> duplicateFiles) {}
+
     @PostMapping("/{id}/submit")
     public AssetResponse submit(@PathVariable @Min(1) long id) {
         return AssetResponse.from(assetWriteService.submit(id));

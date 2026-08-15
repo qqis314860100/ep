@@ -165,6 +165,41 @@ public class AssetWriteService {
         return collaborationStore.isFavorite(assetId, userId);
     }
 
+    /** 批量创建草稿（UPLOAD-05/07）：全批校验、编号批次内与全局唯一、相同文件仅提示不处理。 */
+    public BatchDraftResult saveDraftsBatch(List<AssetDraft> drafts) {
+        if (drafts == null || drafts.isEmpty()) {
+            throw new IllegalArgumentException("请至少提供一份资产");
+        }
+        var numbers = new java.util.HashSet<String>();
+        for (var draft : drafts) {
+            validateCommon(draft);
+            var number = draft.assetNumber().trim();
+            if (number.isBlank()) throw new AssetSubmissionValidationException();
+            if (!numbers.add(number.toLowerCase(java.util.Locale.ROOT))) {
+                throw new DuplicateAssetNumberException(number);
+            }
+            if (assetRepository.existsByAssetNumber(number)) {
+                throw new DuplicateAssetNumberException(number);
+            }
+        }
+        var seenSha = new java.util.HashMap<String, String>();
+        var duplicateFiles = new java.util.ArrayList<DuplicateFileInfo>();
+        for (var draft : drafts) {
+            if (draft.files() == null) continue;
+            for (var file : draft.files()) {
+                if (file.contentSha256() == null || file.contentSha256().isBlank()) continue;
+                var previous = seenSha.putIfAbsent(file.contentSha256(), file.name());
+                if (previous != null) duplicateFiles.add(new DuplicateFileInfo(file.name(), file.contentSha256()));
+            }
+        }
+        var assets = drafts.stream().map(this::saveDraft).toList();
+        return new BatchDraftResult(assets, List.copyOf(duplicateFiles));
+    }
+
+    public record DuplicateFileInfo(String fileName, String contentSha256) {}
+
+    public record BatchDraftResult(List<Asset> assets, List<DuplicateFileInfo> duplicateFiles) {}
+
     public boolean setFavorite(long assetId, String userId, boolean favorite) {
         ensureAssetExists(assetId);
         return collaborationStore.setFavorite(assetId, userId, favorite);

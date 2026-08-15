@@ -201,6 +201,48 @@ class AssetControllerTest {
     }
 
     @Test
+    void createsBatchDraftsRejectingDuplicatesAndReportingIdenticalFiles() throws Exception {
+        var payload = """
+                [
+                  {"assetNumber":"DM-BATCH-0001","name":"批量资产一","description":"批量创建","assetType":"MIXED_ASSET",
+                   "specialties":["机械"],
+                   "scopes":[{"platform":"乘用车","productLine":"H03","base":"宁德基地","productionLine":"A 拉线","processSection":"焊接段"}],
+                   "files":[{"id":0,"name":"a.pdf","format":"PDF","sizeBytes":3,"role":"二维图纸","previewable":true,"primary":true,"storageKey":"","contentSha256":"sha-dup"}]},
+                  {"assetNumber":"DM-BATCH-0002","name":"批量资产二","description":"批量创建","assetType":"MIXED_ASSET",
+                   "specialties":["机械"],
+                   "scopes":[{"platform":"乘用车","productLine":"H03","base":"宁德基地","productionLine":"A 拉线","processSection":"焊接段"}],
+                   "files":[{"id":0,"name":"b.pdf","format":"PDF","sizeBytes":3,"role":"二维图纸","previewable":true,"primary":true,"storageKey":"","contentSha256":"sha-dup"}]}
+                ]
+                """;
+        mockMvc.perform(post("/api/v1/assets/batch-drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.assets.length()").value(2))
+                .andExpect(jsonPath("$.assets[0].assetNumber").value("DM-BATCH-0001"))
+                .andExpect(jsonPath("$.duplicateFiles.length()").value(1))
+                .andExpect(jsonPath("$.duplicateFiles[0].fileName").value("b.pdf"));
+
+        mockMvc.perform(post("/api/v1/assets/batch-drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("duplicate_asset_number"));
+
+        mockMvc.perform(post("/api/v1/assets/batch-drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                [
+                                  {"assetNumber":"DM-BATCH-0001","name":"重复批次","description":"x","assetType":"MIXED_ASSET",
+                                   "specialties":["机械"],"scopes":[],"files":[]},
+                                  {"assetNumber":"DM-BATCH-0001","name":"重复批次","description":"x","assetType":"MIXED_ASSET",
+                                   "specialties":["机械"],"scopes":[],"files":[]}
+                                ]
+                                """))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     void updatesAndRemovesRelationWithAudit() throws Exception {
         var createdJson = mockMvc.perform(post("/api/v1/assets/102/relations")
                         .header("X-User-Id", "emp-chen")
