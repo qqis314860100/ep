@@ -1,5 +1,4 @@
 import {
-  BellOutlined,
   BookOutlined,
   CloudUploadOutlined,
   DatabaseOutlined,
@@ -16,6 +15,7 @@ import { Avatar, Button, Layout, Tooltip } from 'antd'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
+import { NotificationBell } from './NotificationBell'
 
 const { Header, Sider, Content } = Layout
 const expandedWidth = 184
@@ -339,7 +339,7 @@ export function AppShell({ children }: AppShellProps) {
         <HeaderSpacer />
         <HeaderActions>
           <Tooltip title="帮助"><Button type="text" icon={<QuestionCircleOutlined />} aria-label="帮助" /></Tooltip>
-          <Tooltip title="通知"><Button type="text" icon={<BellOutlined />} aria-label="通知" /></Tooltip>
+          <NotificationBell />
           <User>
             <Avatar size={28} style={{ background: '#2f7567' }}>陈</Avatar>
             <UserDetails>
