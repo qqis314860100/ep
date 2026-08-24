@@ -1,6 +1,19 @@
 #!/usr/bin/env python3
+"""将 markdown 需求文档转换为带样式的 docx。
+
+用法:
+    python build_requirement_docx.py                              # 默认生成 V1.8 docx
+    python build_requirement_docx.py --source X.md --output Y.docx # 自定义输入输出
+
+特性:
+    - markdown 标题/列表/表格/内联代码渲染
+    - ASCII 线框代码块自动渲染为窗口风格 PNG 图片（保证对齐）
+    - 封面 + 自动目录 + 页眉页脚
+"""
 from __future__ import annotations
 
+import io
+import random
 import re
 from pathlib import Path
 
@@ -13,6 +26,12 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt, RGBColor
 
+try:
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
+    _HAS_PIL = True
+except ImportError:
+    _HAS_PIL = False
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "requirement.md"
@@ -24,6 +43,16 @@ MONO_FONT = "Consolas"
 ACCENT = "1F4E78"
 LIGHT_ACCENT = "D9EAF7"
 LIGHT_GRAY = "F2F2F2"
+
+# ── ASCII 线框渲染配置（Balsamiq 手绘风） ──────────────────────────
+HAND_EN_FONT = "/System/Library/Fonts/Supplemental/MarkerFelt.ttc"
+HAND_CN_FONT = "/System/Library/Fonts/Supplemental/Comic Sans MS.ttf"
+# 转角字符 = 真线框特征；竖线/箭头 = 状态机或流程图（保持文本）
+WIREFRAME_MARKERS = ("┌", "└", "├", "┐", "┘", "┤")
+# 线框结构字符：横线/竖线延续（用于解析网格画手绘线）
+H_CHARS = set("─├┤┌┐")
+V_CHARS = set("│├┤┌└")
+TEXT_SKIP = set("│─┌┐└┘├┤")
 
 
 def set_run_font(run, name: str, size: float | None = None, bold: bool | None = None):
@@ -102,6 +131,128 @@ def add_inline(paragraph, text: str):
         set_run_font(run, BODY_FONT)
 
 
+# ── ASCII 线框 → Balsamiq 手绘风 PNG ────────────────────────────────
+def _is_wide(ch: str) -> bool:
+    if ch in TEXT_SKIP:
+        return False
+    return ord(ch) >= 0x2E80
+
+
+def _draw_sketchy_line(draw, x1, y1, x2, y2, color, width=3, seed=7, orientation="h"):
+    """手绘抖动线：横线轻微纵向抖、竖线轻微横向抖，保持方向感。"""
+    rng = random.Random(seed)
+    length = abs((x2 - x1) if orientation == "h" else (y2 - y1))
+    n = max(5, int(length / 4))
+    prev = None
+    for i in range(n + 1):
+        t = i / n
+        if orientation == "h":
+            x = x1 + (x2 - x1) * t
+            y = y1 + rng.uniform(-0.45, 0.45)
+        else:
+            y = y1 + (y2 - y1) * t
+            x = x1 + rng.uniform(-0.4, 0.4)
+        pt = (x, y)
+        if prev is not None:
+            draw.line([prev, pt], fill=color, width=width)
+        prev = pt
+
+
+def _render_wireframe_png(code_lines: list[str]) -> bytes | None:
+    """把 ASCII 线框渲染为 Balsamiq 手绘风 PNG（手写字体 + 抖动线条 + 米黄画布）。
+
+    解析线框网格结构：横线/竖线分别用方向感知抖动手绘，文字用 Marker Felt /
+    Comic Sans（中文）渲染。返回 PNG bytes；缺 Pillow 或字体时返回 None。
+    """
+    if not _HAS_PIL:
+        return None
+    try:
+        hand_en = ImageFont.truetype(HAND_EN_FONT, 15)
+        hand_cn = ImageFont.truetype(HAND_CN_FONT, 15)
+    except Exception:
+        return None
+
+    cell_w = hand_en.getbbox("M")[2]
+    asc, desc = hand_en.getmetrics()
+    line_h = asc + desc + 6
+    pad_x, pad_y = 16, 14
+    fg = "#2D2D2D"
+    canvas = "#FFFDF4"
+    border = "#4A4A4A"
+
+    # 画布宽度按字符累加像素宽计算（全角=2 单元）
+    content_w = max(sum(cell_w * (2 if _is_wide(ch) else 1) for ch in line) for line in code_lines) + pad_x * 2
+    content_h = len(code_lines) * line_h + pad_y * 2
+    img = Image.new("RGB", (content_w, content_h), canvas)
+    draw = ImageDraw.Draw(img)
+
+    def row_y(r):
+        return pad_y + r * line_h + line_h / 2
+
+    # 预计算每行"列 → 像素 x"映射（全角字符占 2 单元）
+    col_px = {}
+    for r, line in enumerate(code_lines):
+        x = pad_x
+        for c, ch in enumerate(line):
+            col_px[(r, c)] = x + cell_w / 2
+            x += cell_w * (2 if _is_wide(ch) else 1)
+
+    # 横线（─ 连续段，含 ├┤┌┐ 端点）
+    for r, line in enumerate(code_lines):
+        seg_start = None
+        for c, ch in enumerate(line):
+            if ch in H_CHARS:
+                if seg_start is None:
+                    seg_start = c
+            else:
+                if seg_start is not None:
+                    _draw_sketchy_line(
+                        draw, col_px[(r, seg_start)], row_y(r), col_px[(r, c - 1)], row_y(r),
+                        border, seed=r * 10 + c, orientation="h")
+                    seg_start = None
+        if seg_start is not None:
+            _draw_sketchy_line(
+                draw, col_px[(r, seg_start)], row_y(r), col_px[(r, len(line) - 1)], row_y(r),
+                border, seed=r * 10 + len(line), orientation="h")
+
+    # 竖线（│ 连续段，含 ├┤┌└ 端点）
+    max_cols = max(len(l) for l in code_lines)
+    for c in range(max_cols):
+        seg_start = None
+        for r in range(len(code_lines)):
+            ch = code_lines[r][c] if c < len(code_lines[r]) else " "
+            if ch in V_CHARS:
+                if seg_start is None:
+                    seg_start = r
+            else:
+                if seg_start is not None and (seg_start, c) in col_px and (r - 1, c) in col_px:
+                    _draw_sketchy_line(
+                        draw, col_px[(seg_start, c)], row_y(seg_start), col_px[(r - 1, c)], row_y(r - 1),
+                        border, seed=c * 10 + seg_start, orientation="v")
+                    seg_start = None
+        if seg_start is not None and (seg_start, c) in col_px and (len(code_lines) - 1, c) in col_px:
+            _draw_sketchy_line(
+                draw, col_px[(seg_start, c)], row_y(seg_start), col_px[(len(code_lines) - 1, c)], row_y(len(code_lines) - 1),
+                border, seed=c * 10 + seg_start, orientation="v")
+
+    # 文字（跳过结构字符）
+    y = pad_y - 2
+    for line in code_lines:
+        x = pad_x
+        for ch in line:
+            if ch in TEXT_SKIP:
+                x += cell_w
+                continue
+            font = hand_cn if _is_wide(ch) else hand_en
+            draw.text((x, y), ch, font=font, fill=fg)
+            x += cell_w * (2 if _is_wide(ch) else 1)
+        y += line_h
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def configure_styles(doc: Document):
     normal = doc.styles["Normal"]
     normal.font.name = BODY_FONT
@@ -169,7 +320,7 @@ def configure_page(doc: Document):
     set_run_font(run, BODY_FONT, 9)
 
 
-def add_cover(doc: Document):
+def add_cover(doc: Document, version: str = "V1.8", date: str = "2026-08-10"):
     for _ in range(4):
         doc.add_paragraph()
     title = doc.add_paragraph(style="Title")
@@ -184,10 +335,10 @@ def add_cover(doc: Document):
     for _ in range(5):
         doc.add_paragraph()
     details = [
-        ("文档版本", "V1.8"),
+        ("文档版本", version),
         ("文档状态", "产品需求基线"),
         ("适用终端", "PC Web"),
-        ("编制日期", "2026-08-10"),
+        ("编制日期", date),
     ]
     table = doc.add_table(rows=len(details) + 1, cols=2)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -277,6 +428,48 @@ def add_table(doc: Document, rows: list[list[str]]):
     doc.add_paragraph().paragraph_format.space_after = Pt(0)
 
 
+def add_code_block(doc: Document, code_lines: list[str]):
+    """渲染 markdown 代码块：ASCII 线框 → PNG 图片，其余 → 等宽文本。"""
+    is_wireframe = False
+    if code_lines:
+        corner_lines = [l for l in code_lines if any(m in l for m in WIREFRAME_MARKERS)]
+        first = code_lines[0].lstrip()
+        last = code_lines[-1].lstrip()
+        # 真线框：首行 ┌/└ 开头 + 末行 └ 结尾 + ≥2 行转角字符，排除状态机/流程图
+        if (
+            len(corner_lines) >= 2
+            and (first.startswith("┌") or first.startswith("└"))
+            and last.startswith("└")
+        ):
+            is_wireframe = True
+    if is_wireframe:
+        png = _render_wireframe_png(code_lines)
+        if png is not None:
+            p = doc.add_paragraph()
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            run = p.add_run()
+            run.add_picture(io.BytesIO(png))
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(6)
+            return
+    for code_line in code_lines:
+        p = doc.add_paragraph()
+        pf = p.paragraph_format
+        pf.space_before = Pt(0)
+        pf.space_after = Pt(0)
+        pf.line_spacing_rule = WD_LINE_SPACING.SINGLE
+        run = p.add_run(code_line if code_line else " ")
+        set_run_font(run, MONO_FONT, 8.5)
+        run.font.color.rgb = RGBColor(40, 40, 40)
+        if any(m in code_line for m in WIREFRAME_MARKERS):
+            pPr = p._p.get_or_add_pPr()
+            shd = OxmlElement("w:shd")
+            shd.set(qn("w:val"), "clear")
+            shd.set(qn("w:color"), "auto")
+            shd.set(qn("w:fill"), LIGHT_GRAY)
+            pPr.append(shd)
+
+
 def add_body(doc: Document, markdown: str):
     lines = markdown.splitlines()
     index = 0
@@ -328,6 +521,19 @@ def add_body(doc: Document, markdown: str):
             index += 1
             continue
 
+        if stripped.startswith("```"):
+            index += 1
+            code_lines = []
+            while index < len(lines):
+                code_line = lines[index].rstrip()
+                if code_line.strip().startswith("```"):
+                    index += 1
+                    break
+                code_lines.append(code_line)
+                index += 1
+            add_code_block(doc, code_lines)
+            continue
+
         p = doc.add_paragraph()
         add_inline(p, stripped)
         index += 1
@@ -343,22 +549,33 @@ def set_update_fields(doc: Document):
 
 
 def main():
-    markdown = SOURCE.read_text(encoding="utf-8")
+    import argparse
+
+    parser = argparse.ArgumentParser(description="将 markdown 需求文档转换为 docx")
+    parser.add_argument("--source", default=str(SOURCE), help="源 markdown 文件路径")
+    parser.add_argument("--output", default=str(OUTPUT), help="输出 docx 文件路径")
+    args = parser.parse_args()
+
+    source_path = Path(args.source)
+    output_path = Path(args.output)
+    stem = source_path.stem
+
+    markdown = source_path.read_text(encoding="utf-8")
     doc = Document()
     configure_styles(doc)
     configure_page(doc)
-    add_cover(doc)
+    add_cover(doc, version="V2.0" if "v2" in stem.lower() else "V1.8")
     add_body(doc, markdown)
     set_update_fields(doc)
 
-    doc.core_properties.title = "仿真数模资产管理系统产品需求文档"
+    doc.core_properties.title = f"仿真数模资产管理系统产品需求文档（{stem}）"
     doc.core_properties.subject = "仿真数模资产标准化治理、关联展示、产品功能与用户操作需求"
     doc.core_properties.author = "项目需求组"
     doc.core_properties.keywords = "图纸管理, 生产资料, 软件需求规格说明书, SRS"
-    doc.core_properties.comments = "面向产品、设计、开发、测试和外部评审的 V1.8 产品需求基线"
+    doc.core_properties.comments = f"面向产品、设计、开发、测试和外部评审的需求基线（{stem}）"
 
-    doc.save(OUTPUT)
-    print(OUTPUT)
+    doc.save(output_path)
+    print(output_path)
 
 
 if __name__ == "__main__":

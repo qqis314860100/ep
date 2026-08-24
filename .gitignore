@@ -36,3 +36,7 @@ scripts/e2e/.logs/
 # Root allows only the script-generated requirement docx
 /*.docx
 !/仿真数模资产管理系统_产品需求文档_V*.docx
+
+# Python cache
+__pycache__/
+*.pyc
