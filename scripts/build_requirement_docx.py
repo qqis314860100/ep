@@ -45,8 +45,8 @@ LIGHT_ACCENT = "D9EAF7"
 LIGHT_GRAY = "F2F2F2"
 
 # ── ASCII 线框渲染配置（Balsamiq 手绘风） ──────────────────────────
-HAND_EN_FONT = "/System/Library/Fonts/Supplemental/MarkerFelt.ttc"
-HAND_CN_FONT = "/System/Library/Fonts/Supplemental/Comic Sans MS.ttf"
+HAND_EN_FONT = "/System/Library/Fonts/Supplemental/MarkerFelt.ttc"  # 英文/数字手写体
+HAND_CN_FONT = "/System/Library/Fonts/Hiragino Sans GB.ttc"          # 中文用真字形（手写字体不含 CJK，会变豆腐块）
 # 转角字符 = 真线框特征；竖线/箭头 = 状态机或流程图（保持文本）
 WIREFRAME_MARKERS = ("┌", "└", "├", "┐", "┘", "┤")
 # 线框结构字符：横线/竖线延续（用于解析网格画手绘线）
