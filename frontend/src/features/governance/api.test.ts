@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { getGovernancePlans, saveBatchResults } from './api'
+import { getGovernancePlans, getInventory, saveBatchResults } from './api'
 import type { BatchResultCommand } from './types'
 
 describe('governance api', () => {
@@ -76,5 +76,32 @@ describe('governance api', () => {
     await expect(saveBatchResults('batch-1', commands)).resolves.toMatchObject({
       results: [{ outcome: 'SUCCESS' }, { outcome: 'CONFLICT', currentVersion: 4 }],
     })
+  })
+
+  it('serializes inventory filters with backend snake_case parameter names', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      totals: {},
+      rates: {},
+      items: [],
+      meta: { total: 0, page: 1, perPage: 10 },
+    }), { status: 200 }))
+
+    await getInventory({
+      legacyPlatform: '宁德基地',
+      legacyLine: 'B 拉线',
+      missingBase: true,
+      page: 2,
+      perPage: 10,
+    })
+
+    const [url] = fetchSpy.mock.calls[0] as [string]
+    expect(url).toContain('/api/v1/governance/inventory?')
+    expect(url).toContain('legacy_platform=')
+    expect(url).toContain('legacy_line=')
+    expect(url).toContain('missing_base=true')
+    expect(url).toContain('page=2')
+    expect(url).toContain('per_page=10')
+    expect(url).not.toContain('legacyPlatform')
+    expect(url).not.toContain('perPage')
   })
 })

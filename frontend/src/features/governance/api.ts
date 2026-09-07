@@ -153,7 +153,23 @@ export interface InventoryFilters {
 }
 
 export function getInventory(filters: InventoryFilters = {}): Promise<InventoryView> {
-  return request(`/api/v1/governance/inventory${queryString(filters)}`)
+  // 盘点接口后端绑定 snake_case 参数（legacy_platform/missing_*/per_page 等），
+  // 前端契约保持驼峰类型，序列化时转换（见 GovernanceInventoryController）。
+  const wire: Record<string, string | number | boolean | undefined> = {
+    legacy_platform: filters.legacyPlatform,
+    legacy_line: filters.legacyLine,
+    legacy_category: filters.legacyCategory,
+    owner: filters.owner,
+    format: filters.format,
+    missing_base: filters.missingBase,
+    missing_line: filters.missingLine,
+    missing_description: filters.missingDescription,
+    missing_owner: filters.missingOwner,
+    missing_file: filters.missingFile,
+    page: filters.page,
+    per_page: filters.perPage,
+  }
+  return request(`/api/v1/governance/inventory${queryString(wire)}`)
 }
 
 export function getGovernanceTask(taskId: number): Promise<GovernanceTaskDetail> {
@@ -214,13 +230,6 @@ export function startGovernanceTask(
   return request(`/api/v1/governance/tasks/${taskId}/start`, {
     method: 'POST',
     body: JSON.stringify(input),
-  })
-}
-
-export function updateGovernanceProgress(taskId: number, completed: number): Promise<GovernanceTask> {
-  return request(`/api/v1/governance/tasks/${taskId}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ completed }),
   })
 }
 
