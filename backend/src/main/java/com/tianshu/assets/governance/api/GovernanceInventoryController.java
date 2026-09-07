@@ -2,7 +2,10 @@ package com.tianshu.assets.governance.api;
 
 import com.tianshu.assets.governance.inventory.application.AssetInventoryService;
 import com.tianshu.assets.governance.inventory.application.AssetInventoryService.InventoryView;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -10,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** 资产盘点（GOVERN-01）：总量/治理率/旧维度与缺字段筛选。 */
 @RestController
+@Validated
 @RequestMapping("/api/v1/governance/inventory")
 public class GovernanceInventoryController {
 
@@ -32,8 +36,8 @@ public class GovernanceInventoryController {
             @RequestParam(name = "missing_description", defaultValue = "false") boolean missingDescription,
             @RequestParam(name = "missing_owner", defaultValue = "false") boolean missingOwner,
             @RequestParam(name = "missing_file", defaultValue = "false") boolean missingFile,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(name = "per_page", defaultValue = "20") int perPage) {
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(name = "per_page", defaultValue = "20") @Min(1) @Max(100) int perPage) {
         return service.inventory(legacyPlatform, legacyLine, legacyCategory, owner, format,
                 missingBase, missingLine, missingDescription, missingOwner, missingFile, page, perPage);
     }

@@ -16,12 +16,15 @@ import java.util.Map;
 import java.util.Collection;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
 import com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AssetWriteService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AssetWriteService.class);
     private static final java.util.Set<String> GOVERNANCE_ROLES = java.util.Set.of("CONTENT_ADMIN", "SYSTEM_ADMIN");
 
     private final AssetRepository assetRepository;
@@ -73,6 +76,9 @@ public class AssetWriteService {
 
     public Asset submit(long id) {
         var asset = assetRepository.findById(id).orElseThrow(() -> new AssetNotFoundException(id));
+        if (asset.status() != AssetStatus.DRAFT) {
+            throw new IllegalArgumentException("仅草稿状态的资料可以提交");
+        }
         if (asset.assetNumber().isBlank()
                 || asset.name().isBlank()
                 || asset.description().isBlank()
@@ -156,6 +162,7 @@ public class AssetWriteService {
                             "toStatus", AssetStatus.DISABLED.name())),
                     Instant.now()));
         } catch (Exception exception) {
+            LOGGER.error("停用审计写入失败 assetId={} operator={}", asset.id(), operatorUserId, exception);
             throw new IllegalStateException("停用审计写入失败", exception);
         }
     }

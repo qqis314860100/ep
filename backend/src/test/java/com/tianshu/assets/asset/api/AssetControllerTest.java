@@ -326,6 +326,25 @@ class AssetControllerTest {
     }
 
     @Test
+    void rejectsSubmissionFromStandardizedOrDisabledState() throws Exception {
+        // 已标准化(101)不可打回待整理
+        mockMvc.perform(post("/api/v1/assets/101/submit"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("invalid_request"));
+
+        // 已停用(103 先停用)不可复活为待整理
+        mockMvc.perform(post("/api/v1/assets/103/disable")
+                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"该产线已停产\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DISABLED"));
+        mockMvc.perform(post("/api/v1/assets/103/submit"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("invalid_request"));
+    }
+
+    @Test
     void keepsFavoriteStateIdempotentPerUser() throws Exception {
         mockMvc.perform(get("/api/v1/assets/101/favorite"))
                 .andExpect(status().isOk())

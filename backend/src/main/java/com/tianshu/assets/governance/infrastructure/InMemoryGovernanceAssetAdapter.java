@@ -2,6 +2,7 @@ package com.tianshu.assets.governance.infrastructure;
 
 import com.tianshu.assets.asset.domain.AssetStatus;
 import com.tianshu.assets.governance.acceptance.application.GovernanceAssetPort;
+import com.tianshu.assets.governance.application.GovernanceConflictException;
 import com.tianshu.assets.governance.application.GovernanceVersionConflictException;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import java.util.LinkedHashMap;
@@ -68,6 +69,9 @@ public class InMemoryGovernanceAssetAdapter implements GovernanceAssetPort {
     public synchronized void markStandardized(long assetId, long expectedAssetVersion, String actorUserId) {
         var current = snapshot(assetId);
         if (current.status() == AssetStatus.STANDARDIZED) return;
+        if (current.status() != AssetStatus.PENDING_CURATION) {
+            throw new GovernanceConflictException("仅待整理且未停用的资产可以标记为已标准化");
+        }
         if (current.version() != expectedAssetVersion) {
             throw new GovernanceVersionConflictException("资产版本已变化，无法标记为已标准化");
         }

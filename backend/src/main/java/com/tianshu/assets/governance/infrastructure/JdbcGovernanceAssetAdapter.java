@@ -99,9 +99,16 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
         var updated = jdbcClient.sql("""
                 UPDATE asset_package_ext
                 SET status = 'STANDARDIZED', version = version + 1, updated_at = CURRENT_TIMESTAMP(6)
-                WHERE drawing_id = :assetId AND version = :expectedVersion
+                WHERE drawing_id = :assetId AND version = :expectedVersion AND status = 'PENDING_CURATION'
                 """).param("assetId", assetId).param("expectedVersion", expectedAssetVersion).update();
-        if (updated != 1) throw new GovernanceVersionConflictException("资产版本已变化，无法标记为已标准化");
+        if (updated == 1) return;
+        // 幂等：已标准化资产重复执行视为成功
+        var current = snapshot(assetId);
+        if (current.status() == AssetStatus.STANDARDIZED) return;
+        if (current.version() != expectedAssetVersion) {
+            throw new GovernanceVersionConflictException("资产版本已变化，无法标记为已标准化");
+        }
+        throw new GovernanceConflictException("仅待整理且未停用的资产可以标记为已标准化");
     }
 
     private int updatePackage(long assetId, long expectedVersion, String column, String value) {

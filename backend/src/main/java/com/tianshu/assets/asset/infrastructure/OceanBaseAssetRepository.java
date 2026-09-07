@@ -54,6 +54,10 @@ public class OceanBaseAssetRepository implements AssetRepository {
 
     @Override
     public AssetPage search(AssetSearchCriteria criteria) {
+        if (!extensionStore.enabled() && requiresExtensionDimensions(criteria)) {
+            // 不静默返回空页：让用户区分"维度不可用"与"无结果"。
+            throw new IllegalArgumentException("资产扩展治理维度未启用，无法按该条件检索（启用资产扩展表后重试）");
+        }
         var where = new ArrayList<String>();
         var parameters = new LinkedHashMap<String, Object>();
 
@@ -479,6 +483,15 @@ public class OceanBaseAssetRepository implements AssetRepository {
         return hasText(criteria.platformFamily()) || hasText(criteria.platformVariant())
                 || hasText(criteria.productLine()) || hasText(criteria.base()) || hasText(criteria.productionLine())
                 || hasText(criteria.processSection());
+    }
+
+    /** 这些筛选只存在于资产扩展维度：扩展表未启用时旧表无法可靠表达，直接明确报错而非静默空页。 */
+    private boolean requiresExtensionDimensions(AssetSearchCriteria criteria) {
+        return (criteria.status() != null && criteria.status() != AssetStatus.PENDING_CURATION)
+                || hasText(criteria.platformVariant())
+                || hasText(criteria.productLine())
+                || hasText(criteria.processSection())
+                || hasText(criteria.base());
     }
 
     private boolean hasText(String value) {

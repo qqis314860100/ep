@@ -81,7 +81,8 @@ public class AssetDocumentRelationService {
 
     public List<AssetDocumentRelation> byDocument(long documentId) {
         requireDocument(documentId, false);
-        // 草稿资产仅上传者本人可见，不得经文档关联接口泄露；停用资产按资产域口径继续保留关系。
+        // 可见口径（当前实现）：草稿(DRAFT)资产一律不通过文档关联接口暴露；停用资产按资产域口径保留关系。
+        // 真实会话与数据范围(SL-02)接入后，可再按"上传者本人可见"收敛草稿资产的可见性（见 S7 立项）。
         return relations.findActiveByDocumentId(documentId).stream()
                 .filter(relation -> assets.findById(relation.assetId())
                         .filter(asset -> asset.status() != AssetStatus.DRAFT)
