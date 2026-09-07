@@ -57,3 +57,6 @@
 - S2 已完成并提交（后端 2feabad + 前端 e45cdbb）：T2.1 盘点契约对齐（前端 snake_case + 契约测试）；T2.2 收敛（移除无调用方且契约错位的 updateGovernanceProgress；任务 /status 恒拒为有意 LEGACY 只读防护，进度更新走计划进度端点）；T2.3 submit 仅 DRAFT；T2.4 markStandardized 源状态校验；T2.5 可见口径注释+测试；T2.6 盘点分页 @Min/@Max、扩展维度未启用明确报错、停用审计失败日志。
 - T2.6 剩余挂起：saveDraft/@Valid 严格化（草稿允许部分字段，语义与提交校验冲突，需产品口径 D9）；IllegalArgumentException 原始文案回显 sanitize 降级为通用文案待评审（现多为业务中文文案）。
 - S3（前端低风险 UX）实现中。
+- S3 已完成并提交（d5d47e0）：T3.1 假可点控件 disabled+Tooltip；T3.2 清空 Popconfirm + 移除假"校验中"；T3.3 Modal.confirm 统一 + hover 过渡；T3.4 键盘 Enter/aria-label；T3.5 Drawer 宽度自适应；首页工作台错误态+重试。门禁 lint 0/0、typecheck 干净、vitest 5/5。
+- T3.6 收藏页：核实后端 GET /api/v1/favorites 无分页契约，保持现状并加 TODO——后端分页单独立票（S4-新增）。
+- 待决策/后续：D1(S1 安全)、D2/D4/D7(S5/S6 设计)、D9(草稿校验口径)、收藏分页后端票；UI 视觉回归需人工浏览器确认。
