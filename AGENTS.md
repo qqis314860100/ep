@@ -6,21 +6,44 @@ This repository contains the simulation asset management system. The frontend is
 React 18, TypeScript, Vite, Ant Design, and styled-components. The backend is
 Java 21, Spring Boot, Spring JDBC, and OceanBase in MySQL-compatible mode.
 
+## How Work Is Driven
+
+Development intent starts from the conversation, not from maintained
+requirement/design documents (those lines are retired; see Document Locations).
+Work flows through the Matt Pocock skill set installed at `~/.dsh/skills`
+(MIT; attribution in `LICENSE.mattpocock` there):
+
+- `ask-matt` routes a situation to the fitting skill.
+- Sharpen the intent first with `grilling` / `grill-with-docs` / `wait-what`.
+- `to-spec` synthesizes a feature spec; `to-tickets` breaks it into vertical
+  tracer tickets, each with acceptance criteria and blocking edges.
+- Implement test-first with `tdd` + `implement`; land each ticket as a small,
+  independently verifiable commit.
+- Finish with `code-review`; use `diagnosing-bugs` for hard regressions,
+  `research` for source-backed answers, and `resolving-merge-conflicts` for
+  in-progress git conflicts.
+
+Artifact discipline (kept as governance): no issue tracker is configured, so
+`to-spec` / `to-tickets` publish into
+`docs/plans/<yyyy-mm-dd>-<slug>.md` (one file per feature, tickets embedded or
+split beside it). Never create `.scratch/`, ticket dumps, or one-off progress
+notes at the repository root. Research notes go under `docs/research/`.
+
 ## Read By Task
 
-- For every business change, read only the relevant terms in `CONTEXT.md`.
-- For product behavior, read the relevant section of `requirement.md` and its
-  acceptance scenario. Do not read the complete document by default.
-- For backend or API work, read the relevant parts of
-  `docs/technical-design.md`, especially sections 2, 3, 6, 8, and 11.
-- For frontend work, read the relevant feature directory and sections 4, 8,
-  and 11 of `docs/technical-design.md`.
-- For database work, start in `docs/migrations/`. Read
-  `docs/migrations/sql结构.md` only when the task concerns compatibility with
-  the legacy schema.
-- For architectural decisions, start with `docs/adr/README.md` and open only
-  the relevant accepted ADRs. Superseded ADRs are historical context.
-- For local MySQL integration, read `docs/local-development.md`.
+- Domain terms or legacy business rules: consult the archived reference only
+  when a task touches legacy behavior —
+  `docs/archive/2026-09-07-doc-driven-development/root/CONTEXT.md` for terms,
+  and the ADRs under `docs/archive/2026-09-07-doc-driven-development/adr/` for
+  historical decisions.
+- Legacy-schema compatibility: archived
+  `docs/archive/2026-09-07-doc-driven-development/migrations/` plus the
+  backend's own resources.
+- Local MySQL integration: `docs/local-development.md`.
+- Everything else: the code is the fact — read the relevant `backend/` package
+  or `frontend/` feature directory and neighboring implementations, and follow
+  the existing layering (controller → application service → domain →
+  infrastructure adapter) and naming conventions you observe there.
 - Do not inspect `.docx`, `node_modules`, `dist`, `target`, `.playwright-cli`,
   or `output` unless the task explicitly requires an artifact from them.
 
@@ -29,51 +52,36 @@ Java 21, Spring Boot, Spring JDBC, and OceanBase in MySQL-compatible mode.
 Keep the repository root clean and stable. The root is a whitelist; everything
 else lives in a named directory.
 
-Allowed at root: `AGENTS.md`, `CONTEXT.md`, `requirement.md`, `README.md`,
-the script-generated requirement docx
-(`仿真数模资产管理系统_产品需求文档_V*.docx`), `.ai/`, `.claude/`, `.prompt/`,
-`backend/`, `docs/`, `frontend/`, `scripts/`, `skills/`, and standard dotfiles
-(`.editorconfig`, `.env.example`, `.env.local`, `.gitignore`).
+Allowed at root: `AGENTS.md`, `README.md`, `.claude/`, `backend/`, `docs/`,
+`frontend/`, `scripts/`, and standard dotfiles (`.editorconfig`, `.env.example`,
+`.env.local`, `.gitignore`).
 
-The `skills/coding-implementation/` copy is the in-repo source of the
-risk-adaptive R2C workflow; when improving the workflow, update it and keep it
-in sync with the installed copy under `~/.codex/skills/coding-implementation`.
-Run `skills/coding-implementation/scripts/score_skill.py . --self-test` after
-changes.
+- Never create cache or tool directories at the root (`.pnpm-store`,
+  `.playwright-cli`, `.superpowers`, `.worktrees`, `output/`, `node_modules`,
+  `dist/`, `target/`). Generated artifacts belong under `/tmp` or
+  `scripts/e2e/.logs/`.
+- Run `scripts/check_repo_structure.sh` before committing; it fails on any
+  unexpected root entry.
 
 ### Document Locations
 
-Requirements and technical documentation are generated in designated
-locations only:
+Active documentation is kept minimal:
 
-| Document type | Location |
+| What | Where |
 | --- | --- |
-| System-level requirements (source of truth) | `requirement.md` |
-| Module-level requirements | `docs/requirements/` |
-| Generated requirement docx (external distribution) | repo root, generated by `scripts/build_requirement_docx.py` |
-| Technical design | `docs/technical-design.md` |
-| Database migrations and legacy schema reference | `docs/migrations/` |
-| Architectural decisions | `docs/adr/` |
-| Implementation plans | `docs/plans/` |
-| Design specs | `docs/specs/` |
-| Local development guide | `docs/local-development.md` |
+| Local development / DB runbook | `docs/local-development.md` |
+| Feature specs and tickets (active) | `docs/plans/` |
+| Research findings (active) | `docs/research/` |
+| Retired doc-driven regime (frozen history) | `docs/archive/2026-09-07-doc-driven-development/` |
 
-New requirement or technical documents must be placed under `docs/`; never add
-new markdown, docx, or PDF files at the repository root (enforced by
-`scripts/check_repo_structure.sh` and `.gitignore`).
+The retired tree holds the former requirement.md baseline and generated docx,
+CONTEXT.md glossary, module requirements, technical design, ADRs, migrations,
+design specs, R2C pipeline/template assets (`.ai/`, `.prompt/`), and the docx
+generator script. Treat it as read-only history; never revive a "source of
+truth" document line from it without an explicit human decision.
 
-- New documentation goes under `docs/` (`requirements/`, `migrations/`, `adr/`,
-  `plans/`, `specs/`, `technical-design.md`). One-time task lists and progress
-  notes must not accumulate at the root; update
-  `docs/requirements/implementation-baseline.md` instead.
-- The requirement docx is generated by `scripts/build_requirement_docx.py` from
-  `requirement.md`. Never commit additional version snapshots of it.
-- Never create cache or tool directories at the root (`.pnpm-store`,
-  `.playwright-cli`, `.superpowers`, `.worktrees`, `output/`, `node_modules`,
-  `dist/`, `target/`). Generated artifacts belong under `scripts/e2e/.logs/`
-  or `/tmp`.
-- Run `scripts/check_repo_structure.sh` before committing; it fails on any
-  unexpected root entry.
+New documentation goes under `docs/` only. Never add new markdown, docx, or
+PDF files at the repository root.
 
 ## Hard Rules
 
@@ -86,10 +94,7 @@ new markdown, docx, or PDF files at the repository root (enforced by
 - Do not change legacy primary keys or overwrite legacy source values.
 - Product and production filters must match within the same `AssetScope`; do
   not combine matches from different scopes.
-- The asset lifecycle is `草稿 -> 待整理 -> 已标准化 -> 已停用`. ADR-0017 and
-  the current `requirement.md` take precedence over earlier lifecycle designs.
-- Keep controllers, application services, domain types, and infrastructure
-  adapters within the dependency direction documented in the technical design.
+- The asset lifecycle is `草稿 -> 待整理 -> 已标准化 -> 已停用`.
 - Do not commit credentials, local environment files, uploaded data, generated
   browser artifacts, or build output.
 - Keep the repository root whitelisted (see Repository Structure); run

@@ -22,15 +22,11 @@ for entry in .* *; do
       continue
       ;;
     # Allowed directories
-    .ai|.claude|.git|.prompt|backend|docs|frontend|scripts|skills)
+    .claude|.git|backend|docs|frontend|scripts)
       continue
       ;;
     # Allowed dotfiles and root-level sources
-    .editorconfig|.env.example|.env.local|.gitignore|AGENTS.md|CONTEXT.md|README.md|requirement.md)
-      continue
-      ;;
-    # Script-generated requirement docx only
-    仿真数模资产管理系统_产品需求文档_V*.docx)
+    .editorconfig|.env.example|.env.local|.gitignore|AGENTS.md|README.md)
       continue
       ;;
     # Known cache, tool, or artifact directories that must never appear at the root
@@ -44,7 +40,7 @@ for entry in .* *; do
       report "stray markdown at root: '$entry' (new docs belong under docs/)"
       ;;
     *)
-      report "unexpected root entry: '$entry' (put it under docs/, scripts/, backend/, frontend/, or .ai/)"
+      report "unexpected root entry: '$entry' (put it under docs/, scripts/, backend/, or frontend/)"
       ;;
   esac
 done
