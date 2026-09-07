@@ -11,7 +11,7 @@ import {
   ScanOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
-import { Button, Empty, Space, Tag } from 'antd'
+import { Alert, Button, Empty, Space, Tag } from 'antd'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
@@ -415,8 +415,33 @@ export default function HomePage() {
   })
   const latestScan = scansQuery.data?.[0]
 
+  // 任一工作台数据源失败时不静默显示 0/空列表，整页提示并支持一键重试。
+  const failedDashboardSections = [
+    favoritesQuery.isError && '收藏数量',
+    uploadsQuery.isError && '我的上传',
+    pendingQuery.isError && '待整理资料',
+    issuesQuery.isError && '治理问题',
+    tasksQuery.isError && '治理任务',
+    scansQuery.isError && '扫描概览',
+  ].filter((label): label is string => Boolean(label))
+  const retryDashboard = () => {
+    for (const query of [favoritesQuery, uploadsQuery, pendingQuery, issuesQuery, tasksQuery, scansQuery]) {
+      if (query.isError) void query.refetch()
+    }
+  }
+
   return (
     <Page>
+      {failedDashboardSections.length > 0 && (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="工作台数据加载失败"
+          description={`数据源加载失败：${failedDashboardSections.join('、')}。相关数字可能不完整，可点击重试恢复。`}
+          action={<Button size="small" type="primary" onClick={retryDashboard}>重试</Button>}
+        />
+      )}
       <GridTexture>
         <WelcomeBar>
           <div>

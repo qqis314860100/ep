@@ -138,8 +138,13 @@ const HeaderActions = styled.div`
     color: #c6d3dc;
   }
 
-  .ant-btn:hover,
-  .ant-btn:focus-visible {
+  .ant-btn:disabled {
+    color: #7f919c;
+    cursor: not-allowed;
+  }
+
+  .ant-btn:hover:not(:disabled),
+  .ant-btn:focus-visible:not(:disabled) {
     color: #fff !important;
     background: rgba(255, 255, 255, 0.09) !important;
   }
@@ -219,6 +224,7 @@ const NavItem = styled.button<{ $active: boolean; $collapsed: boolean }>`
   font-size: 13px;
   font-weight: ${({ $active }) => ($active ? 650 : 400)};
   white-space: nowrap;
+  transition: color 160ms ease, background-color 160ms ease;
 
   &::before {
     position: absolute;
@@ -338,7 +344,9 @@ export function AppShell({ children }: AppShellProps) {
         <ModuleName>{currentModule}</ModuleName>
         <HeaderSpacer />
         <HeaderActions>
-          <Tooltip title="帮助"><Button type="text" icon={<QuestionCircleOutlined />} aria-label="帮助" /></Tooltip>
+          <Tooltip title="帮助中心尚未开放">
+            <Button type="text" icon={<QuestionCircleOutlined />} aria-label="帮助" disabled />
+          </Tooltip>
           <NotificationBell />
           <User>
             <Avatar size={28} style={{ background: '#2f7567' }}>陈</Avatar>

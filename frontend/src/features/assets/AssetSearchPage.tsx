@@ -205,6 +205,7 @@ const DirectoryItem = styled.button<{ $active: boolean }>`
   cursor: pointer;
   font-size: 12px;
   font-weight: ${({ $active }) => ($active ? 650 : 400)};
+  transition: color 160ms ease, background-color 160ms ease;
 
   &::before {
     position: absolute;
@@ -819,7 +820,16 @@ export function AssetSearchPage() {
                   scroll={{ x: 1120 }}
                   locale={{ emptyText: <Empty description="没有符合条件的数模资产" /> }}
                   pagination={{ current: page, pageSize: params.perPage, total, showSizeChanger: false, onChange: setPage }}
-                  onRow={(record) => ({ onClick: () => openAsset(record.id) })}
+                  onRow={(record) => ({
+                    onClick: () => openAsset(record.id),
+                    tabIndex: 0,
+                    onKeyDown: (event) => {
+                      if (event.key === 'Enter' && event.target === event.currentTarget) {
+                        event.preventDefault()
+                        openAsset(record.id)
+                      }
+                    },
+                  })}
                 />
               )}
             </Results>

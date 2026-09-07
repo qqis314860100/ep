@@ -1,4 +1,4 @@
-import { Button, Empty, Typography } from 'antd'
+import { Button, Empty, Tooltip, Typography } from 'antd'
 import styled from 'styled-components'
 import type { Asset, AssetRelation } from '../../types/asset'
 import { AssetStatusTag, AssetTypeTag } from './AssetTags'
@@ -35,10 +35,16 @@ const Node = styled.button<{ $center?: boolean }>`
   cursor: pointer;
   box-shadow: 0 6px 18px rgb(29 48 42 / 7%);
 
-  &:hover,
+  &:hover:not(:disabled),
   &:focus-visible {
     border-color: #2f7567;
     outline: 2px solid rgb(47 117 103 / 18%);
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.92;
+    box-shadow: none;
   }
 `
 
@@ -113,31 +119,37 @@ export function AssetRelationMap({ asset, relations }: AssetRelationMapProps) {
         })}
       </Lines>
 
-      <Node $center style={{ left: '50%', top: '50%' }} type="button">
-        <NodeNumber>{asset.assetNumber}</NodeNumber>
-        <NodeTitle>{asset.name}</NodeTitle>
-        <AssetTypeTag type={asset.assetType} />
-      </Node>
+      <Tooltip title="当前资产">
+        <Node $center style={{ left: '50%', top: '50%' }} type="button" disabled>
+          <NodeNumber>{asset.assetNumber}</NodeNumber>
+          <NodeTitle>{asset.name}</NodeTitle>
+          <AssetTypeTag type={asset.assetType} />
+        </Node>
+      </Tooltip>
 
       {relations.slice(0, 4).map((relation, index) => {
         const position = relationPositions[index]
         return (
-          <Node
-            key={relation.id}
-            style={{ left: `${position.x}%`, top: `${position.y}%` }}
-            type="button"
-          >
-            <NodeNumber>{relation.targetAssetNumber}</NodeNumber>
-            <NodeTitle>{relation.targetAssetName}</NodeTitle>
-            <AssetStatusTag status={relation.targetAssetStatus} />
-          </Node>
+          <Tooltip key={relation.id} title="打开关联资产详情（尚未开放）">
+            <Node
+              style={{ left: `${position.x}%`, top: `${position.y}%` }}
+              type="button"
+              disabled
+            >
+              <NodeNumber>{relation.targetAssetNumber}</NodeNumber>
+              <NodeTitle>{relation.targetAssetName}</NodeTitle>
+              <AssetStatusTag status={relation.targetAssetStatus} />
+            </Node>
+          </Tooltip>
         )
       })}
 
       {relations.length > 4 && (
-        <Button size="small" style={{ position: 'absolute', right: 12, bottom: 12 }}>
-          查看全部 {relations.length} 项
-        </Button>
+        <Tooltip title="完整关联清单见下方表格">
+          <Button size="small" style={{ position: 'absolute', right: 12, bottom: 12 }} disabled>
+            查看全部 {relations.length} 项
+          </Button>
+        </Tooltip>
       )}
       <Typography.Text className="sr-only">
         当前资产为 {asset.name}

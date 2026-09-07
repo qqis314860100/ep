@@ -15,6 +15,7 @@ import {
   Form,
   Input,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Switch,
@@ -67,7 +68,7 @@ const UploadScrollArea = styled.div`
   }
 `
 
-type FileStage = '待上传' | '上传中' | '校验中' | '可用' | '失败'
+type FileStage = '待上传' | '上传中' | '已上传' | '失败'
 type UploadFormValues = {
   assetNumber: string
   name: string
@@ -370,8 +371,7 @@ function stageTag(stage: FileStage) {
   const props: Record<FileStage, { color: string; icon: React.ReactNode }> = {
     待上传: { color: 'default', icon: <CloudUploadOutlined /> },
     上传中: { color: 'processing', icon: <LoadingOutlined spin /> },
-    校验中: { color: 'processing', icon: <LoadingOutlined spin /> },
-    可用: { color: 'success', icon: <CheckCircleOutlined /> },
+    已上传: { color: 'success', icon: <CheckCircleOutlined /> },
     失败: { color: 'error', icon: <WarningOutlined /> },
   }
   const value = props[stage]
@@ -493,9 +493,8 @@ export function UploadPage() {
       setFileStages((current) => ({ ...current, [file.uid]: '上传中' }))
       try {
         const uploaded = await uploadAssetFile(file.originFileObj)
-        setFileStages((current) => ({ ...current, [file.uid]: '校验中' }))
-        await new Promise((resolve) => window.setTimeout(resolve, 180))
-        setFileStages((current) => ({ ...current, [file.uid]: '可用' }))
+        // 上传接口成功后即为可用文件，后端无独立“校验”阶段，不再模拟耗时校验。
+        setFileStages((current) => ({ ...current, [file.uid]: '已上传' }))
         setUploadedByUid((current) => ({ ...current, [file.uid]: uploaded }))
         results.push(uploaded)
       } catch (error) {
@@ -513,9 +512,7 @@ export function UploadPage() {
     setFileStages((current) => ({ ...current, [uid]: '上传中' }))
     try {
       const uploaded = await uploadAssetFile(file.originFileObj)
-      setFileStages((current) => ({ ...current, [uid]: '校验中' }))
-      await new Promise((resolve) => window.setTimeout(resolve, 180))
-      setFileStages((current) => ({ ...current, [uid]: '可用' }))
+      setFileStages((current) => ({ ...current, [uid]: '已上传' }))
       setUploadedByUid((current) => ({ ...current, [uid]: uploaded }))
       void message.success(`${file.name} 已重试成功`)
     } catch (error) {
@@ -847,7 +844,7 @@ export function UploadPage() {
             type={formatSummary.unknownCount > 0 ? 'warning' : 'info'}
             showIcon
             message={fileList.length === 0
-              ? '系统会根据文件后缀预填角色，上传后继续校验格式、大小和内容。'
+              ? '系统会根据文件后缀预填角色；保存或提交草稿时文件才会真正上传。'
               : formatSummary.unknownCount > 0
                 ? `${formatSummary.unknownCount} 个文件后缀未识别，请确认是否为允许的资产格式。`
                 : `已识别格式：${formatSummary.formats.join('、')}`}
@@ -878,7 +875,17 @@ export function UploadPage() {
         </UploadScrollArea>
 
         <ActionBar>
-          <Button icon={<ReloadOutlined />} onClick={() => form.resetFields()}>清空</Button>
+          <Popconfirm
+            title="确认清空？"
+            description={fileList.length > 0
+              ? `将移除当前已选择的 ${fileList.length} 个文件与已填写的元数据，此操作不可撤销。`
+              : '将清空已填写的元数据，此操作不可撤销。'}
+            okText="清空"
+            cancelText="取消"
+            onConfirm={() => form.resetFields()}
+          >
+            <Button icon={<ReloadOutlined />}>清空</Button>
+          </Popconfirm>
           <Button loading={saving || uploading} disabled={fileList.length === 0} onClick={() => void saveDraft()}>保存草稿</Button>
           <Button type="primary" htmlType="submit" loading={saving || uploading} icon={<CloudUploadOutlined />}>提交待整理</Button>
         </ActionBar>

@@ -102,6 +102,9 @@ export default function FavoritesPage() {
   const [keyword, setKeyword] = useState('')
   const [base, setBase] = useState<string>()
   const [line, setLine] = useState<string>()
+  // TODO(服务端分页): GET /api/v1/favorites 目前为全量 List 契约（无 page/perPage/meta），
+  // 收藏量增长后需后端加分页，再改为服务端分页 + AntD Pagination；在此之前的
+  // 客户端过滤仅是临时方案，勿在前端伪造分页或修改 API 契约。
   const favoritesQuery = useQuery({ queryKey: ['favorites'], queryFn: getFavoriteAssets })
   const dictionaryQuery = useQuery({ queryKey: ['dictionary-items'], queryFn: getDictionaryItems })
   const enabledItems = (dictionaryQuery.data ?? []).filter((item) => item.status === 'ENABLED')

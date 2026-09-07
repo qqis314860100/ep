@@ -22,6 +22,7 @@ import {
   Table,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -102,6 +103,8 @@ interface AssetDetailDrawerProps {
 }
 
 export function AssetDetailDrawer({ assetId, onClose }: AssetDetailDrawerProps) {
+  // 小屏时让抽屉贴合视口，避免超出屏幕；默认 880 与桌面端设计一致。
+  const drawerWidth = typeof window === 'undefined' ? 880 : Math.min(880, window.innerWidth - 24)
   const assetQuery = useAsset(assetId)
   const relationsQuery = useAssetRelations(assetId)
   const favoriteQuery = useFavorite(assetId)
@@ -201,13 +204,12 @@ export function AssetDetailDrawer({ assetId, onClose }: AssetDetailDrawerProps) 
       width: 132,
       render: (_, record) => (
         <Space size={4}>
-          <Button
-            type="text"
-            icon={<EyeOutlined />}
-            aria-label={`预览 ${record.name}`}
-            disabled={!record.previewable}
-          />
-          <Button type="text" icon={<DownloadOutlined />} aria-label={`下载 ${record.name}`} />
+          <Tooltip title={record.previewable ? '在线预览尚未开放，可在资产详情页预览' : '该格式暂不支持在线预览'}>
+            <Button type="text" icon={<EyeOutlined />} aria-label={`预览 ${record.name}`} disabled />
+          </Tooltip>
+          <Tooltip title="文件下载尚未开放，可在资产详情页下载">
+            <Button type="text" icon={<DownloadOutlined />} aria-label={`下载 ${record.name}`} disabled />
+          </Tooltip>
         </Space>
       ),
     },
@@ -217,7 +219,7 @@ export function AssetDetailDrawer({ assetId, onClose }: AssetDetailDrawerProps) 
     <Drawer
       open={assetId !== undefined}
       onClose={onClose}
-      width={880}
+      width={drawerWidth}
       destroyOnClose
       loading={assetQuery.isLoading}
       title={
@@ -241,9 +243,11 @@ export function AssetDetailDrawer({ assetId, onClose }: AssetDetailDrawerProps) 
           >
             {favoriteQuery.data ? '已收藏' : '收藏'}
           </Button>
-          <Button icon={<FileZipOutlined />} disabled={!asset}>
-            打包下载
-          </Button>
+          <Tooltip title="打包下载尚未开放，可在资产详情页下载">
+            <Button icon={<FileZipOutlined />} disabled>
+              打包下载
+            </Button>
+          </Tooltip>
         </Space>
       }
     >
@@ -299,6 +303,7 @@ export function AssetDetailDrawer({ assetId, onClose }: AssetDetailDrawerProps) 
                         value={commentDraft}
                         onChange={(event) => setCommentDraft(event.target.value)}
                         placeholder="记录使用反馈或补充说明"
+                        aria-label="评论内容"
                         autoSize={{ minRows: 2, maxRows: 4 }}
                         maxLength={500}
                         showCount

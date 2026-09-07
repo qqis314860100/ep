@@ -97,7 +97,17 @@ export default function DocumentCreatePage() {
   }, [dirty])
 
   const leave = () => {
-    if (!dirty || window.confirm('当前内容尚未保存，确认离开吗？')) navigate('/documents')
+    if (!dirty) {
+      navigate('/documents')
+      return
+    }
+    Modal.confirm({
+      title: '离开新建文档？',
+      content: '当前内容尚未保存，离开后填写的资料将丢失。',
+      okText: '离开',
+      cancelText: '留在本页',
+      onOk: () => navigate('/documents'),
+    })
   }
 
   const saveDraft = async () => {

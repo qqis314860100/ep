@@ -70,6 +70,7 @@ const Item = styled.button<{ $unread: boolean }>`
   border: 0;
   border-bottom: 1px solid #f0f3f1;
   cursor: pointer;
+  transition: background-color 160ms ease;
 
   &:hover {
     background: #eef5f2;
