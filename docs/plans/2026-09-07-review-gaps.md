@@ -60,3 +60,4 @@
 - S3 已完成并提交（d5d47e0）：T3.1 假可点控件 disabled+Tooltip；T3.2 清空 Popconfirm + 移除假"校验中"；T3.3 Modal.confirm 统一 + hover 过渡；T3.4 键盘 Enter/aria-label；T3.5 Drawer 宽度自适应；首页工作台错误态+重试。门禁 lint 0/0、typecheck 干净、vitest 5/5。
 - T3.6 收藏页：核实后端 GET /api/v1/favorites 无分页契约，保持现状并加 TODO——后端分页单独立票（S4-新增）。
 - 待决策/后续：D1(S1 安全)、D2/D4/D7(S5/S6 设计)、D9(草稿校验口径)、收藏分页后端票；UI 视觉回归需人工浏览器确认。
+- S3-补（待做，UX 一致性）：检索/筛选"读请求进行态"——列表视图绑 loading=isFetching（AssetSearchPage:818）而图集仅首载骨架、搜索按钮无 loading/防连点（:687）；文档检索与系统管理同类。目标：任一读请求有进行态、图/表视图反馈一致、防连点。来源：UI/UX 审查（原越权代理 a88bb77b 的 IA-2.6 已核实后收编，其 layout 方案文档未采纳并已移出仓库）。
