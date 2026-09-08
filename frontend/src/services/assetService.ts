@@ -8,7 +8,10 @@ import type {
   AssetRelation,
   AssetSearchParams,
   AssetSort,
+  AssetStatus,
+  AssetType,
   EquipmentInterconnection,
+  RelationType,
 } from '../types/asset'
 import type { AssetDocumentRelation, KnowledgeDocument } from '../types/document'
 
