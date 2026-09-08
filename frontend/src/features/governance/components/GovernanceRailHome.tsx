@@ -23,6 +23,7 @@ import {
 } from './governanceRailModel'
 import type { GovernanceRailCounts, GovernanceRailStageKey } from './governanceRailModel'
 import { GovernanceRail } from './GovernanceRail'
+import { GovernanceMyTodo } from './GovernanceMyTodo'
 import { railTheme } from './railTheme'
 
 const Section = styled.section`
@@ -385,6 +386,8 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
       )}
 
       <StatCards cards={statCards} />
+
+      <GovernanceMyTodo onOpenTask={onOpenTask} />
 
       <Panel>
         <PanelTitle>治理轨道 <span className="hint">点击任一节点查看该步待办（Tab 聚焦 + Enter 选中）</span></PanelTitle>
