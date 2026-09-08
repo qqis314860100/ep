@@ -9,6 +9,7 @@ import { getInventory } from '../api'
 import type { InventoryFilters, InventoryView } from '../api'
 import { AssetStatusTag, AssetTypeTag } from '../../assets/AssetTags'
 import { assetTypeLabels } from '../../assets/assetPresentation'
+import { FilterGrid } from '../../../components/FilterGrid'
 
 const Header = styled.header`
   display: flex;
@@ -111,21 +112,23 @@ export function GovernanceInventoryPage() {
         <MetricCard><Statistic title="文件可用率" value={view?.rates.fileAvailability ?? 0} suffix="%" /></MetricCard>
       </Metrics>
 
-      <Form form={form} layout="inline" onFinish={submit} style={{ marginBottom: 12, rowGap: 8 }}>
-        <Form.Item name="legacyPlatform" label="旧平台"><Input allowClear placeholder="旧平台文本" style={{ width: 130 }} /></Form.Item>
-        <Form.Item name="legacyLine" label="旧拉线"><Input allowClear placeholder="旧拉线文本" style={{ width: 130 }} /></Form.Item>
-        <Form.Item name="legacyCategory" label="旧分类">
-          <Select allowClear placeholder="资产类型" style={{ width: 130 }} options={Object.entries(assetTypeLabels).map(([value, label]) => ({ value, label }))} />
-        </Form.Item>
-        <Form.Item name="owner" label="创建人"><Input allowClear placeholder="负责人" style={{ width: 120 }} /></Form.Item>
-        <Form.Item name="format" label="文件格式">
-          <Select allowClear placeholder="格式" style={{ width: 110 }} options={FILE_FORMATS.map((value) => ({ value, label: value }))} />
-        </Form.Item>
-        <Form.Item name="missingBase" label="缺基地" valuePropName="checked"><Checkbox /></Form.Item>
-        <Form.Item name="missingLine" label="缺标准拉线" valuePropName="checked"><Checkbox /></Form.Item>
-        <Form.Item name="missingDescription" label="缺功能说明" valuePropName="checked"><Checkbox /></Form.Item>
-        <Form.Item name="missingOwner" label="缺负责人" valuePropName="checked"><Checkbox /></Form.Item>
-        <Form.Item name="missingFile" label="缺可用文件" valuePropName="checked"><Checkbox /></Form.Item>
+      <Form form={form} onFinish={submit} colon={false} style={{ marginBottom: 12 }}>
+        <FilterGrid>
+          <Form.Item name="legacyPlatform" label="旧平台"><Input allowClear placeholder="旧平台文本" style={{ width: 130 }} /></Form.Item>
+          <Form.Item name="legacyLine" label="旧拉线"><Input allowClear placeholder="旧拉线文本" style={{ width: 130 }} /></Form.Item>
+          <Form.Item name="legacyCategory" label="旧分类">
+            <Select allowClear placeholder="资产类型" style={{ width: 130 }} options={Object.entries(assetTypeLabels).map(([value, label]) => ({ value, label }))} />
+          </Form.Item>
+          <Form.Item name="owner" label="创建人"><Input allowClear placeholder="负责人" style={{ width: 120 }} /></Form.Item>
+          <Form.Item name="format" label="文件格式">
+            <Select allowClear placeholder="格式" style={{ width: 110 }} options={FILE_FORMATS.map((value) => ({ value, label: value }))} />
+          </Form.Item>
+          <Form.Item name="missingBase" label="缺基地" valuePropName="checked"><Checkbox /></Form.Item>
+          <Form.Item name="missingLine" label="缺标准拉线" valuePropName="checked"><Checkbox /></Form.Item>
+          <Form.Item name="missingDescription" label="缺功能说明" valuePropName="checked"><Checkbox /></Form.Item>
+          <Form.Item name="missingOwner" label="缺负责人" valuePropName="checked"><Checkbox /></Form.Item>
+          <Form.Item name="missingFile" label="缺可用文件" valuePropName="checked"><Checkbox /></Form.Item>
+        </FilterGrid>
       </Form>
 
       {query.isError && <Alert type="error" showIcon message="盘点数据加载失败" style={{ marginBottom: 12 }} />}

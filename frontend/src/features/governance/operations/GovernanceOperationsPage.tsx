@@ -4,11 +4,13 @@ import { Alert, Button, Col, Empty, Form, Input, Row, Select, Space, Statistic, 
 import type { ColumnsType } from 'antd/es/table'
 import { useMemo, useState } from 'react'
 import styled from 'styled-components'
+import { FilterGrid } from '../../../components/FilterGrid'
 import { getGovernanceEmployees, getGovernanceOperationsOverview, getGovernanceStandards } from '../api'
 import type { GovernanceAssetType, GovernanceOperationsFilter, GovernanceOperationsMetric } from '../types'
 
 const Header = styled.header`display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px;@media(max-width:760px){align-items:stretch;flex-direction:column;}`
 const FilterBar = styled.div`padding:14px;background:#fff;border:1px solid #dfe5e2;border-radius:4px;margin-bottom:14px;`
+const FilterActions = styled.div`align-self:end;`
 const MetricGrid = styled.div`display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#dfe5e2;border:1px solid #dfe5e2;border-radius:4px;overflow:hidden;margin-bottom:14px;@media(max-width:900px){grid-template-columns:repeat(2,minmax(0,1fr));}@media(max-width:520px){grid-template-columns:1fr;}`
 const MetricCell = styled.div`min-height:78px;padding:12px 14px;background:#fff;.ant-statistic-title{font-size:11px}.ant-statistic-content{font-size:21px}`
 const Section = styled.section`min-width:0;background:#fff;border:1px solid #dfe5e2;border-radius:4px;padding:14px;margin-bottom:14px;`
@@ -41,7 +43,20 @@ export function GovernanceOperationsPage() {
   const submit = (values: GovernanceOperationsFilter) => setFilters(Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined && value !== '')))
   return <section>
     <Header><div><Typography.Title level={3} style={{ margin: 0 }}>治理运营</Typography.Title><Typography.Text type="secondary">从问题发现到验收应用，按责任、标准和风险推动常态治理</Typography.Text></div><Button icon={<ReloadOutlined />} onClick={() => void overview.refetch()}>刷新</Button></Header>
-    <FilterBar><Form form={form} layout="vertical" onFinish={submit}><Row gutter={[12, 0]}><Col xs={24} sm={12} md={6}><Form.Item name="standardCode" label="数据标准"><Select allowClear placeholder="全部标准" options={(standards.data ?? []).map(item => ({ value: item.standardCode, label: `${item.standardCode} · V${item.standardVersion}` }))} /></Form.Item></Col><Col xs={24} sm={12} md={6}><Form.Item name="issueType" label="问题类型"><Select allowClear placeholder="全部问题" options={(overview.data?.issuesByType ?? []).map(item => ({ value: item.key, label: item.key }))} /></Form.Item></Col><Col xs={24} sm={12} md={6}><Form.Item name="ownerUserId" label="责任人"><Select allowClear placeholder="全部责任人" options={(employees.data ?? []).map(item => ({ value: item.id, label: item.name }))} /></Form.Item></Col><Col xs={24} sm={12} md={6}><Form.Item name="assetType" label="资产类型"><Select allowClear placeholder="全部类型" options={Object.entries(assetTypeLabels).map(([value, label]) => ({ value, label }))} /></Form.Item></Col><Col xs={24} sm={12} md={6}><Form.Item name="base" label="基地"><Input allowClear placeholder="输入基地" /></Form.Item></Col><Col xs={12} sm={6} md={4}><Form.Item name="fromDate" label="开始日期"><Input type="date" /></Form.Item></Col><Col xs={12} sm={6} md={4}><Form.Item name="toDate" label="结束日期"><Input type="date" /></Form.Item></Col><Col xs={24} md={4} style={{ display: 'flex', alignItems: 'end', paddingBottom: 24 }}><Space><Button type="primary" icon={<FilterOutlined />} htmlType="submit">应用筛选</Button><Button onClick={() => { form.resetFields(); setFilters({}) }}>重置</Button></Space></Col></Row></Form></FilterBar>
+    <FilterBar>
+      <Form form={form} layout="vertical" onFinish={submit}>
+        <FilterGrid>
+          <Form.Item name="standardCode" label="数据标准"><Select allowClear placeholder="全部标准" options={(standards.data ?? []).map(item => ({ value: item.standardCode, label: `${item.standardCode} · V${item.standardVersion}` }))} /></Form.Item>
+          <Form.Item name="issueType" label="问题类型"><Select allowClear placeholder="全部问题" options={(overview.data?.issuesByType ?? []).map(item => ({ value: item.key, label: item.key }))} /></Form.Item>
+          <Form.Item name="ownerUserId" label="责任人"><Select allowClear placeholder="全部责任人" options={(employees.data ?? []).map(item => ({ value: item.id, label: item.name }))} /></Form.Item>
+          <Form.Item name="assetType" label="资产类型"><Select allowClear placeholder="全部类型" options={Object.entries(assetTypeLabels).map(([value, label]) => ({ value, label }))} /></Form.Item>
+          <Form.Item name="base" label="基地"><Input allowClear placeholder="输入基地" /></Form.Item>
+          <Form.Item name="fromDate" label="开始日期"><Input type="date" /></Form.Item>
+          <Form.Item name="toDate" label="结束日期"><Input type="date" /></Form.Item>
+          <FilterActions><Space><Button type="primary" icon={<FilterOutlined />} htmlType="submit">应用筛选</Button><Button onClick={() => { form.resetFields(); setFilters({}) }}>重置</Button></Space></FilterActions>
+        </FilterGrid>
+      </Form>
+    </FilterBar>
     {overview.isError && <Alert type="error" showIcon message="运营指标加载失败" style={{ marginBottom: 14 }} />}
     <MetricGrid>{metricOrder.map(key => { const metric = metrics.get(key); return <MetricCell key={key}><Statistic title={metric?.label ?? key} value={metric ? metricDisplay(metric) : '加载中'} /></MetricCell> })}</MetricGrid>
     {overview.data && <Typography.Text type="secondary" style={{ display: 'block', margin: '-5px 0 14px' }}>生成时间：{new Date(overview.data.generatedAt).toLocaleString('zh-CN', { hour12: false })} · 指标来源均为平台治理事实</Typography.Text>}
