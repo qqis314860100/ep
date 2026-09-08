@@ -70,11 +70,12 @@ class AiSuggestionServiceTest {
     }
 
     @Test
-    void registerRejectsKnowledgeDocumentTargetForNow() {
-        assertThatThrownBy(() -> service.register(new AiSuggestionService.AiSuggestionDraft(
-                AiSuggestionTargetType.KNOWLEDGE_DOC, 1L, "文档", new AiProposedFields("", "", null, List.of(), "", ""),
-                List.of(), null, List.of(), "ai-service")))
-                .isInstanceOf(AiSuggestionValidationException.class);
+    void registerAcceptsKnowledgeDocumentTarget() {
+        var view = service.register(new AiSuggestionService.AiSuggestionDraft(
+                AiSuggestionTargetType.KNOWLEDGE_DOC, 1L, "文档", new AiProposedFields("", "", null, List.of(), "摘要", "CAT"),
+                List.of(), null, List.of(), "ai-service"));
+        assertThat(view.status()).isEqualTo(AiSuggestionStatus.PENDING);
+        assertThat(view.targetType()).isEqualTo(AiSuggestionTargetType.KNOWLEDGE_DOC);
     }
 
     @Test

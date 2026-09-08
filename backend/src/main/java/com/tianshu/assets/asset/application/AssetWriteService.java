@@ -31,14 +31,21 @@ public class AssetWriteService {
     private final AssetRepository assetRepository;
     private final AssetCollaborationStore collaborationStore;
     private final OperationLogStore operationLogs;
+    private final AssetSavedListener savedListener;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore,
-            OperationLogStore operationLogs) {
+            OperationLogStore operationLogs, AssetSavedListener savedListener) {
         this.assetRepository = assetRepository;
         this.collaborationStore = collaborationStore;
         this.operationLogs = operationLogs;
+        this.savedListener = savedListener;
+    }
+
+    public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore,
+            OperationLogStore operationLogs) {
+        this(assetRepository, collaborationStore, operationLogs, null);
     }
 
     public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore) {
@@ -54,7 +61,7 @@ public class AssetWriteService {
         if (assetRepository.existsByAssetNumber(draft.assetNumber())) {
             throw new DuplicateAssetNumberException(draft.assetNumber());
         }
-        return assetRepository.save(new Asset(
+        var saved = assetRepository.save(new Asset(
                 0,
                 draft.assetNumber(),
                 draft.name(),
@@ -73,6 +80,10 @@ public class AssetWriteService {
                 draft.ownerDepartment(),
                 Instant.now(),
                 false));
+        if (savedListener != null && !saved.files().isEmpty()) {
+            savedListener.onAssetSaved(saved.id());
+        }
+        return saved;
     }
 
     public Asset submit(long id) {

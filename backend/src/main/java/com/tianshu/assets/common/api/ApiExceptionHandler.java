@@ -200,6 +200,13 @@ public class ApiExceptionHandler {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, "ai_chat_invalid", exception.getMessage(), List.of());
     }
 
+    @ExceptionHandler(com.tianshu.assets.ai.application.AiCapabilityException.class)
+    ResponseEntity<ApiError> handleAiCapability(
+            com.tianshu.assets.ai.application.AiCapabilityException exception) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE, "ai_capability_unavailable",
+                exception.getMessage(), List.of());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException exception) {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_request", exception.getMessage(), List.of());

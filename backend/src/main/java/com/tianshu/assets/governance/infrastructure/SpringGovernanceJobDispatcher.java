@@ -25,6 +25,11 @@ public class SpringGovernanceJobDispatcher implements GovernanceJobDispatcher {
     @Override
     public void dispatch(long jobId) {
         var task = (Runnable) () -> applicationJobService.run(jobId);
+        dispatchTask(task);
+    }
+
+    /** 通用任务投递（复用治理调度的事务提交后置与执行线程），供 AI 编目等异步任务使用，不另建队列。 */
+    public void dispatchTask(Runnable task) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

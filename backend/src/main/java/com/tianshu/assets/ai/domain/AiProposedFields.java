@@ -28,6 +28,10 @@ public record AiProposedFields(
         return !name.isBlank() || !description.isBlank() || !assetTypeCode.isBlank() || !tags.isEmpty();
     }
 
+    public boolean hasDocChanges() {
+        return !name.isBlank() || !summary.isBlank() || !categoryCode.isBlank();
+    }
+
     private static String text(String value) {
         return value == null ? "" : value.trim();
     }

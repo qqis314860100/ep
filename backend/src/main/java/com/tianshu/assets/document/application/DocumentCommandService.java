@@ -22,17 +22,51 @@ public class DocumentCommandService {
     private final DocumentRepository repository;
     private final FileStorage fileStorage;
     private final com.tianshu.assets.system.domain.OperationLogStore operationLogs;
+    private final DocumentPublishedListener publishedListener;
 
     public DocumentCommandService(DocumentRepository repository, FileStorage fileStorage) {
         this(repository, fileStorage, new com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore());
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
     public DocumentCommandService(DocumentRepository repository, FileStorage fileStorage,
             com.tianshu.assets.system.domain.OperationLogStore operationLogs) {
+        this(repository, fileStorage, operationLogs, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public DocumentCommandService(DocumentRepository repository, FileStorage fileStorage,
+            com.tianshu.assets.system.domain.OperationLogStore operationLogs, DocumentPublishedListener publishedListener) {
         this.repository = repository;
         this.fileStorage = fileStorage;
         this.operationLogs = operationLogs;
+        this.publishedListener = publishedListener;
+    }
+
+    /**
+     * 应用 AI 编目建议（经人确认后调用）：仅已发布文档可应用，空字段不覆盖；
+     * 乐观版本更新与既有发布链路一致；审计由 AI 建议域落 AI_SUGGESTION_CONFIRMED。
+     */
+    public KnowledgeDocument applyAiCuratedMetadata(long documentId, String title, String summary,
+            String categoryCode, String operatorUserId, String operatorName) {
+        var document = repository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException("文档不存在"));
+        if (document.status() != DocumentStatus.PUBLISHED) {
+            throw new DocumentStateConflictException("只有已发布文档可应用 AI 编目建议");
+        }
+        var curatedTitle = (title == null || title.isBlank()) ? document.title() : title.trim();
+        var curatedSummary = (summary == null || summary.isBlank()) ? document.summary() : summary.trim();
+        var curatedCategory = (categoryCode == null || categoryCode.isBlank())
+                ? document.categoryCode() : categoryCode.trim();
+        var now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        var updated = new KnowledgeDocument(document.id(), document.documentNumber(), curatedTitle, curatedSummary,
+                curatedCategory, document.maintainerId(), document.maintainerName(), document.maintainerDepartment(),
+                document.scopeMode(), document.scopes(), document.status(), document.currentVersionId(),
+                document.currentVersion(), document.createdAt(), now, document.version() + 1);
+        try {
+            return repository.update(updated, document.version());
+        } catch (IllegalStateException exception) {
+            throw new DocumentStateConflictException("文档已被其他用户更新，请刷新后重试", exception);
+        }
     }
 
     /** 停用文档（DOC-06）：原因必填、管理员操作、默认隐藏于普通检索、历史全部保留。 */
@@ -122,7 +156,11 @@ public class DocumentCommandService {
                 draft.scopeMode(), draft.scopes(), DocumentStatus.PUBLISHED, publishedVersion.id(), publishedVersion, draft.createdAt(), now,
                 draft.version() + 1);
         try {
-            return repository.update(published, draft.version());
+            var saved = repository.update(published, draft.version());
+            if (publishedListener != null) {
+                publishedListener.onDocumentPublished(saved.id());
+            }
+            return saved;
         } catch (IllegalStateException exception) {
             throw new DocumentStateConflictException("文档已被其他用户更新，请刷新后重试", exception);
         }
@@ -179,7 +217,11 @@ public class DocumentCommandService {
                 document.maintainerDepartment(), document.scopeMode(), document.scopes(), DocumentStatus.PUBLISHED,
                 publishedVersion.id(), publishedVersion, document.createdAt(), now, document.version() + 1);
         try {
-            return repository.update(updated, document.version());
+            var saved = repository.update(updated, document.version());
+            if (publishedListener != null) {
+                publishedListener.onDocumentPublished(saved.id());
+            }
+            return saved;
         } catch (IllegalStateException exception) {
             throw new DocumentStateConflictException("文档已被其他用户更新，请刷新后重试", exception);
         }

@@ -10,6 +10,7 @@ import com.tianshu.assets.ai.domain.AiTargetScope;
 import com.tianshu.assets.asset.application.AssetWriteService;
 import com.tianshu.assets.asset.application.ForbiddenOperationException;
 import com.tianshu.assets.asset.domain.AssetType;
+import com.tianshu.assets.document.application.DocumentCommandService;
 import com.tianshu.assets.system.domain.OperationLog;
 import com.tianshu.assets.system.domain.OperationLogStore;
 import com.tianshu.assets.system.domain.SystemUserRepository;
@@ -27,11 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * AI 建议-确认域应用服务（AI 一期 T1）。
  *
- * <p>信任边界：本服务是 AI 对业务域的唯一写入口——只产出/确认「建议」，生效走现有资产写入链路。
+ * <p>信任边界：本服务是 AI 对业务域的唯一写入口——只产出/确认「建议」，生效走现有资产/文档写入链路。
  * 可见与操作按当前用户 AssetScope 过滤（范围外不可见、不可确认/驳回），确认/驳回要求内容管理员或系统管理员角色；
- * 全部决策写操作日志（含依据片段快照）。</p>
- *
- * <p>范围说明：登记当前仅支持资产目标；知识文档目标与范围提示（scopeHints）的应用随后续「入库触发 AI 编目」切片落地。</p>
+ * 全部决策写操作日志（含依据片段快照）。资产与知识文档目标均支持；scopeHints 范围建议的应用仍随后续切片落地。</p>
  */
 @Service
 public class AiSuggestionService {
@@ -42,23 +41,36 @@ public class AiSuggestionService {
     private final AiSuggestionRepository suggestions;
     private final SystemUserRepository users;
     private final AssetWriteService assetWrite;
+    private final DocumentCommandService documentWrite;
     private final OperationLogStore operationLogs;
     private final Clock clock;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public AiSuggestionService(AiSuggestionRepository suggestions, SystemUserRepository users,
+            AssetWriteService assetWrite, DocumentCommandService documentWrite, OperationLogStore operationLogs) {
+        this(suggestions, users, assetWrite, documentWrite, operationLogs, Clock.systemUTC());
+    }
+
+    public AiSuggestionService(AiSuggestionRepository suggestions, SystemUserRepository users,
+            AssetWriteService assetWrite, DocumentCommandService documentWrite,
+            OperationLogStore operationLogs, Clock clock) {
+        this.suggestions = suggestions;
+        this.users = users;
+        this.assetWrite = assetWrite;
+        this.documentWrite = documentWrite;
+        this.operationLogs = operationLogs;
+        this.clock = clock;
+    }
+
+    public AiSuggestionService(AiSuggestionRepository suggestions, SystemUserRepository users,
             AssetWriteService assetWrite, OperationLogStore operationLogs) {
-        this(suggestions, users, assetWrite, operationLogs, Clock.systemUTC());
+        this(suggestions, users, assetWrite, null, operationLogs, Clock.systemUTC());
     }
 
     public AiSuggestionService(AiSuggestionRepository suggestions, SystemUserRepository users,
             AssetWriteService assetWrite, OperationLogStore operationLogs, Clock clock) {
-        this.suggestions = suggestions;
-        this.users = users;
-        this.assetWrite = assetWrite;
-        this.operationLogs = operationLogs;
-        this.clock = clock;
+        this(suggestions, users, assetWrite, null, operationLogs, clock);
     }
 
     /** 登记一条 AI 建议（抽取完成后调用；同目标旧待确认建议作废为 SUPERSEDED）。 */
@@ -67,8 +79,10 @@ public class AiSuggestionService {
         if (draft == null) {
             throw new AiSuggestionValidationException("AI 建议内容不能为空");
         }
-        if (draft.targetType() == null || draft.targetType() != AiSuggestionTargetType.ASSET) {
-            throw new AiSuggestionValidationException("AI 建议当前仅支持资产目标，文档目标建议随入库触发切片落地");
+        if (draft.targetType() == null
+                || (draft.targetType() != AiSuggestionTargetType.ASSET
+                        && draft.targetType() != AiSuggestionTargetType.KNOWLEDGE_DOC)) {
+            throw new AiSuggestionValidationException("AI 建议目标类型不支持");
         }
         if (draft.targetId() <= 0) {
             throw new AiSuggestionValidationException("AI 建议目标不能为空");
@@ -162,7 +176,28 @@ public class AiSuggestionService {
             applyToAsset(suggestion, userId, userName);
             return;
         }
-        throw new AiSuggestionStateException("文档目标建议的应用尚未开放");
+        if (suggestion.targetType() == AiSuggestionTargetType.KNOWLEDGE_DOC) {
+            applyToDocument(suggestion, userId, userName);
+            return;
+        }
+        throw new AiSuggestionStateException("该目标类型的建议暂不支持应用");
+    }
+
+    private void applyToDocument(AiSuggestion suggestion, String userId, String userName) {
+        if (documentWrite == null) {
+            throw new AiSuggestionStateException("文档目标建议应用未装配");
+        }
+        var proposed = suggestion.proposed();
+        if (!proposed.hasDocChanges()) {
+            return;
+        }
+        documentWrite.applyAiCuratedMetadata(
+                suggestion.targetId(),
+                nullIfBlank(proposed.name()),
+                nullIfBlank(proposed.summary()),
+                nullIfBlank(proposed.categoryCode()),
+                userId,
+                userName);
     }
 
     private void applyToAsset(AiSuggestion suggestion, String userId, String userName) {
