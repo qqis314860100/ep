@@ -65,7 +65,7 @@ mysql "${DB_NAME}" -e "CREATE TABLE IF NOT EXISTS operation_log_ext (
   KEY idx_operation_log_ext_target (target_type, target_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Local operation log for JdbcOperationLogStore';" >/dev/null
 
-# AI 建议（AI 一期 T1，仅 local profile 使用；字段与 JdbcAiSuggestionRepository 映射一致，OceanBase 正本 schema 不含）。
+# AI 建议（AI 一期 T1，本机 local 由 prepare_local_db.sh 供给（供 JdbcAiSuggestionRepository 使用）；OceanBase 正式部署需走其迁移流程后再启用）。
 mysql "${DB_NAME}" -e "CREATE TABLE IF NOT EXISTS ai_suggestion (
   id BIGINT NOT NULL AUTO_INCREMENT,
   target_type VARCHAR(32) NOT NULL,
@@ -86,6 +86,27 @@ mysql "${DB_NAME}" -e "CREATE TABLE IF NOT EXISTS ai_suggestion (
   KEY idx_ai_suggestion_target (target_type, target_id, status),
   KEY idx_ai_suggestion_status (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI suggestion for JdbcAiSuggestionRepository';" >/dev/null
+
+# AI 问答会话/消息（AI 一期 T3，本机 local 由 prepare_local_db.sh 供给（供 JdbcAiChatRepository 使用）；OceanBase 正式部署需走其迁移流程后再启用）。
+mysql "${DB_NAME}" -e "CREATE TABLE IF NOT EXISTS ai_chat_session (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id VARCHAR(64) NOT NULL,
+  title VARCHAR(120) NOT NULL,
+  created_at DATETIME(6) NOT NULL,
+  updated_at DATETIME(6) NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_ai_chat_session_user (user_id, updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI chat session for JdbcAiChatRepository';" >/dev/null
+mysql "${DB_NAME}" -e "CREATE TABLE IF NOT EXISTS ai_chat_message (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  session_id BIGINT NOT NULL,
+  role VARCHAR(16) NOT NULL,
+  content TEXT NOT NULL,
+  citations TEXT NOT NULL,
+  created_at DATETIME(6) NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_ai_chat_message_session (session_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI chat message for JdbcAiChatRepository';" >/dev/null
 
 applied_file() { # file_name
   local count

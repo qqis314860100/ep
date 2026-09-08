@@ -188,6 +188,18 @@ public class ApiExceptionHandler {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, "ai_suggestion_invalid", exception.getMessage(), List.of());
     }
 
+    @ExceptionHandler(com.tianshu.assets.ai.application.AiChatSessionNotFoundException.class)
+    ResponseEntity<ApiError> handleAiChatSessionNotFound(
+            com.tianshu.assets.ai.application.AiChatSessionNotFoundException exception) {
+        return response(HttpStatus.NOT_FOUND, "ai_chat_session_not_found", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(com.tianshu.assets.ai.application.AiChatValidationException.class)
+    ResponseEntity<ApiError> handleAiChatValidation(
+            com.tianshu.assets.ai.application.AiChatValidationException exception) {
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, "ai_chat_invalid", exception.getMessage(), List.of());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException exception) {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_request", exception.getMessage(), List.of());
