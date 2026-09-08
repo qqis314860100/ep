@@ -34,7 +34,7 @@ const toneMeta: Record<GovernanceStatTone, { color: string; weak: string; icon: 
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 
   @media (max-width: 1180px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -48,7 +48,7 @@ const Grid = styled.div`
 const Card = styled.div<{ $tone: GovernanceStatTone }>`
   position: relative;
   min-width: 0;
-  padding: 14px 16px 13px;
+  padding: 15px 18px 14px;
   overflow: hidden;
   background: ${railTheme.card};
   border: 1px solid ${railTheme.line};
@@ -90,8 +90,8 @@ const IconChip = styled.span<{ $tone: GovernanceStatTone }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   flex: none;
   color: ${props => toneMeta[props.$tone].color};
   font-size: 15px;
@@ -108,7 +108,7 @@ const ValueRow = styled.div`
 
 const Value = styled.span<{ $tone: GovernanceStatTone }>`
   color: ${props => (props.$tone === 'default' ? railTheme.text : toneMeta[props.$tone].color)};
-  font-size: 27px;
+  font-size: 30px;
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: 0.2px;

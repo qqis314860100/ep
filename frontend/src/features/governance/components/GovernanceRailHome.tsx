@@ -28,7 +28,7 @@ import { railTheme } from './railTheme'
 const Section = styled.section`
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   min-width: 0;
 `
 
@@ -69,7 +69,7 @@ const PanelTitle = styled.h3`
 const ActionGrid = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.75fr);
-  gap: 14px;
+  gap: 16px;
   align-items: start;
 
   @media (max-width: 1080px) {

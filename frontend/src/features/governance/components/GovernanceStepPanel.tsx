@@ -1,4 +1,4 @@
-import { Button, Empty, List, Tooltip, Typography } from 'antd'
+import { Empty, List, Tooltip, Typography } from 'antd'
 import styled from 'styled-components'
 import { railTheme } from './railTheme'
 
@@ -210,7 +210,7 @@ export function GovernanceTodoPanel({
                 description={filtered ? '筛选下没有匹配项' : emptyText}
                 style={{ padding: '20px 0' }}
               >
-                {emptyAction && !filtered && <Button type="primary" size="small" onClick={emptyAction.onClick}>{emptyAction.label}</Button>}
+                {emptyAction && !filtered && <FlatPrimary type="button" onClick={emptyAction.onClick}>{emptyAction.label}</FlatPrimary>}
               </Empty>
             ),
           }}
@@ -302,6 +302,76 @@ const NoteTick = styled.span`
   border-radius: 50%;
 `
 
+/* 无边框 flat 按钮：弱化 AntD 默认质感，仅保留语义层级 */
+const FlatPrimary = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  background: ${railTheme.brand};
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+
+  &:hover:not(:disabled) {
+    background: ${railTheme.brandDeep};
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${railTheme.blue};
+    outline-offset: 2px;
+  }
+`
+
+const FlatSecondary = styled.button<{ $active?: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  color: ${props => (props.$active ? railTheme.brand : railTheme.text2)};
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1;
+  background: ${props => (props.$active ? railTheme.brandWeak : 'transparent')};
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 160ms ease;
+
+  &:hover:not(:disabled) {
+    background: ${railTheme.brandWeak};
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${railTheme.blue};
+    outline-offset: 2px;
+  }
+`
+
+const FlatLink = styled.button`
+  padding: 8px 12px;
+  color: ${railTheme.text3};
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  cursor: not-allowed;
+`
+
 export function GovernanceNextSuggestion({
   text,
   primaryLabel,
@@ -317,14 +387,12 @@ export function GovernanceNextSuggestion({
       <SuggestionTitle>下一步建议</SuggestionTitle>
       <SuggestionText>{text}</SuggestionText>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Button type="primary" disabled={primaryDisabled} onClick={onPrimary}>{primaryLabel}</Button>
+        <FlatPrimary type="button" disabled={primaryDisabled} onClick={onPrimary}>{primaryLabel}</FlatPrimary>
         {secondaryLabel && (
-          <Button type={secondaryActive ? 'default' : 'dashed'} onClick={onSecondary} aria-pressed={secondaryActive}>{secondaryLabel}</Button>
+          <FlatSecondary type="button" $active={secondaryActive} onClick={onSecondary} aria-pressed={secondaryActive}>{secondaryLabel}</FlatSecondary>
         )}
         <Tooltip title="开发中，依赖登录（D1）">
-          <span style={{ display: 'inline-flex' }}>
-            <Button disabled>移交责任人</Button>
-          </span>
+          <FlatLink type="button" tabIndex={-1}>移交责任人</FlatLink>
         </Tooltip>
       </div>
       <SuggestionNote>

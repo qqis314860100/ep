@@ -38,6 +38,30 @@ const Legend = styled.div`
   }
 `
 
+const StageSummary = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  margin: 0 0 6px;
+  color: ${railTheme.text2};
+  font-size: 12.5px;
+
+  strong {
+    color: ${railTheme.blue};
+    font-size: 13.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  em {
+    color: ${railTheme.text};
+    font-style: normal;
+    font-weight: 650;
+  }
+`
+
 const RailScroll = styled.div`
   overflow-x: auto;
   padding: 6px 2px 4px;
@@ -227,15 +251,23 @@ const Avatar = styled.span<{ $color: string }>`
 
 /** 六节点治理轨道：点击/键盘聚焦选中节点并联动详情；状态同时以文字与图例说明呈现。 */
 export function GovernanceRail({ nodes, selectedKey, onSelect, hint }: GovernanceRailProps) {
-  const current = nodes.find(node => node.state === 'current')
+  const currentIndex = Math.max(
+    0,
+    nodes.findIndex(node => node.state === 'current' || node.state === 'overdue'),
+  )
+  const current = nodes.find(node => node.state === 'current' || node.state === 'overdue')
   const currentLabel = current?.label ?? '进行中'
   return (
     <div>
+      <StageSummary aria-live="polite">
+        治理进度 <strong>{nodes.length > 0 ? `第 ${currentIndex + 1} 步` : '—'} / {nodes.length} 步</strong>
+        {current && <> · 当前阶段 <em>{currentLabel}</em></>}
+      </StageSummary>
       <Legend aria-hidden="true">
         <span className="item"><span className="dot" style={{ background: railTheme.green }} />已完成</span>
-        <span className="item"><span className="dot" style={{ background: railTheme.blue }} />当前 · {currentLabel}</span>
-        <span className="item"><span className="dot" style={{ background: railTheme.red }} />逾期</span>
-        <span className="item"><span className="dot" style={{ background: railTheme.text3 }} />待处理</span>
+        <span className="item"><span className="dot" style={{ background: railTheme.blue }} />当前阶段</span>
+        <span className="item"><span className="dot" style={{ background: railTheme.red }} />该步有逾期</span>
+        <span className="item"><span className="dot" style={{ background: railTheme.text3 }} />未开始</span>
       </Legend>
       <RailScroll>
         <RailRow aria-label="治理轨道：扫描入库 → 问题池 → 整改分派 → 业务确认 → 质量验收 → 正式应用">
