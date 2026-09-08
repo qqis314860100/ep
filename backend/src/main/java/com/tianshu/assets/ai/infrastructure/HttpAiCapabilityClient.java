@@ -72,7 +72,7 @@ public class HttpAiCapabilityClient implements AiCapabilityClient {
         var uri = URI.create(endpoint("/rag/chat/stream"));
         var body = json(Map.of(
                 "namespace", text(request.namespace(), properties.getNamespace()),
-                "scope", scopePayload(request.scopeFilter()),
+                "scopes", request.scopes().stream().map(HttpAiCapabilityClient::scopePayload).toList(),
                 "history", request.history(),
                 "question", request.question()));
         try {

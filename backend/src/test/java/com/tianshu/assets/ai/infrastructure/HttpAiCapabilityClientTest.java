@@ -137,7 +137,7 @@ class HttpAiCapabilityClientTest {
     }
 
     private static ChatRequest chatRequest() {
-        return new ChatRequest("ep-docs", new AiTargetScope("", "", "H03", "宁德基地", "", ""),
+        return new ChatRequest("ep-docs", List.of(new AiTargetScope("", "", "H03", "宁德基地", "", "")),
                 List.of(new ChatMessage("user", "上轮问题")), "这是什么资产？");
     }
 
@@ -167,7 +167,7 @@ class HttpAiCapabilityClientTest {
     void flushesTrailingSseEventWithoutTerminatingBlankLine() {
         var events = new ArrayList<com.tianshu.assets.ai.application.AiCapabilityClient.ChatEvent>();
         clientTo("/__notrailing__")
-                .streamChat(new ChatRequest("ep-docs", new AiTargetScope("", "", "", "", "", ""),
+                .streamChat(new ChatRequest("ep-docs", List.of(new AiTargetScope("", "", "", "", "", "")),
                         List.of(), "问题"), events::add);
         assertThat(events).singleElement()
                 .isInstanceOf(com.tianshu.assets.ai.application.AiCapabilityClient.ChatDelta.class);
@@ -223,7 +223,8 @@ class HttpAiCapabilityClientTest {
     @Test
     void mapsUnknownSseEventToProtocol() {
         assertThatThrownBy(() -> clientTo("/__weird__").streamChat(
-                new ChatRequest("ep-docs", new AiTargetScope("", "", "", "", "", ""), List.of(), "问题"), ignored -> {
+                new ChatRequest("ep-docs", List.of(new AiTargetScope("", "", "", "", "", "")),
+                        List.of(), "问题"), ignored -> {
                 }))
                 .isInstanceOf(AiCapabilityException.class)
                 .extracting(exception -> ((AiCapabilityException) exception).error())

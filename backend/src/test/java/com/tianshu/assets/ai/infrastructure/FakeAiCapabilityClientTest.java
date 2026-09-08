@@ -25,7 +25,7 @@ class FakeAiCapabilityClientTest {
         var fake = new FakeAiCapabilityClient();
         var events = new ArrayList<com.tianshu.assets.ai.application.AiCapabilityClient.ChatEvent>();
         fake.streamChat(new ChatRequest("ep-docs",
-                        new AiTargetScope("", "", "H03", "宁德基地", "", ""),
+                        List.of(new AiTargetScope("", "", "H03", "宁德基地", "", "")),
                         List.of(new com.tianshu.assets.ai.application.AiCapabilityClient.ChatMessage("user", "上轮")),
                         "这是什么资产？"),
                 events::add);
@@ -41,7 +41,9 @@ class FakeAiCapabilityClientTest {
                 .map(ChatRequest.class::cast)
                 .findFirst().orElseThrow();
         assertThat(request.question()).isEqualTo("这是什么资产？");
-        assertThat(request.scopeFilter().base()).isEqualTo("宁德基地");
+        assertThat(request.scopes()).singleElement().satisfies(scope -> {
+            assertThat(scope.base()).isEqualTo("宁德基地");
+        });
         assertThat(request.history()).hasSize(1);
     }
 
@@ -76,7 +78,7 @@ class FakeAiCapabilityClientTest {
         var fake = new FakeAiCapabilityClient();
         fake.failWith(new AiCapabilityException(AiCapabilityError.UNAVAILABLE, "服务不可用"));
         assertThatThrownBy(() -> fake.streamChat(new ChatRequest("ep-docs",
-                        new AiTargetScope("", "", "", "", "", ""), List.of(), "问题"), ignored -> {
+                        List.of(new AiTargetScope("", "", "", "", "", "")), List.of(), "问题"), ignored -> {
                 }))
                 .isInstanceOf(AiCapabilityException.class)
                 .extracting(exception -> ((AiCapabilityException) exception).error())

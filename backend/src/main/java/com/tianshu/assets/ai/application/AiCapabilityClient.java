@@ -31,13 +31,13 @@ public interface AiCapabilityClient {
 
     record ChatRequest(
             String namespace,
-            AiTargetScope scopeFilter,
+            List<AiTargetScope> scopes,
             List<ChatMessage> history,
             String question) {
 
         public ChatRequest {
             namespace = namespace == null ? "" : namespace.trim();
-            scopeFilter = scopeFilter == null ? new AiTargetScope("", "", "", "", "", "") : scopeFilter;
+            scopes = scopes == null ? List.of() : List.copyOf(scopes);
             history = history == null ? List.of() : List.copyOf(history);
             question = question == null ? "" : question.trim();
         }
