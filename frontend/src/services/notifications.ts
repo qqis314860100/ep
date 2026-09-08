@@ -1,6 +1,6 @@
 export interface NotificationItem {
   id: string
-  type: 'TODO_SUMMARY' | 'TASK_DUE' | 'SCAN_FAILED'
+  type: 'TODO_SUMMARY' | 'TASK_DUE' | 'TASK_ESCALATED' | 'SCAN_FAILED'
   title: string
   description: string
   link: string

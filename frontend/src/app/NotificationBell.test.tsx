@@ -80,4 +80,21 @@ describe('NotificationBell', () => {
     await userEvent.click(await screen.findByLabelText('通知'))
     expect(await screen.findByText('暂无通知')).toBeInTheDocument()
   })
+
+  it('renders escalated overdue alerts with escalation copy', async () => {
+    vi.mocked(getNotifications).mockResolvedValue({
+      items: [
+        {
+          id: 'task-escalated-3-7', type: 'TASK_ESCALATED', title: '逾期升级 · 设备台账清洗',
+          description: '「王工」负责 · 已逾期 5 天未完成，请跟进或改派',
+          link: '/sys/drawing/tasks/7', createdAt: '2026-09-09T01:00:00Z',
+        },
+      ],
+    })
+    renderBell()
+
+    await userEvent.click(await screen.findByLabelText('通知'))
+    expect(await screen.findByText('逾期升级 · 设备台账清洗')).toBeInTheDocument()
+    expect(screen.getByText('「王工」负责 · 已逾期 5 天未完成，请跟进或改派')).toBeInTheDocument()
+  })
 })

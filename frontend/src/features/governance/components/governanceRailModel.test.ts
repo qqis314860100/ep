@@ -6,9 +6,11 @@ import {
   dueDayDiff,
   emptyGovernanceRailCounts,
   governanceTaskStageWait,
+  isTaskEscalated,
   summarizeGovernanceDue,
   summarizeGovernanceIssuesForRail,
   summarizeGovernanceTasksForRail,
+  taskOverdueDays,
 } from './governanceRailModel'
 
 const NOW = new Date('2026-09-08T12:00:00')
@@ -220,6 +222,18 @@ describe('dueDayDiff / issues', () => {
     expect(dueDayDiff('2026-09-07', NOW)).toBe(-1)
     expect(dueDayDiff('2026-09-15', NOW)).toBe(7)
     expect(dueDayDiff(undefined, NOW)).toBeNull()
+  })
+
+  it('逾期天数与升级判定（逾期满 3 天升级，已完成不计）', () => {
+    expect(taskOverdueDays(makeTask({ status: 'IN_PROGRESS', dueDate: '2026-09-07' }), NOW)).toBe(1)
+    expect(taskOverdueDays(makeTask({ status: 'PENDING_CONFIRMATION', dueDate: '2026-09-05' }), NOW)).toBe(3)
+    expect(taskOverdueDays(makeTask({ status: 'IN_PROGRESS', dueDate: '2026-09-10' }), NOW)).toBeNull()
+    expect(taskOverdueDays(makeTask({ status: 'COMPLETED', dueDate: '2026-08-01' }), NOW)).toBeNull()
+    expect(taskOverdueDays(makeTask({ status: 'IN_PROGRESS' }), NOW)).toBeNull()
+
+    expect(isTaskEscalated(makeTask({ status: 'IN_PROGRESS', dueDate: '2026-09-07' }), NOW)).toBe(false)
+    expect(isTaskEscalated(makeTask({ status: 'PENDING_CONFIRMATION', dueDate: '2026-09-05' }), NOW)).toBe(true)
+    expect(isTaskEscalated(makeTask({ status: 'COMPLETED', dueDate: '2026-08-01' }), NOW)).toBe(false)
   })
 
   it('问题池只统计未解决且未分派（taskId 为空）的问题', () => {

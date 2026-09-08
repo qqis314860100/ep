@@ -25,6 +25,13 @@ function renderPage() {
   return render(<QueryClientProvider client={client}><App><MemoryRouter><GovernanceTaskDetailPage taskId={9} /></MemoryRouter></App></QueryClientProvider>)
 }
 
+function isoDaysAgo(days: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() - days)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
 describe('GovernanceTaskDetailPage', () => {
   beforeEach(() => {
     vi.mocked(governanceApi.getGovernanceTask).mockResolvedValue({ id: 9, name: '字段治理', scope: '问题池选择', owner: '王工', assigneeId: 'owner-1', total: 1, completed: 0, dueDate: '2026-08-10', status: 'DRAFT', version: 2, editable: true })
@@ -173,5 +180,31 @@ describe('GovernanceTaskDetailPage', () => {
 
     expect(await screen.findByText('字段治理')).toBeVisible()
     expect(screen.queryByRole('button', { name: '移交' })).not.toBeInTheDocument()
+  })
+
+  it('flags an escalated overdue closed-loop task with copy and reassign shortcut', async () => {
+    vi.mocked(governanceApi.getGovernanceTask).mockResolvedValue({
+      id: 9, name: '逾期整改任务', scope: '问题池选择', owner: '王工', total: 1, completed: 0,
+      dueDate: isoDaysAgo(8), status: 'IN_PROGRESS', workflowVersion: 'CLOSED_LOOP_V1', editable: false,
+    })
+    vi.mocked(governanceApi.getGovernanceEmployees).mockResolvedValue([
+      { id: 'emp-li', name: '李工', department: '标准化小组', source: 'OFFICE_DIRECTORY' },
+    ])
+    renderPage()
+
+    expect(await screen.findByText(/已升级提醒内容管理员/)).toBeVisible()
+    expect(screen.getByRole('button', { name: '移交改派' })).toBeVisible()
+  })
+
+  it('shows a plain overdue notice before the escalation threshold', async () => {
+    vi.mocked(governanceApi.getGovernanceTask).mockResolvedValue({
+      id: 9, name: '临期任务', scope: '问题池选择', owner: '陈工', total: 1, completed: 0,
+      dueDate: isoDaysAgo(1), status: 'IN_PROGRESS', workflowVersion: 'CLOSED_LOOP_V1', editable: false,
+    })
+    renderPage()
+
+    expect(await screen.findByText('任务已逾期 1 天')).toBeVisible()
+    expect(screen.queryByText(/已升级提醒内容管理员/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '移交改派' })).not.toBeInTheDocument()
   })
 })

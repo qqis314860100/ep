@@ -12,6 +12,7 @@ import { GovernanceStatusTag } from '../shared/GovernanceStatusTag'
 import type { GovernanceIssue } from '../types'
 import { GovernanceMilestoneStrip } from './GovernanceMilestoneStrip'
 import { GovernancePlanEditor } from './GovernancePlanEditor'
+import { dueDayDiff } from '../components/governanceRailModel'
 
 const Header = styled.div`display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:16px;`
 const Section = styled.section`padding:18px 0; border-top:1px solid #dfe5e2; h4{margin-top:0;}`
@@ -47,6 +48,10 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
   const editable = task.status === 'DRAFT' && task.editable !== false
   const legacy = task.workflowVersion === 'LEGACY_PROGRESS'
   const completed = task.status === 'COMPLETED'
+  // R3 逾期升级横幅：逾期满 3 天的闭环任务=已升级（红色 + 移交改派）；其余逾期=提醒（琥珀色）。
+  const rawDiff = dueDayDiff(task.dueDate, new Date())
+  const overdueDays = rawDiff !== null && rawDiff < 0 ? -rawDiff : null
+  const escalated = !legacy && overdueDays !== null && overdueDays >= 3
   const scopeSnapshot = task.scopeSnapshot
   const ruleSnapshot = task.ruleSnapshot ?? scopeSnapshot?.ruleSnapshot
   const assigneeOptions = (employeesQuery.data ?? [])
@@ -81,6 +86,22 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
       />
     </Modal>
     {(startMutation.error || reworkMutation.error) && <Alert type="error" showIcon message={(startMutation.error ?? reworkMutation.error)?.message} style={{ marginBottom: 16 }} />}
+    {!completed && overdueDays !== null && (
+      <Alert
+        type={escalated ? 'error' : 'warning'}
+        showIcon
+        style={{ marginBottom: 16 }}
+        message={escalated ? `任务已逾期 ${overdueDays} 天，已升级提醒内容管理员` : `任务已逾期 ${overdueDays} 天`}
+        description={escalated
+          ? '任务超过计划完成日期多日仍未闭环，系统已通知内容管理员跟进；如需更换负责人，可直接移交改派。'
+          : legacy
+            ? '该任务已超过计划完成日期，请负责人尽快跟进处理。'
+            : '已超过计划完成日期，请尽快推进当前环节（逾期满 3 天将自动升级提醒内容管理员）。'}
+        action={escalated ? (
+          <Button size="small" type="primary" onClick={() => { setNextOwnerUserId(undefined); setReassignOpen(true) }}>移交改派</Button>
+        ) : undefined}
+      />
+    )}
     <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 4 }} items={[{ key: 'owner', label: '负责人', children: task.owner }, { key: 'due', label: '截止日期', children: task.dueDate }, { key: 'round', label: '治理轮次', children: task.currentRound ?? 0 }, { key: 'scope', label: '治理范围', children: task.scope }]} />
     <Section><GovernanceMilestoneStrip status={task.status} workflowVersion={task.workflowVersion} progress={task.progress} currentRound={task.currentRound} completed={task.completed} total={task.total} /></Section>
     <Section><Typography.Title level={4}>计划依赖与责任</Typography.Title><GovernancePlanEditor

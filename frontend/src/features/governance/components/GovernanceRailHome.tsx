@@ -17,6 +17,7 @@ import {
   dueDayDiff,
   emptyGovernanceRailCounts,
   governanceTaskStageWait,
+  isTaskEscalated,
   summarizeGovernanceDue,
   summarizeGovernanceIssuesForRail,
   summarizeGovernanceTasksForRail,
@@ -192,6 +193,7 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
       poolIssues: issues.filter(issue => issue.status !== 'RESOLVED' && issue.taskId === null),
       scans,
       dueSummary,
+      escalatedCount: tasks.filter(task => isTaskEscalated(task, today)).length,
       rates,
       inventoryTotal: totals?.total,
       pendingCuration: totals?.pendingCuration ?? null,
@@ -230,7 +232,11 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
       value: tasksQuery.isError ? null : derived.dueSummary.overdue,
       unit: '个',
       tone: 'alert',
-      footnote: `涉及 ${derived.dueSummary.overdueOwnerCount} 位责任人 · 已提醒管理员`,
+      footnote: derived.dueSummary.overdue === 0
+        ? '暂无逾期任务 · 逾期满 3 天自动升级内容管理员'
+        : derived.escalatedCount > 0
+          ? `涉及 ${derived.dueSummary.overdueOwnerCount} 位责任人 · ${derived.escalatedCount} 个已升级，管理员待跟进`
+          : `涉及 ${derived.dueSummary.overdueOwnerCount} 位责任人 · 责任人跟进中（逾期满 3 天升级）`,
     },
     {
       key: 'standardized',
@@ -432,7 +438,7 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
 function suggestionTextFor(key: 'assign' | 'confirm' | 'accept' | 'apply'): string {
   switch (key) {
     case 'assign':
-      return '把待整改条目分配给责任人执行，提交后进入业务确认；到期前 3 天自动提醒责任人，逾期通知你跟进。'
+      return '把待整改条目分配给责任人执行，提交后进入业务确认；临近到期自动提醒责任人，逾期满 3 天自动升级给内容管理员跟进。'
     case 'confirm':
       return '资产责任人核对整改结果并确认归属；全部通过后进入质量验收，退回项回到整改分派。'
     case 'accept':
@@ -458,7 +464,7 @@ function noteFor(key: GovernanceRailStageKey): string {
     case 'assign':
       return '分派后任务进入责任人「我的待办」；可在下方任务闭环明细查看每个任务所处阶段。'
     case 'confirm':
-      return '业务确认由资产责任人执行；逾期会自动升级并抄送管理员。'
+      return '业务确认由资产责任人执行；逾期满 3 天自动升级给内容管理员跟进（3/7/14 天分档提醒）。'
     case 'accept':
       return '验收包含指标通过率与抽样复核；失败项返回整改。'
     default:

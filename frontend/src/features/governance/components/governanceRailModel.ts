@@ -142,6 +142,22 @@ export function isTaskOverdue(task: Pick<GovernanceTask, 'status' | 'dueDate'>, 
   return diff !== null && diff < 0
 }
 
+/** 逾期升级档位起点（天）：与后端 NotificationService.ESCALATION_LEVEL_DAYS 首档对齐。 */
+export const TASK_ESCALATION_DAYS = 3
+
+/** 任务已逾期天数（未完成任务且已过截止日）；未逾期/已完成/日期缺失返回 null。 */
+export function taskOverdueDays(task: Pick<GovernanceTask, 'status' | 'dueDate'>, now: Date): number | null {
+  if (task.status === 'COMPLETED') return null
+  const diff = dueDayDiff(task.dueDate, now)
+  return diff === null || diff >= 0 ? null : -diff
+}
+
+/** 是否已进入逾期升级（逾期满 3 天，后端对内容/系统管理员生成升级提醒）。 */
+export function isTaskEscalated(task: Pick<GovernanceTask, 'status' | 'dueDate'>, now: Date): boolean {
+  const days = taskOverdueDays(task, now)
+  return days !== null && days >= TASK_ESCALATION_DAYS
+}
+
 /**
  * 汇总任务列表为轨道计数（assign/confirm/accept 三阶段待办、逾期、责任人）
  * 与正式应用节点的已完成任务责任人。逾期为任务级计数，计入其所在阶段。

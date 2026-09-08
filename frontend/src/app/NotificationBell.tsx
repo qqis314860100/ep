@@ -2,6 +2,7 @@ import {
   BellOutlined,
   ClockCircleOutlined,
   ProfileOutlined,
+  RiseOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
 import { Badge, Button, Empty, Popover, Tooltip } from 'antd'
@@ -88,14 +89,14 @@ const Item = styled.button<{ $unread: boolean }>`
   }
 `
 
-const ItemIcon = styled.span`
+const ItemIcon = styled.span<{ $danger?: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  color: #2f7567;
-  background: #e7f0ec;
+  color: ${({ $danger }) => ($danger ? '#d64545' : '#2f7567')};
+  background: ${({ $danger }) => ($danger ? '#fbe9e9' : '#e7f0ec')};
   border-radius: 6px;
   font-size: 14px;
 `
@@ -166,6 +167,8 @@ function typeIcon(type: NotificationItem['type']) {
   switch (type) {
     case 'TASK_DUE':
       return <ClockCircleOutlined />
+    case 'TASK_ESCALATED':
+      return <RiseOutlined />
     case 'SCAN_FAILED':
       return <WarningOutlined />
     default:
@@ -238,7 +241,7 @@ export function NotificationBell() {
         <List>
           {items.map((item) => (
             <Item key={item.id} type="button" $unread={!read.includes(item.id)} onClick={() => openItem(item)}>
-              <ItemIcon aria-hidden="true">{typeIcon(item.type)}</ItemIcon>
+              <ItemIcon aria-hidden="true" $danger={item.type === 'TASK_ESCALATED'}>{typeIcon(item.type)}</ItemIcon>
               <ItemBody>
                 <ItemTitle>{item.title}</ItemTitle>
                 <ItemDescription>{item.description}</ItemDescription>

@@ -59,6 +59,8 @@ describe('GovernanceMyTodo（R2 我的待办）', () => {
 
     expect(screen.getByText('待确认 · 陈工')).toBeVisible()
     expect(screen.getByText('已逾期 · 陈工')).toBeVisible()
+    // 逾期满 3 天：卡片提示已升级给管理员（R3）
+    expect(screen.getByText(/其中 1 个已升级管理员/)).toBeVisible()
   })
 
   it('非治理员工会话不渲染待办面板', async () => {

@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import styled from 'styled-components'
 import { getGovernanceTasks } from '../api'
 import { authSession } from '../../auth/session'
-import { dueDayDiff } from './governanceRailModel'
+import { dueDayDiff, isTaskEscalated } from './governanceRailModel'
 import { railTheme } from './railTheme'
 
 const Panel = styled.section`
@@ -92,11 +92,12 @@ export function GovernanceMyTodo({ onOpenTask }: { onOpenTask?: (taskId: number)
       accepting: open.filter(task => task.status === 'PENDING_ACCEPTANCE').length,
       overdue: open.filter(task => dueDayDiff(task.dueDate, today) !== null && (dueDayDiff(task.dueDate, today) ?? 0) < 0).length,
     }
+    const overdueEscalated = open.filter(task => isTaskEscalated(task, today)).length
     const focus = open.find(task => task.status === 'PENDING_ACCEPTANCE')
       ?? open.find(task => task.status === 'PENDING_CONFIRMATION')
       ?? open.find(task => task.status === 'IN_PROGRESS' || task.status === 'REWORK_REQUIRED')
       ?? open[0]
-    return { counts, focus }
+    return { counts, focus, overdueEscalated }
   }, [myTasks.data])
 
   if (!user || !isGovernanceEmployee) return null
@@ -104,7 +105,13 @@ export function GovernanceMyTodo({ onOpenTask }: { onOpenTask?: (taskId: number)
     { key: 'executing', count: model.counts.executing, hint: '我负责、尚未完成的任务' },
     { key: 'confirming', count: model.counts.confirming, hint: '已提交、等待业务确认' },
     { key: 'accepting', count: model.counts.accepting, hint: '确认通过、等待质量验收' },
-    { key: 'overdue', count: model.counts.overdue, hint: '已过截止日，需尽快跟进' },
+    {
+      key: 'overdue',
+      count: model.counts.overdue,
+      hint: model.overdueEscalated > 0
+        ? `其中 ${model.overdueEscalated} 个已升级管理员，请尽快完成或联系管理员改派`
+        : '已过截止日，需尽快跟进',
+    },
   ]
   const totalOpen = model.counts.executing + model.counts.confirming + model.counts.accepting
 
