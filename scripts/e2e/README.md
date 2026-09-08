@@ -40,6 +40,7 @@ bash scripts/e2e/run-e2e.sh
 
 ## 已知说明（dev profile）
 
+- **S1 匿名写收紧后，flow.mjs 自动登录 `emp-admin`（demo123）携带会话 Cookie 驱动全部写操作**；后端无会话的写请求（POST/PUT/PATCH/DELETE，`/api/v1/auth/**` 除外）一律返回 401 `auth_failed`。只读请求无需登录。
 - 治理闭环的正式应用作业会标记资产标准化，但 **dev profile 的 in-memory 治理适配器维护独立状态映射，不会回写资产仓储**；因此端到端断言以「任务 COMPLETED + 作业 SUCCEEDED + 问题 RESOLVED」为准。
 - 新建资产通过 `PUT /api/v1/governance/asset-responsibilities/{assetId}` 指派责任人（需 CONTENT_ADMIN / SYSTEM_ADMIN 角色），即可进入业务确认环节；阶段 4b 完整验证了该能力。
 - 治理扫描对问题资产盖章的版本是 `updatedAt` 毫秒时间戳；dev 的内存资产适配器在首次正式应用时以此版本为基线对齐（见 `InMemoryGovernanceAssetAdapter`），使扫描产生的问题可完成闭环。

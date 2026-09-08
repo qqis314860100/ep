@@ -80,6 +80,7 @@ async function api(path, { method = 'GET', body, headers = {}, form } = {}) {
     init.body = JSON.stringify(body)
   }
   if (form) init.body = form // FormData 时不要手动设置 Content-Type
+  if (sessionCookie) init.headers.Cookie = sessionCookie // S1：写操作需真实会话
   const response = await fetch(`${BACKEND}${path}`, init)
   const text = await response.text()
   let json = null
@@ -135,9 +136,36 @@ function poll(fn, { timeoutMs = 15000, intervalMs = 500, label = '轮询' } = {}
 }
 
 /* ------------------------------------------------------------------ */
+/* 会话（S1 匿名写收紧）：写操作需真实登录会话                          */
+/* ------------------------------------------------------------------ */
+let sessionCookie = ''
+
+/**
+ * 以种子账号登录并携带会话 Cookie（seed 用户密码均为 demo123）。
+ * 用系统管理员（SYSTEM_ADMIN + CONTENT_ADMIN）驱动全流程，
+ * 可覆盖需要治理/系统管理角色的所有端点；接口 body 中的 actorUserId 仍按原业务语义填写。
+ */
+async function loginAs(userId = 'emp-admin', password = 'demo123') {
+  const response = await fetch(`${BACKEND}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, password }),
+  })
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`登录 ${userId} 失败（${response.status}）：${text}`)
+  }
+  const setCookie = response.headers.get('set-cookie')
+  sessionCookie = (setCookie ? setCookie.split(';')[0] : '').trim()
+  if (!sessionCookie) throw new Error(`登录 ${userId} 未返回会话 Cookie`)
+}
+
+/* ------------------------------------------------------------------ */
 /* 主流程                                                               */
 /* ------------------------------------------------------------------ */
 console.log(`\n=== E2E 全流程开始  backend=${BACKEND}${FRONTEND ? ` frontend=${FRONTEND}` : ''} ===\n`)
+await loginAs('emp-admin')
+console.log('  会话：emp-admin 已登录（S1 写操作需真实会话）')
 
 /* ---- 阶段 0：健康检查 + 字典基线 ---- */
 console.log('【阶段 0】健康检查 + 字典基线')
