@@ -61,3 +61,6 @@
 - T3.6 收藏页：核实后端 GET /api/v1/favorites 无分页契约，保持现状并加 TODO——后端分页单独立票（S4-新增）。
 - 待决策/后续：D1(S1 安全)、D2/D4/D7(S5/S6 设计)、D9(草稿校验口径)、收藏分页后端票；UI 视觉回归需人工浏览器确认。
 - S3-补（待做，UX 一致性）：检索/筛选"读请求进行态"——列表视图绑 loading=isFetching（AssetSearchPage:818）而图集仅首载骨架、搜索按钮无 loading/防连点（:687）；文档检索与系统管理同类。目标：任一读请求有进行态、图/表视图反馈一致、防连点。来源：UI/UX 审查（原越权代理 a88bb77b 的 IA-2.6 已核实后收编，其 layout 方案文档未采纳并已移出仓库）。
+- R1a 治理轨道首屏已完成并提交（4e7c936）：GovernanceRail/StatCards/StepPanel/RailHome + governanceRailModel（20 单测）；查看 http://127.0.0.1:5173/sys/drawing「治理总览」。R1b（分派/移交动作接通）与 R2（我的待办，依赖 D1）待做。
+- S3-补 检索分页与进行态标准化已提交（c1c9fe0，PaginationBar 统一 + isFetching 反馈）。
+- 存量类型债（独立票）：frontend typecheck 红 ≈17 处——测试/mock/详情组件未随 types/asset.ts 更新（AssetRelation 缺 createdBy 等、DictionaryItem 缺字段、home CLOSED 比较、uploads SegmentedOptions 等）；assetService 缺失导入已修（6704eab）。另注意：仓库存在其它并行工作线（如游离提交 55ef30a），提交前核对 git log/status 再精确暂存。
