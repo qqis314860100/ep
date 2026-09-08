@@ -17,6 +17,7 @@ vi.mock('../api', async (importOriginal) => ({
   getGovernanceEmployees: vi.fn(),
   startGovernanceTask: vi.fn(),
   openGovernanceRework: vi.fn(),
+  reassignGovernanceTask: vi.fn(),
 }))
 
 function renderPage() {
@@ -146,5 +147,31 @@ describe('GovernanceTaskDetailPage', () => {
 
     expect(await screen.findByRole('button', { name: '编辑计划' })).toBeDisabled()
     expect(screen.getByText('任务启动后计划已锁定')).toBeVisible()
+  })
+
+  it('reassigns an unfinished task to another employee', async () => {
+    const user = userEvent.setup()
+    vi.mocked(governanceApi.getGovernanceTask).mockResolvedValue({ id: 9, name: '字段治理', scope: '问题池选择', owner: '陈工', assigneeId: 'emp-chen', total: 1, completed: 0, dueDate: '2026-08-10', status: 'IN_PROGRESS', editable: false })
+    vi.mocked(governanceApi.getGovernanceEmployees).mockResolvedValue([
+      { id: 'emp-chen', name: '陈工', department: '制造工程部', source: 'OFFICE_DIRECTORY' },
+      { id: 'emp-li', name: '李工', department: '标准化小组', source: 'OFFICE_DIRECTORY' },
+    ])
+    vi.mocked(governanceApi.reassignGovernanceTask).mockResolvedValue({ id: 9, name: '字段治理', scope: '问题池选择', owner: '李工', assigneeId: 'emp-li', total: 1, completed: 0, dueDate: '2026-08-10', status: 'IN_PROGRESS', editable: false })
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: '移交' }))
+    await user.click(screen.getByRole('combobox', { name: '选择新负责人' }))
+    await user.click(await screen.findByTitle('李工'))
+
+    await user.click(screen.getByRole('button', { name: '确认移交' }))
+    await waitFor(() => expect(governanceApi.reassignGovernanceTask).toHaveBeenCalledWith(9, { ownerUserId: 'emp-li', expectedVersion: 0 }))
+  })
+
+  it('hides reassign for completed or legacy tasks', async () => {
+    vi.mocked(governanceApi.getGovernanceTask).mockResolvedValue({ id: 9, name: '字段治理', scope: '问题池选择', owner: '陈工', total: 1, completed: 1, dueDate: '2026-08-10', status: 'COMPLETED', editable: false })
+    renderPage()
+
+    expect(await screen.findByText('字段治理')).toBeVisible()
+    expect(screen.queryByRole('button', { name: '移交' })).not.toBeInTheDocument()
   })
 })

@@ -1,10 +1,11 @@
-import { ArrowLeftOutlined, CheckCircleOutlined, EditOutlined, PlayCircleOutlined, SafetyCertificateOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, CheckCircleOutlined, EditOutlined, PlayCircleOutlined, SafetyCertificateOutlined, SwapOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Collapse, Descriptions, Space, Table, Typography } from 'antd'
+import { Alert, App, Button, Collapse, Descriptions, Modal, Select, Space, Table, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import { useState } from 'react'
 import styled from 'styled-components'
 import { useNavigate } from 'react-router-dom'
-import { getGovernanceEmployees, getGovernanceIssues, getGovernancePlans, getGovernanceTask, openGovernanceRework, startGovernanceTask } from '../api'
+import { getGovernanceEmployees, getGovernanceIssues, getGovernancePlans, getGovernanceTask, openGovernanceRework, reassignGovernanceTask, startGovernanceTask } from '../api'
 import { GovernanceProgressStrip } from '../shared/GovernanceProgressStrip'
 import { GovernanceStatusTag } from '../shared/GovernanceStatusTag'
 import type { GovernanceIssue } from '../types'
@@ -19,22 +20,65 @@ const SnapshotItem = styled.div`display:grid; gap:2px;`
 export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; onBack?: () => void }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { message } = App.useApp()
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [nextOwnerUserId, setNextOwnerUserId] = useState<string>()
   const taskQuery = useQuery({ queryKey: ['governance-task', taskId], queryFn: () => getGovernanceTask(taskId) })
   const plansQuery = useQuery({ queryKey: ['governance-plans', taskId], queryFn: () => getGovernancePlans(taskId) })
   const issuesQuery = useQuery({ queryKey: ['governance-issues', 'task', taskId], queryFn: async () => (await getGovernanceIssues()).filter(issue => issue.taskId === taskId) })
   const employeesQuery = useQuery({ queryKey: ['governance-employees'], queryFn: getGovernanceEmployees, staleTime: 300_000 })
   const startMutation = useMutation({ mutationFn: () => startGovernanceTask(taskId, { version: taskQuery.data?.version ?? 0, actorUserId: 'demo-user' }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['governance-task', taskId] }); await queryClient.invalidateQueries({ queryKey: ['governance-tasks'] }) } })
   const reworkMutation = useMutation({ mutationFn: () => openGovernanceRework(taskId, { taskVersion: taskQuery.data?.version ?? 0, reason: '业务确认退回', actorUserId: 'demo-user' }), onSuccess: () => navigate(`/sys/drawing/tasks/${taskId}/execute`) })
+  const reassignMutation = useMutation({
+    mutationFn: (ownerUserId: string) => reassignGovernanceTask(taskId, { ownerUserId, expectedVersion: taskQuery.data?.version ?? 0 }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['governance-task', taskId] })
+      await queryClient.invalidateQueries({ queryKey: ['governance-tasks'] })
+      setReassignOpen(false)
+      setNextOwnerUserId(undefined)
+      void message.success('任务已移交给新负责人')
+    },
+  })
   const task = taskQuery.data
   const issueColumns: ColumnsType<GovernanceIssue> = [{ title: '问题 ID', dataIndex: 'id', width: 100 }, { title: '资产 ID', dataIndex: 'assetId', width: 100 }, { title: '字段', dataIndex: 'targetField', width: 130 }, { title: '类型', dataIndex: 'issueType' }, { title: '状态', dataIndex: 'status', width: 100 }]
   if (taskQuery.isLoading) return <Typography.Text>正在加载任务详情...</Typography.Text>
   if (!task) return <Alert type="error" showIcon message="任务详情加载失败" />
   const editable = task.status === 'DRAFT' && task.editable !== false
   const legacy = task.workflowVersion === 'LEGACY_PROGRESS'
+  const completed = task.status === 'COMPLETED'
   const scopeSnapshot = task.scopeSnapshot
   const ruleSnapshot = task.ruleSnapshot ?? scopeSnapshot?.ruleSnapshot
+  const assigneeOptions = (employeesQuery.data ?? [])
+    .filter(employee => employee.id !== task.assigneeId)
+    .map(employee => ({ value: employee.id, label: employee.name }))
   return <article>
-    <Header><Space align="start"><Button aria-label="返回治理总览" icon={<ArrowLeftOutlined aria-hidden />} onClick={onBack ?? (() => navigate('/sys/drawing'))} /><div><Typography.Title level={3} style={{ margin: 0 }}>{task.name}</Typography.Title><Space><GovernanceStatusTag status={task.status} /><Typography.Text type="secondary">任务 #{task.id}</Typography.Text></Space></div></Space><Space>{legacy ? <Typography.Text type="secondary">历史任务只读</Typography.Text> : <>{task.status === 'DRAFT' && <Button type="primary" icon={<PlayCircleOutlined aria-hidden />} loading={startMutation.isPending} onClick={() => startMutation.mutate()}>启动任务</Button>}{task.status === 'IN_PROGRESS' && <Button type="primary" icon={<EditOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/execute`)}>进入清洗</Button>}{task.status === 'REWORK_REQUIRED' && <Button type="primary" icon={<EditOutlined aria-hidden />} loading={reworkMutation.isPending} onClick={() => reworkMutation.mutate()}>开启返工</Button>}{task.status === 'PENDING_CONFIRMATION' && <Button type="primary" icon={<CheckCircleOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/confirm`)}>进入确认</Button>}{task.status === 'PENDING_ACCEPTANCE' && <Button type="primary" icon={<SafetyCertificateOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/accept`)}>进入验收</Button>}</>}</Space></Header>
+    <Header><Space align="start"><Button aria-label="返回治理总览" icon={<ArrowLeftOutlined aria-hidden />} onClick={onBack ?? (() => navigate('/sys/drawing'))} /><div><Typography.Title level={3} style={{ margin: 0 }}>{task.name}</Typography.Title><Space><GovernanceStatusTag status={task.status} /><Typography.Text type="secondary">任务 #{task.id}</Typography.Text></Space></div></Space><Space>{legacy ? <Typography.Text type="secondary">历史任务只读</Typography.Text> : <>{!completed && <Button icon={<SwapOutlined aria-hidden />} onClick={() => { setNextOwnerUserId(undefined); setReassignOpen(true) }}>移交</Button>}{task.status === 'DRAFT' && <Button type="primary" icon={<PlayCircleOutlined aria-hidden />} loading={startMutation.isPending} onClick={() => startMutation.mutate()}>启动任务</Button>}{task.status === 'IN_PROGRESS' && <Button type="primary" icon={<EditOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/execute`)}>进入清洗</Button>}{task.status === 'REWORK_REQUIRED' && <Button type="primary" icon={<EditOutlined aria-hidden />} loading={reworkMutation.isPending} onClick={() => reworkMutation.mutate()}>开启返工</Button>}{task.status === 'PENDING_CONFIRMATION' && <Button type="primary" icon={<CheckCircleOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/confirm`)}>进入确认</Button>}{task.status === 'PENDING_ACCEPTANCE' && <Button type="primary" icon={<SafetyCertificateOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/accept`)}>进入验收</Button>}</>}</Space></Header>
+    <Modal
+      title="移交任务"
+      open={reassignOpen}
+      onCancel={() => setReassignOpen(false)}
+      okText="确认移交"
+      cancelText="取消"
+      okButtonProps={{ disabled: !nextOwnerUserId || reassignMutation.isPending, loading: reassignMutation.isPending }}
+      onOk={() => { if (nextOwnerUserId) reassignMutation.mutate(nextOwnerUserId) }}
+      destroyOnHidden
+    >
+      <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+        把任务从「{task.owner || '当前负责人'}」移交给另一位员工跟进，原负责人解除跟进责任。已完成任务与历史任务不可移交。
+      </Typography.Paragraph>
+      {reassignMutation.error && <Alert type="error" showIcon message={reassignMutation.error.message} style={{ marginBottom: 12 }} />}
+      <Typography.Text strong>新负责人</Typography.Text>
+      <Select
+        aria-label="选择新负责人"
+        style={{ width: '100%', marginTop: 8 }}
+        placeholder="选择员工"
+        value={nextOwnerUserId}
+        onChange={setNextOwnerUserId}
+        options={assigneeOptions}
+        showSearch
+        optionFilterProp="label"
+      />
+    </Modal>
     {(startMutation.error || reworkMutation.error) && <Alert type="error" showIcon message={(startMutation.error ?? reworkMutation.error)?.message} style={{ marginBottom: 16 }} />}
     <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 4 }} items={[{ key: 'owner', label: '负责人', children: task.owner }, { key: 'due', label: '截止日期', children: task.dueDate }, { key: 'round', label: '治理轮次', children: task.currentRound ?? 0 }, { key: 'scope', label: '治理范围', children: task.scope }]} />
     <Section><GovernanceMilestoneStrip status={task.status} workflowVersion={task.workflowVersion} progress={task.progress} currentRound={task.currentRound} completed={task.completed} total={task.total} /></Section>

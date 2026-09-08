@@ -233,6 +233,16 @@ export function startGovernanceTask(
   })
 }
 
+export function reassignGovernanceTask(
+  taskId: number,
+  input: { ownerUserId: string; expectedVersion: number },
+): Promise<GovernanceTask> {
+  return request(`/api/v1/governance/tasks/${taskId}/reassign`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
 export function getGovernanceItems(taskId: number): Promise<GovernanceItemExecution[]> {
   return request(`/api/v1/governance/tasks/${taskId}/items`)
 }
