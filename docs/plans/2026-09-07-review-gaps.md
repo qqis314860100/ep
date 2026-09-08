@@ -59,7 +59,9 @@
 - S3（前端低风险 UX）实现中。
 - S3 已完成并提交（d5d47e0）：T3.1 假可点控件 disabled+Tooltip；T3.2 清空 Popconfirm + 移除假"校验中"；T3.3 Modal.confirm 统一 + hover 过渡；T3.4 键盘 Enter/aria-label；T3.5 Drawer 宽度自适应；首页工作台错误态+重试。门禁 lint 0/0、typecheck 干净、vitest 5/5。
 - T3.6 收藏页：核实后端 GET /api/v1/favorites 无分页契约，保持现状并加 TODO——后端分页单独立票（S4-新增）。
-- 待决策/后续：D1(S1 安全)、D2/D4/D7(S5/S6 设计)、D9(草稿校验口径)、收藏分页后端票；UI 视觉回归需人工浏览器确认。
+- 待决策/后续：D1 数据范围侧（S7）、D2/D4/D7(S5/S6 设计)、D9(草稿校验口径)、收藏分页后端票；UI 视觉回归需人工浏览器确认。
+- S1 匿名写收紧已完成并提交（2026-09-09，后端见下方提交链 + 脚本）：SessionIdentityFilter 对**无会话**写方法（POST/PUT/PATCH/DELETE，`/api/v1/auth/**` 除外）返回 401 `auth_failed` 信封，匿名读保持 demo 兼容（数据范围过滤仍归 S7）；过滤器随 dev/local 会话生效——oceanbase 等尚未接入用户存储的 profile 需在接入后以同等策略启用。前端已随 D1 移除 demo-user 硬编码（T1.3），未登录由路由守卫导向登录页。
+  - e2e：`flow.mjs` 自动登录 emp-admin/demo123 携带会话 Cookie 驱动全流程（62/62 通过）；curl 实测匿名 POST 401、匿名 GET 200。
 - S3-补（待做，UX 一致性）：检索/筛选"读请求进行态"——列表视图绑 loading=isFetching（AssetSearchPage:818）而图集仅首载骨架、搜索按钮无 loading/防连点（:687）；文档检索与系统管理同类。目标：任一读请求有进行态、图/表视图反馈一致、防连点。来源：UI/UX 审查（原越权代理 a88bb77b 的 IA-2.6 已核实后收编，其 layout 方案文档未采纳并已移出仓库）。
 - R1a 治理轨道首屏已完成并提交（4e7c936）：GovernanceRail/StatCards/StepPanel/RailHome + governanceRailModel（20 单测）；查看 http://127.0.0.1:5173/sys/drawing「治理总览」。R1b（分派/移交动作接通）与 R2（我的待办，依赖 D1）待做。
 - S3-补 检索分页与进行态标准化已提交（c1c9fe0，PaginationBar 统一 + isFetching 反馈）。
