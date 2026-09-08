@@ -1,7 +1,7 @@
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Tabs } from 'antd'
 import styled from 'styled-components'
-import { GovernanceOverviewPage } from './overview/GovernanceOverviewPage'
+import { GovernanceRailHome } from './components/GovernanceRailHome'
 import { GovernanceInventoryPage } from './inventory/GovernanceInventoryPage'
 
 const Workspace = styled.main`width:100%; padding:4px 0 28px;`
@@ -19,7 +19,7 @@ export function GovernancePage() {
     if (key === 'operations') navigate('/sys/drawing/operations')
     if (key === 'inventory') navigate('/sys/drawing/inventory')
   }} items={[
-    { key: 'overview', label: '治理总览', children: <GovernanceOverviewPage onOpenTask={taskId => navigate(`/sys/drawing/tasks/${taskId}`)} /> },
+    { key: 'overview', label: '治理总览', children: <GovernanceRailHome onOpenTask={taskId => navigate(`/sys/drawing/tasks/${taskId}`)} /> },
     { key: 'inventory', label: '资产盘点', children: <GovernanceInventoryPage /> },
     { key: 'standards', label: '标准中心' },
     { key: 'mappings', label: '映射规则' },
