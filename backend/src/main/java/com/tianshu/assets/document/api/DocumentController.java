@@ -140,7 +140,7 @@ public class DocumentController {
         if (preview && access.file().previewable() && previewConverter.supports(access.file().format())) {
             var converted = previewConverter.toPdf(access.file().format(), access.storedFile().content())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "文档预览转换服务不可用"));
-            var pdfName = access.file().name().replaceAll("(?i)\\.(docx|doc)$", "") + ".pdf";
+            var pdfName = access.file().name().replaceAll("(?i)\\.(docx|doc|xlsx|xls|pptx|ppt|csv|txt)$", "") + ".pdf";
             var pdfDisposition = ContentDisposition.inline().filename(pdfName, StandardCharsets.UTF_8).build();
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_PDF)

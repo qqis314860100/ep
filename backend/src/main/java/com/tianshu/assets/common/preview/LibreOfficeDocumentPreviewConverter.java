@@ -22,8 +22,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class LibreOfficeDocumentPreviewConverter implements DocumentPreviewConverter {
 
-    private static final Set<String> SUPPORTED_FORMATS = Set.of("DOCX", "DOC");
+    private static final Set<String> SUPPORTED_FORMATS = Set.of(
+            "DOCX", "DOC", "XLSX", "XLS", "PPTX", "PPT", "CSV", "TXT");
     private static final long CONVERT_TIMEOUT_SECONDS = 30;
+
+    /** 各格式对应的临时输入扩展名，供 LibreOffice 正确识别文件类型。 */
+    private static final java.util.Map<String, String> INPUT_EXTENSIONS = java.util.Map.of(
+            "DOCX", ".docx", "DOC", ".doc",
+            "XLSX", ".xlsx", "XLS", ".xls",
+            "PPTX", ".pptx", "PPT", ".ppt",
+            "CSV", ".csv", "TXT", ".txt");
 
     private final String binary;
     private volatile Boolean available;
@@ -43,7 +51,7 @@ public class LibreOfficeDocumentPreviewConverter implements DocumentPreviewConve
         if (!supports(format) || source == null || source.length == 0 || !available()) {
             return Optional.empty();
         }
-        var extension = "DOC".equalsIgnoreCase(format) ? ".doc" : ".docx";
+        var extension = INPUT_EXTENSIONS.getOrDefault(format.toUpperCase(Locale.ROOT), "");
         try {
             var workDir = Files.createTempDirectory("docx-preview-");
             try {

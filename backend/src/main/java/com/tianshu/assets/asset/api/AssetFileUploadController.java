@@ -7,6 +7,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,8 +23,11 @@ public class AssetFileUploadController {
 
     private static final long MAX_FILE_SIZE = 500L * 1024 * 1024;
     private static final Set<String> BLOCKED_EXTENSIONS = Set.of("EXE", "BAT", "CMD", "COM", "MSI", "SH", "JS", "JAR");
-    private static final Set<String> PREVIEWABLE_FORMATS = Set.of("PDF", "PNG", "JPG", "JPEG", "TIFF", "DOCX", "DOC");
+    private static final Set<String> PREVIEWABLE_FORMATS = Set.of(
+            "PDF", "PNG", "JPG", "JPEG", "TIFF", "DOCX", "DOC", "XLS", "XLSX", "PPT", "PPTX", "CSV", "TXT");
     private static final Set<String> IMAGE_PREVIEW_FORMATS = Set.of("PNG", "JPG", "JPEG", "TIFF");
+    private static final byte[] OLE_COMPOUND_HEADER = {
+            (byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1 };
     private final FileStorage storage;
 
     public AssetFileUploadController(FileStorage storage) {
@@ -61,9 +66,32 @@ public class AssetFileUploadController {
         if ((format.equals("JPG") || format.equals("JPEG")) && !(bytes.length >= 3 && (bytes[0] & 0xff) == 0xff && (bytes[1] & 0xff) == 0xd8 && (bytes[2] & 0xff) == 0xff)) {
             throw new AssetFileValidationException("文件扩展名与实际 JPEG 内容不一致");
         }
-        if (format.equals("DOCX") && !(bytes.length >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B
-                && bytes[2] == 0x03 && bytes[3] == 0x04)) {
+        if (format.equals("DOCX") && !isOfficeZip(bytes, "word/document.xml")) {
             throw new AssetFileValidationException("文件扩展名与实际 DOCX 内容不一致");
+        }
+        if (format.equals("XLSX") && !isOfficeZip(bytes, "xl/workbook.xml")) {
+            throw new AssetFileValidationException("文件扩展名与实际 XLSX 内容不一致");
+        }
+        if (format.equals("PPTX") && !isOfficeZip(bytes, "ppt/presentation.xml")) {
+            throw new AssetFileValidationException("文件扩展名与实际 PPTX 内容不一致");
+        }
+        if (Set.of("DOC", "XLS", "PPT").contains(format) && !startsWith(bytes, OLE_COMPOUND_HEADER)) {
+            throw new AssetFileValidationException("文件扩展名与实际 " + format + " 内容不一致");
+        }
+    }
+
+    /** ZIP 容器（OOXML）内必须出现对应的标记条目，用于区分 DOCX/XLSX/PPTX 与普通压缩包。 */
+    private boolean isOfficeZip(byte[] bytes, String requiredEntry) {
+        if (!startsWith(bytes, new byte[] { 0x50, 0x4B, 0x03, 0x04 })) return false;
+        try (var zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
+            ZipEntry entry;
+            var scanned = 0;
+            while ((entry = zip.getNextEntry()) != null && scanned++ < 512) {
+                if (requiredEntry.equals(entry.getName())) return true;
+            }
+            return false;
+        } catch (IOException exception) {
+            return false;
         }
     }
 

@@ -9,10 +9,11 @@ import org.junit.jupiter.api.Test;
 class LibreOfficeDocumentPreviewConverterTest {
 
     @Test
-    void declaresOnlyOfficeDocumentFormats() {
+    void declaresSupportedOfficeAndTextFormats() {
         var converter = new LibreOfficeDocumentPreviewConverter("definitely-missing-soffice");
-        assertThat(converter.supports("DOCX")).isTrue();
-        assertThat(converter.supports("DOC")).isTrue();
+        for (var format : java.util.List.of("DOCX", "DOC", "XLSX", "XLS", "PPTX", "PPT", "CSV", "TXT")) {
+            assertThat(converter.supports(format)).as(format).isTrue();
+        }
         assertThat(converter.supports("PDF")).isFalse();
         assertThat(converter.supports("X_T")).isFalse();
         assertThat(converter.supports(null)).isFalse();
@@ -33,6 +34,22 @@ class LibreOfficeDocumentPreviewConverterTest {
 
     @Test
     void convertsThroughHeadlessBinaryAndReturnsPdf() throws Exception {
+        var converter = fakeConverter();
+        var pdf = converter.toPdf("DOCX", "dummy-docx".getBytes(StandardCharsets.UTF_8));
+        assertThat(pdf).isPresent();
+        assertThat(new String(pdf.orElseThrow(), StandardCharsets.UTF_8)).isEqualTo("%PDF-fake");
+    }
+
+    @Test
+    void convertsEachSupportedFormatWithOwnInputExtension() throws Exception {
+        var converter = fakeConverter();
+        for (var format : java.util.List.of("DOCX", "XLSX", "XLS", "PPTX", "PPT", "CSV", "TXT")) {
+            var pdf = converter.toPdf(format, ("dummy-" + format).getBytes(StandardCharsets.UTF_8));
+            assertThat(pdf).as(format).isPresent();
+        }
+    }
+
+    private LibreOfficeDocumentPreviewConverter fakeConverter() throws Exception {
         var dir = Files.createTempDirectory("fake-soffice-");
         var script = dir.resolve("soffice");
         Files.writeString(script, """
@@ -46,11 +63,6 @@ class LibreOfficeDocumentPreviewConverterTest {
                 exit 0
                 """);
         script.toFile().setExecutable(true);
-        var converter = new LibreOfficeDocumentPreviewConverter(script.toString());
-
-        var pdf = converter.toPdf("DOCX", "dummy-docx".getBytes(StandardCharsets.UTF_8));
-
-        assertThat(pdf).isPresent();
-        assertThat(new String(pdf.orElseThrow(), StandardCharsets.UTF_8)).isEqualTo("%PDF-fake");
+        return new LibreOfficeDocumentPreviewConverter(script.toString());
     }
 }

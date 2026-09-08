@@ -194,7 +194,7 @@ public class AssetController {
     }
 
     private String pdfPreviewName(String name) {
-        return name.replaceAll("(?i)\\.(docx|doc)$", "") + ".pdf";
+        return name.replaceAll("(?i)\\.(docx|doc|xlsx|xls|pptx|ppt|csv|txt)$", "") + ".pdf";
     }
 
     private String uniqueName(Set<String> usedNames, String name) {
