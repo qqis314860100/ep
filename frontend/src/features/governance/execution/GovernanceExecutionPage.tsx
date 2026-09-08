@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 
 import { getDictionaryItems } from '../../../services/dictionaryService'
+import { currentActor } from '../../auth/session'
 import { getGovernanceEmployees, getGovernanceItems, getGovernanceTask, saveBatchResults, saveResultDraft, submitForConfirmation } from '../api'
 import { BatchResultDrawer } from '../shared/BatchResultDrawer'
 import type { BatchItemResult, GovernanceItemExecution, JsonValue } from '../types'
@@ -91,14 +92,14 @@ export function GovernanceExecutionPage({ taskId }: { taskId: number }) {
   }, [dirty])
 
   const saveMutation = useMutation({
-    mutationFn: () => saveResultDraft(current!.item.id, { itemVersion: current!.item.version, assetVersion: current!.item.assetVersion, proposedValue: toCommandValue(current!.item.targetField, value, employeesQuery.data ?? []), actorUserId: 'demo-user' }),
+    mutationFn: () => saveResultDraft(current!.item.id, { itemVersion: current!.item.version, assetVersion: current!.item.assetVersion, proposedValue: toCommandValue(current!.item.targetField, value, employeesQuery.data ?? []), actorUserId: currentActor().userId }),
     onSuccess: result => { setSavedValue(toEditorValue(current!.item.targetField, result.proposedValue)); void itemsQuery.refetch() },
   })
   const batchMutation = useMutation({
     mutationFn: () => saveBatchResults(crypto.randomUUID(), selectedIds.map(id => {
       const entry = workItems.find(item => item.item.id === id)!
       const editorValue = toEditorValue(entry.item.targetField, entry.currentResult?.proposedValue ?? parseOriginal(entry.originalFactJson))
-      return { itemId: id, itemVersion: entry.item.version, assetVersion: entry.item.assetVersion, proposedValue: toCommandValue(entry.item.targetField, editorValue, employeesQuery.data ?? []), submit: true, targetField: entry.item.targetField, standardVersion: standardVersion(entry), scopeFingerprint: entry.item.scopeFingerprint, actorUserId: 'demo-user' }
+      return { itemId: id, itemVersion: entry.item.version, assetVersion: entry.item.assetVersion, proposedValue: toCommandValue(entry.item.targetField, editorValue, employeesQuery.data ?? []), submit: true, targetField: entry.item.targetField, standardVersion: standardVersion(entry), scopeFingerprint: entry.item.scopeFingerprint, actorUserId: currentActor().userId }
     })),
     onSuccess: data => { setBatchResults(data.results); setBatchOpen(true); void itemsQuery.refetch() },
   })

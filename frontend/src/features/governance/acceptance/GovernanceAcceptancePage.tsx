@@ -4,6 +4,7 @@ import { Alert, Button, Input, Space, Spin, Typography } from 'antd'
 import { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { completeAcceptance, getCurrentAcceptance, getOperationJob, openGovernanceRework, retryOperationJob, saveAcceptanceSample } from '../api'
+import { currentActor } from '../../auth/session'
 import type { AcceptanceSample } from '../types'
 import { AcceptanceSampleTable } from './AcceptanceSampleTable'
 import { ApplicationJobProgress } from './ApplicationJobProgress'
@@ -20,9 +21,9 @@ export function GovernanceAcceptancePage({ taskId }: { taskId: number }) {
   const [jobId, setJobId] = useState<number>()
   useEffect(() => setSamples(acceptance.data?.samples ?? []), [acceptance.data])
   const job = useQuery({ queryKey: ['governance-job', jobId], queryFn: () => getOperationJob(jobId!), enabled: Boolean(jobId), refetchInterval: query => { const value = query.state.data; return value && value.processing === 0 ? false : 500 } })
-  const sampleMutation = useMutation({ mutationFn: (sample: AcceptanceSample) => saveAcceptanceSample(acceptance.data!.id, sample.itemId, { passed: sample.passed!, issueDescription: sample.issueDescription, reviewerUserId: 'demo-user', sampleVersion: sample.version }), onSuccess: () => acceptance.refetch() })
-  const complete = useMutation({ mutationFn: () => completeAcceptance(taskId, acceptance.data!.id, { roundVersion: acceptance.data!.version, operatorUserId: 'demo-user' }) as Promise<Completion>, onSuccess: result => { if (result.applicationJobId) setJobId(result.applicationJobId); void acceptance.refetch() } })
-  const rework = useMutation({ mutationFn: () => openGovernanceRework(taskId, { taskVersion: 0, reason, actorUserId: 'demo-user' }) })
+  const sampleMutation = useMutation({ mutationFn: (sample: AcceptanceSample) => saveAcceptanceSample(acceptance.data!.id, sample.itemId, { passed: sample.passed!, issueDescription: sample.issueDescription, reviewerUserId: currentActor().userId, sampleVersion: sample.version }), onSuccess: () => acceptance.refetch() })
+  const complete = useMutation({ mutationFn: () => completeAcceptance(taskId, acceptance.data!.id, { roundVersion: acceptance.data!.version, operatorUserId: currentActor().userId }) as Promise<Completion>, onSuccess: result => { if (result.applicationJobId) setJobId(result.applicationJobId); void acceptance.refetch() } })
+  const rework = useMutation({ mutationFn: () => openGovernanceRework(taskId, { taskVersion: 0, reason, actorUserId: currentActor().userId }) })
   const retry = useMutation({ mutationFn: () => retryOperationJob(jobId!), onSuccess: () => job.refetch() })
   const updateSample = (sample: AcceptanceSample, passed: boolean, issueDescription: string) => { const next = { ...sample, passed, issueDescription }; setSamples(values => values.map(value => value.itemId === sample.itemId ? next : value)); if (passed || issueDescription.trim()) sampleMutation.mutate(next) }
   if (acceptance.isLoading) return <Spin tip="正在加载质量验收"><div style={{ height: 320 }} /></Spin>

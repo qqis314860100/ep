@@ -13,6 +13,7 @@ export interface NotificationView {
 
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}${path}`, {
+    credentials: 'include',
     headers: { Accept: 'application/json' },
   })
   if (!response.ok) {

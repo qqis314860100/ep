@@ -4,6 +4,7 @@ import type { FormInstance, UploadProps } from 'antd'
 import { useState } from 'react'
 import styled from 'styled-components'
 import { uploadDocumentFile } from '../../../services/documentService'
+import { currentActor } from '../../auth/session'
 import type { DictionaryItem } from '../../../types/dictionary'
 import type { DocumentFile, DocumentScope, DocumentScopeMode } from '../../../types/document'
 import { DocumentFileList } from './DocumentFileList'
@@ -132,6 +133,7 @@ interface DocumentFormProps {
 }
 
 export function DocumentForm({ form, categories, scopeItems, disabled, onChange }: DocumentFormProps) {
+  const actor = currentActor()
   const scopeMode = Form.useWatch('scopeMode', form)
   const scopes = Form.useWatch('scopes', form) ?? []
   const enabledItems = scopeItems.filter((item) => item.status === 'ENABLED')
@@ -159,8 +161,8 @@ export function DocumentForm({ form, categories, scopeItems, disabled, onChange 
         title: '',
         summary: '',
         categoryCode: undefined,
-        maintainerId: 'demo-user',
-        maintainerName: '陈工',
+        maintainerId: actor.userId,
+        maintainerName: actor.userId,
         maintainerDepartment: '',
         versionNumber: 'V1.0',
         changeSummary: '首次发布',

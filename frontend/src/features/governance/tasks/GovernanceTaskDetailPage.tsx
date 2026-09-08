@@ -6,6 +6,7 @@ import { useState } from 'react'
 import styled from 'styled-components'
 import { useNavigate } from 'react-router-dom'
 import { getGovernanceEmployees, getGovernanceIssues, getGovernancePlans, getGovernanceTask, openGovernanceRework, reassignGovernanceTask, startGovernanceTask } from '../api'
+import { currentActor } from '../../auth/session'
 import { GovernanceProgressStrip } from '../shared/GovernanceProgressStrip'
 import { GovernanceStatusTag } from '../shared/GovernanceStatusTag'
 import type { GovernanceIssue } from '../types'
@@ -27,8 +28,8 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
   const plansQuery = useQuery({ queryKey: ['governance-plans', taskId], queryFn: () => getGovernancePlans(taskId) })
   const issuesQuery = useQuery({ queryKey: ['governance-issues', 'task', taskId], queryFn: async () => (await getGovernanceIssues()).filter(issue => issue.taskId === taskId) })
   const employeesQuery = useQuery({ queryKey: ['governance-employees'], queryFn: getGovernanceEmployees, staleTime: 300_000 })
-  const startMutation = useMutation({ mutationFn: () => startGovernanceTask(taskId, { version: taskQuery.data?.version ?? 0, actorUserId: 'demo-user' }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['governance-task', taskId] }); await queryClient.invalidateQueries({ queryKey: ['governance-tasks'] }) } })
-  const reworkMutation = useMutation({ mutationFn: () => openGovernanceRework(taskId, { taskVersion: taskQuery.data?.version ?? 0, reason: '业务确认退回', actorUserId: 'demo-user' }), onSuccess: () => navigate(`/sys/drawing/tasks/${taskId}/execute`) })
+  const startMutation = useMutation({ mutationFn: () => startGovernanceTask(taskId, { version: taskQuery.data?.version ?? 0, actorUserId: currentActor().userId }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['governance-task', taskId] }); await queryClient.invalidateQueries({ queryKey: ['governance-tasks'] }) } })
+  const reworkMutation = useMutation({ mutationFn: () => openGovernanceRework(taskId, { taskVersion: taskQuery.data?.version ?? 0, reason: '业务确认退回', actorUserId: currentActor().userId }), onSuccess: () => navigate(`/sys/drawing/tasks/${taskId}/execute`) })
   const reassignMutation = useMutation({
     mutationFn: (ownerUserId: string) => reassignGovernanceTask(taskId, { ownerUserId, expectedVersion: taskQuery.data?.version ?? 0 }),
     onSuccess: async () => {

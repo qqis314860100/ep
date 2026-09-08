@@ -11,10 +11,11 @@ import {
   QuestionCircleOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
-import { Avatar, Button, Layout, Tooltip } from 'antd'
+import { Avatar, Button, Dropdown, Layout, Tooltip } from 'antd'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
+import { useAuth } from '../features/auth/useAuth'
 import { NotificationBell } from './NotificationBell'
 
 const { Header, Sider, Content } = Layout
@@ -150,15 +151,6 @@ const HeaderActions = styled.div`
   }
 `
 
-const User = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: 8px;
-  padding-left: 12px;
-  border-left: 1px solid rgba(255, 255, 255, 0.18);
-`
-
 const UserName = styled.div`
   color: #fff;
   font-size: 12px;
@@ -291,6 +283,7 @@ const managementItems: NavigationItem[] = [
 export function AppShell({ children }: AppShellProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem('workspace-nav-collapsed') === 'true')
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 720px)').matches)
   const allItems = useMemo(() => [...primaryItems, ...managementItems], [])
@@ -348,13 +341,24 @@ export function AppShell({ children }: AppShellProps) {
             <Button type="text" icon={<QuestionCircleOutlined />} aria-label="帮助" disabled />
           </Tooltip>
           <NotificationBell />
-          <User>
-            <Avatar size={28} style={{ background: '#2f7567' }}>陈</Avatar>
-            <UserDetails>
-              <UserName>陈工</UserName>
-              <UserRole>内容管理员</UserRole>
-            </UserDetails>
-          </User>
+          <Dropdown
+            menu={{
+              items: [
+                { key: 'department', label: `${user?.department ?? '—'} · ${user?.roles.join(' / ') ?? ''}`, disabled: true },
+                { type: 'divider' },
+                { key: 'logout', label: '退出登录', onClick: () => void logout() },
+              ],
+            }}
+            trigger={['click']}
+          >
+            <Button type="text" aria-label="当前用户，点击展开菜单" style={{ display: 'flex', alignItems: 'center', height: 'auto', padding: '2px 6px' }}>
+              <Avatar size={28} style={{ background: '#2f7567' }}>{user?.name?.slice(0, 1) ?? '?'}</Avatar>
+              <UserDetails style={{ marginLeft: 8, textAlign: 'left' }}>
+                <UserName>{user?.name ?? '未登录'}</UserName>
+                <UserRole>{roleLabel(user?.roles)}</UserRole>
+              </UserDetails>
+            </Button>
+          </Dropdown>
         </HeaderActions>
       </TopBar>
       <Body>
@@ -372,4 +376,17 @@ export function AppShell({ children }: AppShellProps) {
       </Body>
     </Shell>
   )
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  SYSTEM_ADMIN: '系统管理员',
+  CONTENT_ADMIN: '内容管理员',
+  DOCUMENT_MAINTAINER: '文档维护员',
+  UPLOADER: '上传员',
+  NORMAL_USER: '普通用户',
+}
+
+function roleLabel(roles: string[] | undefined): string {
+  if (!roles || roles.length === 0) return '访客'
+  return roles.map(role => ROLE_LABELS[role] ?? role).join(' · ')
 }

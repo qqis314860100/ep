@@ -4,6 +4,7 @@ import { Alert, Button, Descriptions, List, Space, Spin, Typography } from 'antd
 import { useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { completeConfirmation, getCurrentConfirmation, getGovernanceItems, getGovernanceTask, saveConfirmationDecision } from '../api'
+import { currentActor } from '../../auth/session'
 import { ConfirmationDecisionPanel } from './ConfirmationDecisionPanel'
 
 const Layout = styled.div`display:grid;grid-template-columns:260px minmax(360px,1fr) 300px;border-block:1px solid #dfe5e2;min-height:520px;@media(max-width:1000px){grid-template-columns:220px 1fr}.decision{border-left:1px solid #dfe5e2;padding:18px}@media(max-width:1000px){.decision{grid-column:1/-1;border-left:0;border-top:1px solid #dfe5e2}}`
@@ -23,10 +24,10 @@ export function GovernanceConfirmationPage({ taskId }: { taskId: number }) {
   const execution = executions.data?.find(item => item.item.id === currentId)
   const currentDecision = confirmation.data?.decisions.find(item => item.itemId === currentId)
   const refresh = () => confirmation.refetch()
-  const save = useMutation({ mutationFn: (values: { decision: 'APPROVED' | 'REJECTED'; comment?: string }) => saveConfirmationDecision(confirmation.data!.round.id, current!.itemId, { ...values, decisionVersion: currentDecision?.version ?? 0, confirmerUserId: current!.responsibleUserId || 'demo-user' }), onSuccess: result => queryClient.setQueryData(['governance-confirmation', taskId], result) })
+  const save = useMutation({ mutationFn: (values: { decision: 'APPROVED' | 'REJECTED'; comment?: string }) => saveConfirmationDecision(confirmation.data!.round.id, current!.itemId, { ...values, decisionVersion: currentDecision?.version ?? 0, confirmerUserId: current!.responsibleUserId || currentActor().userId }), onSuccess: result => queryClient.setQueryData(['governance-confirmation', taskId], result) })
   const complete = useMutation({ mutationFn: () => completeConfirmation(taskId, confirmation.data!.round.id, confirmation.data!.round.version), onSuccess: refresh })
   const sameScopeIds = useMemo(() => confirmation.data?.items.filter(item => item.responsibilityScope === current?.responsibilityScope && !confirmation.data?.decisions.some(decision => decision.itemId === item.itemId)).map(item => item.itemId) ?? [], [confirmation.data, current])
-  const batchApprove = async () => { for (const itemId of sameScopeIds) { const item = confirmation.data!.items.find(value => value.itemId === itemId)!; await saveConfirmationDecision(confirmation.data!.round.id, itemId, { decision: 'APPROVED', decisionVersion: 0, confirmerUserId: item.responsibleUserId || 'demo-user' }) } await refresh() }
+  const batchApprove = async () => { for (const itemId of sameScopeIds) { const item = confirmation.data!.items.find(value => value.itemId === itemId)!; await saveConfirmationDecision(confirmation.data!.round.id, itemId, { decision: 'APPROVED', decisionVersion: 0, confirmerUserId: item.responsibleUserId || currentActor().userId }) } await refresh() }
   if (task.isLoading) return <Spin tip="正在加载业务确认"><div style={{ height: 320 }} /></Spin>
   if (!task.data) return <Alert type="error" showIcon message={task.error?.message ?? '治理任务加载失败'} />
   if (task.data.workflowVersion === 'LEGACY_PROGRESS') return <Alert type="info" showIcon message="历史任务仅保留汇总进度，不支持业务确认明细" />

@@ -20,6 +20,7 @@ interface ApiErrorBody {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
+    credentials: 'include',
     ...init,
     headers: {
       Accept: 'application/json',
@@ -78,6 +79,7 @@ export async function uploadDocumentFile(file: File): Promise<DocumentFile> {
   const formData = new FormData()
   formData.append('file', file)
   const response = await fetch(`${apiBaseUrl}/api/v1/uploads/files`, {
+    credentials: 'include',
     method: 'POST',
     headers: { Accept: 'application/json' },
     body: formData,
@@ -112,6 +114,7 @@ export function getDocumentFileUrl(
 
 export async function getDocumentVersions(documentId: number): Promise<DocumentVersion[]> {
   const response = await fetch(`${apiBaseUrl}/api/v1/documents/${documentId}/versions`, {
+    credentials: 'include',
     headers: { Accept: 'application/json' },
   })
   if (!response.ok) throw new Error(`版本清单加载失败：${response.status}`)
@@ -123,6 +126,7 @@ export async function createDocumentVersion(
   input: { versionNumber: string; changeSummary: string; files: DocumentFile[] },
 ): Promise<DocumentVersion> {
   const response = await fetch(`${apiBaseUrl}/api/v1/documents/${documentId}/versions`, {
+    credentials: 'include',
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -136,6 +140,7 @@ export async function createDocumentVersion(
 
 export async function publishDocumentVersion(documentId: number, versionId: number): Promise<unknown> {
   const response = await fetch(`${apiBaseUrl}/api/v1/documents/${documentId}/versions/${versionId}/publish`, {
+    credentials: 'include',
     method: 'POST',
     headers: { Accept: 'application/json' },
   })
@@ -148,6 +153,7 @@ export async function publishDocumentVersion(documentId: number, versionId: numb
 
 export async function disableDocument(documentId: number, reason: string): Promise<unknown> {
   const response = await fetch(`${apiBaseUrl}/api/v1/documents/${documentId}/disable`, {
+    credentials: 'include',
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ reason }),
@@ -175,6 +181,7 @@ export interface DocumentComment {
 
 async function documentRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
+    credentials: 'include',
     ...init,
     headers: { Accept: 'application/json', ...(init?.body ? { 'Content-Type': 'application/json' } : {}), ...init?.headers },
   })

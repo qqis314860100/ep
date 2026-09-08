@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { getDictionaryItems } from '../../services/dictionaryService'
 import { createDocumentDraft, publishDocument } from '../../services/documentService'
+import { currentActor } from '../auth/session'
 import type { CreateDocumentDraftInput, KnowledgeDocument } from '../../types/document'
 import { DocumentForm, type DocumentFormValues } from './components/DocumentForm'
 
@@ -68,7 +69,7 @@ const DraftState = styled.div`
 function toInput(values: DocumentFormValues): CreateDocumentDraftInput {
   return {
     ...values,
-    maintainerId: values.maintainerId || 'demo-user',
+    maintainerId: values.maintainerId || currentActor().userId,
     scopes: values.scopeMode === 'GLOBAL' ? [] : values.scopes,
   }
 }

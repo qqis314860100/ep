@@ -74,6 +74,7 @@ function sortAssets(assets: Asset[], sort?: AssetSort): Asset[] {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
+    credentials: 'include',
     ...init,
     headers: {
       Accept: 'application/json',
@@ -286,6 +287,7 @@ export async function uploadAssetFile(file: File): Promise<AssetFile> {
   const formData = new FormData()
   formData.append('file', file)
   const response = await fetch(`${apiBaseUrl}/api/v1/uploads/files`, {
+    credentials: 'include',
     method: 'POST',
     headers: { Accept: 'application/json' },
     body: formData,
@@ -409,6 +411,7 @@ export async function addComment(id: number, content: string, images: File[] = [
   formData.append('content', content)
   images.forEach((image) => formData.append('images', image))
   const response = await fetch(`${apiBaseUrl}/api/v1/assets/${id}/comments`, {
+    credentials: 'include',
     method: 'POST',
     headers: { Accept: 'application/json' },
     body: formData,

@@ -30,14 +30,11 @@ import type {
   OperationJob,
 } from './types'
 import { GovernanceApiError } from './types'
+import { currentActor } from '../auth/session'
 
 export type * from './types'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
-const governanceIdentity = {
-  userId: 'demo-user',
-  roles: 'CONTENT_ADMIN,SYSTEM_ADMIN',
-}
 
 interface ErrorEnvelope {
   error?: {
@@ -48,12 +45,14 @@ interface ErrorEnvelope {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const actor = currentActor()
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       Accept: 'application/json',
-      'X-User-Id': governanceIdentity.userId,
-      'X-User-Roles': governanceIdentity.roles,
+      'X-User-Id': actor.userId,
+      'X-User-Roles': actor.roles,
       ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
       ...init?.headers,
     },
@@ -225,7 +224,7 @@ export function updateGovernancePlan(
 
 export function startGovernanceTask(
   taskId: number,
-  input: { version: number; actorUserId: string } = { version: 0, actorUserId: 'demo-user' },
+  input: { version: number; actorUserId: string } = { version: 0, actorUserId: currentActor().userId },
 ): Promise<GovernanceTask> {
   return request(`/api/v1/governance/tasks/${taskId}/start`, {
     method: 'POST',

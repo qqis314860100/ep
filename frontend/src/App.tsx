@@ -4,6 +4,9 @@ import zhCN from 'antd/locale/zh_CN'
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
+import { AuthProvider } from './features/auth/AuthContext'
+import LoginPage from './features/auth/LoginPage'
+import { RequireAuth } from './features/auth/RequireAuth'
 import { GlobalStyle } from './styles/GlobalStyle'
 
 const SearchPage = lazy(() => import('./pages/main/search'))
@@ -87,44 +90,56 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <AntdApp>
           <GlobalStyle />
-          <BrowserRouter>
-            <AppShell>
-              <Suspense fallback={<Spin fullscreen tip="正在加载" />}>
-                <Routes>
-                  <Route path="/" element={<SearchPage />} />
-                  <Route path="/home" element={<HomePage />} />
-                  <Route path="/assets" element={<SearchPage />} />
-                  <Route path="/assets/:id" element={<DetailPage />} />
-                  <Route path="/assets/:id/relations" element={<RelationBrowserPage />} />
-                  <Route path="/documents" element={<DocumentSearchPage />} />
-                  <Route path="/documents/mine" element={<MyDocumentsPage />} />
-                  <Route path="/documents/new" element={<DocumentCreatePage />} />
-                  <Route path="/documents/:id" element={<DocumentDetailPage />} />
-                  <Route path="/upload" element={<UploadPage />} />
-                  <Route path="/governance" element={<Navigate to="/sys/drawing" replace />} />
-                  <Route path="/sys/drawing" element={<GovernancePage />} />
-                  <Route path="/sys/drawing/inventory" element={<GovernancePage />} />
-                  <Route path="/sys/drawing/issues" element={<GovernanceIssuePoolPage />} />
-                  <Route path="/sys/drawing/standards" element={<GovernanceStandardsPage />} />
-                  <Route path="/sys/drawing/mappings" element={<GovernanceMappingsPage />} />
-                  <Route path="/sys/drawing/scans" element={<GovernanceScansPage />} />
-                  <Route path="/sys/drawing/operations" element={<GovernanceOperationsPage />} />
-                  <Route path="/sys/drawing/tasks/:taskId" element={<TaskRoute page={GovernanceTaskDetailPage} />} />
-                  <Route path="/sys/drawing/tasks/:taskId/execute" element={<TaskRoute page={GovernanceExecutionPage} />} />
-                  <Route path="/sys/drawing/tasks/:taskId/confirm" element={<TaskRoute page={GovernanceConfirmationPage} />} />
-                  <Route path="/sys/drawing/tasks/:taskId/accept" element={<TaskRoute page={GovernanceAcceptancePage} />} />
-                  <Route path="/sys/file" element={<UploadPage />} />
-                  <Route path="/favorites" element={<FavoritesPage />} />
-                  <Route path="/my-uploads" element={<MyUploadsPage />} />
-                  <Route path="/dictionaries" element={<DictionaryPage />} />
-                  <Route path="/sys/dictionaries" element={<DictionaryPage />} />
-                  <Route path="/settings" element={<SystemAdminPage />} />
-                  <Route path="/sys/settings" element={<SystemAdminPage />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
-            </AppShell>
-          </BrowserRouter>
+          <AuthProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route
+                  path="/*"
+                  element={(
+                    <RequireAuth>
+                      <AppShell>
+                        <Suspense fallback={<Spin fullscreen tip="正在加载" />}>
+                          <Routes>
+                            <Route path="/" element={<SearchPage />} />
+                            <Route path="/home" element={<HomePage />} />
+                            <Route path="/assets" element={<SearchPage />} />
+                            <Route path="/assets/:id" element={<DetailPage />} />
+                            <Route path="/assets/:id/relations" element={<RelationBrowserPage />} />
+                            <Route path="/documents" element={<DocumentSearchPage />} />
+                            <Route path="/documents/mine" element={<MyDocumentsPage />} />
+                            <Route path="/documents/new" element={<DocumentCreatePage />} />
+                            <Route path="/documents/:id" element={<DocumentDetailPage />} />
+                            <Route path="/upload" element={<UploadPage />} />
+                            <Route path="/governance" element={<Navigate to="/sys/drawing" replace />} />
+                            <Route path="/sys/drawing" element={<GovernancePage />} />
+                            <Route path="/sys/drawing/inventory" element={<GovernancePage />} />
+                            <Route path="/sys/drawing/issues" element={<GovernanceIssuePoolPage />} />
+                            <Route path="/sys/drawing/standards" element={<GovernanceStandardsPage />} />
+                            <Route path="/sys/drawing/mappings" element={<GovernanceMappingsPage />} />
+                            <Route path="/sys/drawing/scans" element={<GovernanceScansPage />} />
+                            <Route path="/sys/drawing/operations" element={<GovernanceOperationsPage />} />
+                            <Route path="/sys/drawing/tasks/:taskId" element={<TaskRoute page={GovernanceTaskDetailPage} />} />
+                            <Route path="/sys/drawing/tasks/:taskId/execute" element={<TaskRoute page={GovernanceExecutionPage} />} />
+                            <Route path="/sys/drawing/tasks/:taskId/confirm" element={<TaskRoute page={GovernanceConfirmationPage} />} />
+                            <Route path="/sys/drawing/tasks/:taskId/accept" element={<TaskRoute page={GovernanceAcceptancePage} />} />
+                            <Route path="/sys/file" element={<UploadPage />} />
+                            <Route path="/favorites" element={<FavoritesPage />} />
+                            <Route path="/my-uploads" element={<MyUploadsPage />} />
+                            <Route path="/dictionaries" element={<DictionaryPage />} />
+                            <Route path="/sys/dictionaries" element={<DictionaryPage />} />
+                            <Route path="/settings" element={<SystemAdminPage />} />
+                            <Route path="/sys/settings" element={<SystemAdminPage />} />
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                          </Routes>
+                        </Suspense>
+                      </AppShell>
+                    </RequireAuth>
+                  )}
+                />
+              </Routes>
+            </BrowserRouter>
+          </AuthProvider>
         </AntdApp>
       </QueryClientProvider>
     </ConfigProvider>

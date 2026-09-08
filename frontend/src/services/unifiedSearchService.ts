@@ -36,7 +36,7 @@ export async function searchUnified(params: UnifiedSearchParams): Promise<Unifie
   if (params.base) query.set('base', params.base)
   if (params.productionLine) query.set('production_line', params.productionLine)
   if (params.processSection) query.set('process_section', params.processSection)
-  const response = await fetch(`${apiBaseUrl}/api/v1/search?${query.toString()}`, { headers: { Accept: 'application/json' } })
+  const response = await fetch(`${apiBaseUrl}/api/v1/search?${query.toString()}`, { credentials: 'include', headers: { Accept: 'application/json' } })
   if (!response.ok) throw new Error(`统一检索失败：${response.status}`)
   return response.json() as Promise<UnifiedSearchResponse>
 }

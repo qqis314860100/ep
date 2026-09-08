@@ -8,6 +8,7 @@ interface ApiErrorBody {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
+    credentials: 'include',
     ...init,
     headers: {
       Accept: 'application/json',
