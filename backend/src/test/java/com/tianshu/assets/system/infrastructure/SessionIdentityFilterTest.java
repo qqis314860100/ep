@@ -77,6 +77,37 @@ class SessionIdentityFilterTest {
         assertThat(chain.getRequest()).isSameAs(request);
     }
 
+    @Test
+    void rejectsAnonymousWriteRequestsWithAuthFailure() throws Exception {
+        for (var method : List.of("POST", "PUT", "PATCH", "DELETE")) {
+            var request = new MockHttpServletRequest(method, "/api/v1/assets/1");
+            request.addHeader("X-User-Id", "fake-user");
+            var chain = new MockFilterChain();
+            var response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(response.getStatus()).as("%s 匿名写应 401", method).isEqualTo(401);
+            assertThat(response.getContentAsString()).contains("auth_failed");
+            assertThat(chain.getRequest()).as("%s 匿名写不得继续执行", method).isNull();
+        }
+    }
+
+    @Test
+    void allowsAnonymousReadRequestsAndPreflight() throws Exception {
+        for (var method : List.of("GET", "HEAD", "OPTIONS")) {
+            var request = new MockHttpServletRequest(method, "/api/v1/assets");
+            request.addHeader("X-User-Id", "emp-wang");
+            var chain = new MockFilterChain();
+
+            filter.doFilter(request, response(), chain);
+
+            var wrapped = (HttpServletRequest) chain.getRequest();
+            assertThat(wrapped.getHeader("X-User-Id"))
+                    .as("%s 匿名读应原样放行", method).isEqualTo("emp-wang");
+        }
+    }
+
     private MockHttpServletResponse response() {
         return new MockHttpServletResponse();
     }

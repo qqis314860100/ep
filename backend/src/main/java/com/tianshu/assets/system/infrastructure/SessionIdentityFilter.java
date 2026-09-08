@@ -22,13 +22,17 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * 会话身份过滤器（D1/S1）：已登录请求以服务端会话身份为准——
  * 把 X-User-Id / X-User-Roles 覆写为会话用户，客户端自报头失效。
- * 未登录请求保持原样放行（demo/e2e 兼容期；S1 收紧匿名写另立票）。
- * /api/v1/auth/** 不参与覆写（登录/登出/me 各自处理会话）。
+ * 未登录（无会话）请求：写方法（POST/PUT/PATCH/DELETE 等）一律 401 拒绝（S1 匿名写收紧），
+ * 只读请求保持原样放行（demo/e2e 兼容的匿名读；数据范围过滤另见 S7）。
+ * /api/v1/auth/** 不参与覆写与拦截（登录/登出/me 各自处理会话）。
  */
 @Component
 @Order(1)
 @Profile({"dev", "local"})
 public class SessionIdentityFilter extends OncePerRequestFilter {
+
+    private static final String UNAUTHENTICATED_JSON =
+            "{\"error\":{\"code\":\"auth_failed\",\"message\":\"请先登录后再操作\",\"details\":[]}}";
 
     private final SystemUserRepository users;
 
@@ -51,6 +55,13 @@ public class SessionIdentityFilter extends OncePerRequestFilter {
                 ? null
                 : (String) session.getAttribute(AuthController.SESSION_USER_ID);
         if (userId == null) {
+            if (isWriteRequest(request)) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.setCharacterEncoding("UTF-8");
+                response.getWriter().write(UNAUTHENTICATED_JSON);
+                return;
+            }
             chain.doFilter(request, response);
             return;
         }
@@ -60,6 +71,15 @@ public class SessionIdentityFilter extends OncePerRequestFilter {
             return;
         }
         chain.doFilter(new IdentityRequestWrapper(request, user), response);
+    }
+
+    /** 非安全方法（会改变服务端状态）视为写请求；GET/HEAD/OPTIONS/TRACE 放行。 */
+    private boolean isWriteRequest(HttpServletRequest request) {
+        var method = request.getMethod();
+        return !("GET".equalsIgnoreCase(method)
+                || "HEAD".equalsIgnoreCase(method)
+                || "OPTIONS".equalsIgnoreCase(method)
+                || "TRACE".equalsIgnoreCase(method));
     }
 
     private static final class IdentityRequestWrapper extends HttpServletRequestWrapper {
