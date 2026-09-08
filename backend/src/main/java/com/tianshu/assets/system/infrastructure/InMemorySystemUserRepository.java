@@ -1,5 +1,6 @@
 package com.tianshu.assets.system.infrastructure;
 
+import com.tianshu.assets.system.application.PasswordHasher;
 import com.tianshu.assets.system.application.SystemUserConflictException;
 import com.tianshu.assets.system.domain.SystemRole;
 import com.tianshu.assets.system.domain.SystemUser;
@@ -22,16 +23,18 @@ public class InMemorySystemUserRepository implements SystemUserRepository {
 
     public InMemorySystemUserRepository() {
         var now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        // 演示账号与治理员工目录共用工号（emp-*），初始密码统一 demo123。
+        var demoPassword = PasswordHasher.hash("demo123");
         users = new ArrayList<>(List.of(
-                new SystemUser(1, "u-chen", "陈工", "设备工程部",
+                new SystemUser(1, "emp-chen", "陈工", "设备工程部",
                         Set.of(SystemRole.UPLOADER),
-                        List.of(new SystemUserScope(1, "宁德基地", "H03")), now, 1),
-                new SystemUser(2, "u-li", "李工", "标准化小组",
-                        Set.of(SystemRole.CONTENT_ADMIN), List.of(), now, 1),
-                new SystemUser(3, "u-wang", "王工", "资料管理组",
-                        Set.of(SystemRole.DOCUMENT_MAINTAINER), List.of(), now, 1),
-                new SystemUser(4, "u-admin", "管理员", "信息化部",
-                        Set.of(SystemRole.SYSTEM_ADMIN, SystemRole.CONTENT_ADMIN), List.of(), now, 1)));
+                        List.of(new SystemUserScope(1, "宁德基地", "H03")), now, 1, demoPassword),
+                new SystemUser(2, "emp-li", "李工", "标准化小组",
+                        Set.of(SystemRole.CONTENT_ADMIN), List.of(), now, 1, demoPassword),
+                new SystemUser(3, "emp-wang", "王工", "资料管理组",
+                        Set.of(SystemRole.DOCUMENT_MAINTAINER), List.of(), now, 1, demoPassword),
+                new SystemUser(4, "emp-admin", "管理员", "信息化部",
+                        Set.of(SystemRole.SYSTEM_ADMIN, SystemRole.CONTENT_ADMIN), List.of(), now, 1, demoPassword)));
     }
 
     @Override
@@ -42,6 +45,11 @@ public class InMemorySystemUserRepository implements SystemUserRepository {
     @Override
     public synchronized Optional<SystemUser> findById(long id) {
         return users.stream().filter(user -> user.id() == id).findFirst();
+    }
+
+    @Override
+    public synchronized Optional<SystemUser> findByUserId(String userId) {
+        return users.stream().filter(user -> user.userId().equals(userId)).findFirst();
     }
 
     @Override

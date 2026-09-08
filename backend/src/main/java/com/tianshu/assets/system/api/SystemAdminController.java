@@ -40,7 +40,9 @@ public class SystemAdminController {
     public SystemUserResponse updateRoles(
             @PathVariable @Positive long id,
             @Valid @RequestBody UpdateRolesRequest request,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String operator) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String operator,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
+        requireSystemAdmin(roles);
         return SystemUserResponse.from(service.updateRoles(id, request.roles(), operator, request.version()));
     }
 
@@ -48,8 +50,19 @@ public class SystemAdminController {
     public SystemUserResponse updateScopes(
             @PathVariable @Positive long id,
             @Valid @RequestBody UpdateScopesRequest request,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String operator) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String operator,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
+        requireSystemAdmin(roles);
         return SystemUserResponse.from(service.updateScopes(id, request.scopes(), operator, request.version()));
+    }
+
+    private void requireSystemAdmin(String roles) {
+        if (roles == null || roles.isBlank()
+                || java.util.Arrays.stream(roles.split(",")).map(String::trim)
+                        .noneMatch(SystemRole.SYSTEM_ADMIN.name()::equals)) {
+            throw new com.tianshu.assets.asset.application.ForbiddenOperationException(
+                    "仅系统管理员可调整用户权限");
+        }
     }
 
     @GetMapping("/operation-logs")

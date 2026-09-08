@@ -159,6 +159,11 @@ public class ApiExceptionHandler {
         return response(HttpStatus.CONFLICT, "system_user_conflict", exception.getMessage(), List.of());
     }
 
+    @ExceptionHandler(com.tianshu.assets.system.application.AuthException.class)
+    ResponseEntity<ApiError> handleAuth(com.tianshu.assets.system.application.AuthException exception) {
+        return response(HttpStatus.UNAUTHORIZED, "auth_failed", exception.getMessage(), List.of());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException exception) {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_request", exception.getMessage(), List.of());

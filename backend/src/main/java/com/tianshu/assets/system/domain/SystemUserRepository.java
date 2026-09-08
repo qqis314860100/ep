@@ -9,5 +9,7 @@ public interface SystemUserRepository {
 
     Optional<SystemUser> findById(long id);
 
+    Optional<SystemUser> findByUserId(String userId);
+
     SystemUser update(SystemUser user, long expectedVersion);
 }

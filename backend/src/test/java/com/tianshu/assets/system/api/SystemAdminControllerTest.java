@@ -34,7 +34,7 @@ class SystemAdminControllerTest {
         mockMvc.perform(get("/api/v1/admin/users"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(4))
-                .andExpect(jsonPath("$[0].userId").value("u-chen"))
+                .andExpect(jsonPath("$[0].userId").value("emp-chen"))
                 .andExpect(jsonPath("$[0].roles[0]").value("UPLOADER"));
     }
 
@@ -42,6 +42,7 @@ class SystemAdminControllerTest {
     void updatesRolesAndRecordsOperationLog() throws Exception {
         mockMvc.perform(patch("/api/v1/admin/users/1/roles")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Roles", "SYSTEM_ADMIN")
                         .content("{\"roles\":[\"UPLOADER\",\"CONTENT_ADMIN\"],\"version\":1}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.roles.length()").value(2))
@@ -59,6 +60,7 @@ class SystemAdminControllerTest {
     void rejectsStaleRoleUpdate() throws Exception {
         mockMvc.perform(patch("/api/v1/admin/users/1/roles")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Roles", "SYSTEM_ADMIN")
                         .content("{\"roles\":[\"UPLOADER\"],\"version\":99}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("system_user_conflict"));
@@ -68,6 +70,7 @@ class SystemAdminControllerTest {
     void updatesScopes() throws Exception {
         mockMvc.perform(patch("/api/v1/admin/users/2/scopes")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Roles", "SYSTEM_ADMIN")
                         .content("{\"scopes\":[{\"id\":0,\"base\":\"宁德基地\",\"productLine\":\"H03\"}],\"version\":1}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.scopes.length()").value(1))
@@ -78,6 +81,7 @@ class SystemAdminControllerTest {
     void returnsNotFoundForMissingUser() throws Exception {
         mockMvc.perform(patch("/api/v1/admin/users/99/roles")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Roles", "SYSTEM_ADMIN")
                         .content("{\"roles\":[\"UPLOADER\"],\"version\":1}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("system_user_not_found"));
@@ -87,6 +91,7 @@ class SystemAdminControllerTest {
     void filtersOperationLogsByAction() throws Exception {
         mockMvc.perform(patch("/api/v1/admin/users/1/roles")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-User-Roles", "SYSTEM_ADMIN")
                         .content("{\"roles\":[\"UPLOADER\",\"CONTENT_ADMIN\"],\"version\":1}"))
                 .andExpect(status().isOk());
 
@@ -97,5 +102,15 @@ class SystemAdminControllerTest {
         mockMvc.perform(get("/api/v1/admin/operation-logs").param("action", "SCOPE_UPDATE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.meta.total").value(0));
+    }
+
+    @Test
+    void rejectsRoleUpdateWithoutSystemAdminRole() throws Exception {
+        mockMvc.perform(patch("/api/v1/admin/users/1/roles")
+                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roles\":[\"UPLOADER\",\"CONTENT_ADMIN\"],\"version\":1}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("operation_forbidden"));
     }
 }

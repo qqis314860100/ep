@@ -42,7 +42,7 @@ public class SystemAdminService {
         var current = require(id);
         var now = now();
         var updated = users.update(new SystemUser(current.id(), current.userId(), current.name(), current.department(),
-                roles, current.scopes(), now, current.version() + 1), expectedVersion);
+                roles, current.scopes(), now, current.version() + 1, current.passwordHash()), expectedVersion);
         logs.append(new OperationLog(0, operator, "ROLE_UPDATE", "USER", id,
                 "{\"roles\":[" + roles.stream().map(Enum::name).map(name -> "\"" + name + "\"")
                         .collect(Collectors.joining(",")) + "]}", now));
@@ -53,7 +53,7 @@ public class SystemAdminService {
         var current = require(id);
         var now = now();
         var updated = users.update(new SystemUser(current.id(), current.userId(), current.name(), current.department(),
-                current.roles(), scopes, now, current.version() + 1), expectedVersion);
+                current.roles(), scopes, now, current.version() + 1, current.passwordHash()), expectedVersion);
         logs.append(new OperationLog(0, operator, "SCOPE_UPDATE", "USER", id, "{}", now));
         return updated;
     }
