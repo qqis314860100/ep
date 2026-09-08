@@ -128,6 +128,32 @@ public class JdbcGovernanceTaskStore implements GovernanceTaskStore, GovernanceE
     }
 
     @Override
+    public GovernanceTask reassign(long taskId, String ownerUserId, String ownerName, long expectedVersion) {
+        requireWritable();
+        var current = findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("治理任务不存在"));
+        if (current.workflowVersion() == GovernanceWorkflowVersion.LEGACY_PROGRESS) {
+            throw new GovernanceTaskStateException(GovernanceTaskStateException.LEGACY_READ_ONLY_MESSAGE);
+        }
+        var updated = jdbcClient.sql("""
+                UPDATE governance_task
+                SET owner_user_id = :ownerUserId, owner_name = :ownerName,
+                    assignee_id = :assigneeId, version = version + 1
+                WHERE id = :taskId AND version = :expectedVersion
+                """)
+                .param("ownerUserId", ownerUserId)
+                .param("ownerName", ownerName)
+                .param("assigneeId", ownerUserId)
+                .param("taskId", taskId)
+                .param("expectedVersion", expectedVersion)
+                .update();
+        if (updated != 1) {
+            throw new GovernanceTaskStateException("治理任务已被其他用户更新，请刷新后重试");
+        }
+        return findById(taskId).orElseThrow();
+    }
+
+    @Override
     public List<GovernancePlan> findPlans(long taskId) {
         var plans = jdbcClient.sql("""
                 SELECT id, task_id, sequence_number, name, status, completed_at, start_date, due_date, actual_start,

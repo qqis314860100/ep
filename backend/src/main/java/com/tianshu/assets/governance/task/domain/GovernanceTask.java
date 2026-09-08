@@ -35,10 +35,22 @@ public record GovernanceTask(
 
     public GovernanceTask applyMutableState(GovernanceTask requested, long nextVersion) {
         if (requested.id() != id) throw new IllegalArgumentException("治理任务 ID 不匹配");
+        // 负责人（ownerUserId/ownerName）为创建后锁定字段，只能经移交专用通道变更；
+        // 通用状态更新沿用原负责人，assigneeId 等可变字段取自请求。
         return new GovernanceTask(
                 id, taskNumber, name, actionType, issueType, ownerUserId, ownerName,
                 requested.assigneeId(), requested.dueDate(), requested.status(), requested.currentRound(),
                 workflowVersion, requested.scopeSnapshotId(), requested.qualityPolicySnapshotId(),
+                legacyTotal, legacyCompleted, nextVersion);
+    }
+
+    /** 生成移交后的任务副本：执行人与负责人整体换人，其余字段保持（版本由 store 推进）。 */
+    public GovernanceTask reassignTo(String newOwnerUserId, String newOwnerName, long nextVersion) {
+        return new GovernanceTask(
+                id, taskNumber, name, actionType, issueType,
+                newOwnerUserId, newOwnerName, newOwnerUserId,
+                dueDate, status, currentRound, workflowVersion,
+                scopeSnapshotId, qualityPolicySnapshotId,
                 legacyTotal, legacyCompleted, nextVersion);
     }
 }

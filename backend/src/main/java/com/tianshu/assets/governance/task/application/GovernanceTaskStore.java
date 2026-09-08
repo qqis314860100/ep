@@ -15,6 +15,9 @@ public interface GovernanceTaskStore {
 
     GovernanceTask update(GovernanceTask task, long expectedVersion);
 
+    /** 任务移交专用更新：仅改派负责人（owner/assignee 同步换人），不触碰其它字段，乐观锁推进版本。 */
+    GovernanceTask reassign(long taskId, String ownerUserId, String ownerName, long expectedVersion);
+
     List<GovernancePlan> findPlans(long taskId);
 
     GovernancePlan insertPlan(GovernancePlan plan);

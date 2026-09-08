@@ -63,6 +63,20 @@ public class InMemoryGovernanceTaskStore implements GovernanceTaskStore {
     }
 
     @Override
+    public GovernanceTask reassign(long taskId, String ownerUserId, String ownerName, long expectedVersion) {
+        return tasks.compute(taskId, (id, current) -> {
+            if (current == null) throw new IllegalArgumentException("治理任务不存在");
+            if (current.workflowVersion() == GovernanceWorkflowVersion.LEGACY_PROGRESS) {
+                throw new GovernanceTaskStateException(GovernanceTaskStateException.LEGACY_READ_ONLY_MESSAGE);
+            }
+            if (current.version() != expectedVersion) {
+                throw new GovernanceTaskStateException("治理任务已被其他用户更新，请刷新后重试");
+            }
+            return current.reassignTo(ownerUserId, ownerName, expectedVersion + 1);
+        });
+    }
+
+    @Override
     public synchronized List<GovernancePlan> findPlans(long taskId) {
         return plans.getOrDefault(taskId, List.of()).stream()
                 .sorted(Comparator.comparingInt(GovernancePlan::sequence).thenComparingLong(GovernancePlan::id))

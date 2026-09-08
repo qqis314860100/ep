@@ -129,6 +129,56 @@ class JdbcGovernanceTaskStoreTest {
     }
 
     @Test
+    void inMemoryReassignSwapsOwnerAndAssigneeOnly() {
+        assertReassignSwapsOwnerAndAssigneeOnly(new InMemoryGovernanceTaskStore());
+    }
+
+    @Test
+    void jdbcReassignSwapsOwnerAndAssigneeOnly() {
+        assertReassignSwapsOwnerAndAssigneeOnly(store);
+    }
+
+    private void assertReassignSwapsOwnerAndAssigneeOnly(GovernanceTaskStore taskStore) {
+        var inserted = taskStore.insert(new GovernanceTask(
+                0, "GOV-NEW-003", "移交负责人测试", "NORMALIZE", "MISSING_DESCRIPTION",
+                "emp-chen", "陈工", "emp-chen", LocalDate.of(2026, 9, 1),
+                GovernanceTaskStatus.DRAFT, 0, GovernanceWorkflowVersion.CLOSED_LOOP_V1,
+                null, null, 0, 0, 0));
+
+        var reassigned = taskStore.reassign(inserted.id(), "emp-li", "李工", inserted.version());
+
+        assertThat(reassigned.ownerUserId()).isEqualTo("emp-li");
+        assertThat(reassigned.ownerName()).isEqualTo("李工");
+        assertThat(reassigned.assigneeId()).isEqualTo("emp-li");
+        assertThat(reassigned.status()).isEqualTo(GovernanceTaskStatus.DRAFT);
+        assertThat(reassigned.dueDate()).isEqualTo(inserted.dueDate());
+        assertThat(reassigned.version()).isEqualTo(inserted.version() + 1);
+        assertThat(taskStore.findById(inserted.id()).orElseThrow().ownerUserId()).isEqualTo("emp-li");
+    }
+
+    @Test
+    void rejectsReassignWithStaleVersionOrLegacyTask() {
+        var inserted = store.insert(new GovernanceTask(
+                0, "GOV-NEW-004", "移交版本测试", "NORMALIZE", "MISSING_DESCRIPTION",
+                "emp-chen", "陈工", "emp-chen", LocalDate.of(2026, 9, 1),
+                GovernanceTaskStatus.DRAFT, 0, GovernanceWorkflowVersion.CLOSED_LOOP_V1,
+                null, null, 0, 0, 0));
+
+        assertThatThrownBy(() -> store.reassign(inserted.id(), "emp-li", "李工", 99))
+                .isInstanceOf(GovernanceTaskStateException.class)
+                .hasMessage("治理任务已被其他用户更新，请刷新后重试");
+
+        var legacy = store.insert(new GovernanceTask(
+                0, "GOV-NEW-005", "历史任务移交拒绝", "MANUAL_PROGRESS", "LEGACY_IMPORT",
+                "emp-wang", "王工", "emp-wang", LocalDate.of(2026, 8, 1),
+                GovernanceTaskStatus.IN_PROGRESS, 0, GovernanceWorkflowVersion.LEGACY_PROGRESS,
+                null, null, 12, 3, 0));
+        assertThatThrownBy(() -> store.reassign(legacy.id(), "emp-li", "李工", 0))
+                .isInstanceOf(GovernanceTaskStateException.class)
+                .hasMessage("历史进度任务为只读，请按问题池重新建单");
+    }
+
+    @Test
     void insertsPlansWithGeneratedIdsAndSequentialPositions() {
         var task = insertClosedLoopTask("GOV-PLAN-001");
 

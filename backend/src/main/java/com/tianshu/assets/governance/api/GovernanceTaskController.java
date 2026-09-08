@@ -6,6 +6,7 @@ import com.tianshu.assets.governance.issue.application.GovernanceIssueService.Cr
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.CreatePlanCommand;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.PlanProjection;
+import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.ReassignTaskCommand;
 import com.tianshu.assets.governance.task.application.GovernanceTaskApplicationService.TaskFilter;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStartService;
 import com.tianshu.assets.governance.application.GovernanceValidationException;
@@ -78,6 +79,15 @@ public class GovernanceTaskController {
     @GetMapping("/employees")
     public List<GovernanceEmployee> employees() {
         return service.employees();
+    }
+
+    /** 任务移交：管理员把任务改派给另一名在册员工（原负责人解套，乐观锁按 expectedVersion）。 */
+    @PostMapping("/{taskId}/reassign")
+    public GovernanceTaskResponse reassign(
+            @PathVariable @Min(1) long taskId,
+            @Valid @RequestBody ReassignTaskRequest request) {
+        return GovernanceTaskResponse.from(service.reassign(
+                taskId, new ReassignTaskCommand(request.ownerUserId(), request.expectedVersion())));
     }
 
     @GetMapping("/{taskId}/plans")
@@ -164,6 +174,10 @@ public class GovernanceTaskController {
     public record StartTaskRequest(
             @Min(0) long version,
             @NotBlank String actorUserId) {}
+
+    public record ReassignTaskRequest(
+            @NotBlank String ownerUserId,
+            @Min(0) long expectedVersion) {}
 
     public record UpdateTaskStatusRequest(@NotBlank String status) {}
 

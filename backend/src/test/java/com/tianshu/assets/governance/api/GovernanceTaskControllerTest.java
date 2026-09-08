@@ -178,6 +178,63 @@ class GovernanceTaskControllerTest {
     }
 
     @Test
+    void reassignsClosedLoopTaskToAnotherEmployee() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"平台字段补充\",\"issueIds\":[1001],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/governance/tasks/4/reassign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ownerUserId\":\"emp-li\",\"expectedVersion\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.owner").value("李工"))
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.version").value(1));
+    }
+
+    @Test
+    void rejectsReassignToSameOwnerOrUnknownEmployee() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"平台字段补充\",\"issueIds\":[1001],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/governance/tasks/4/reassign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ownerUserId\":\"emp-chen\",\"expectedVersion\":0}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("governance_validation_failed"))
+                .andExpect(jsonPath("$.error.message").value("任务已由该负责人跟进，无需移交"));
+
+        mockMvc.perform(post("/api/v1/governance/tasks/4/reassign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ownerUserId\":\"ghost-user\",\"expectedVersion\":0}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("governance_validation_failed"))
+                .andExpect(jsonPath("$.error.message").value("负责人必须是员工目录成员"));
+    }
+
+    @Test
+    void rejectsReassignOfLegacyTaskAndStaleVersion() throws Exception {
+        mockMvc.perform(post("/api/v1/governance/tasks/1/reassign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ownerUserId\":\"emp-li\",\"expectedVersion\":0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("governance_state_conflict"));
+
+        mockMvc.perform(post("/api/v1/governance/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"平台字段补充\",\"issueIds\":[1001],\"ownerUserId\":\"emp-chen\",\"ownerName\":\"陈工\",\"dueDate\":\"2026-09-01\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/governance/tasks/4/reassign")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ownerUserId\":\"emp-li\",\"expectedVersion\":1}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("governance_state_conflict"));
+    }
+
+    @Test
     void listsEmployeesFromDirectory() throws Exception {
         mockMvc.perform(get("/api/v1/governance/tasks/employees"))
                 .andExpect(status().isOk())

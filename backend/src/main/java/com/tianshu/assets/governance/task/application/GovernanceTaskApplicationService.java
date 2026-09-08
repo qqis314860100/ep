@@ -113,6 +113,31 @@ public class GovernanceTaskApplicationService {
         return projection(get(taskId));
     }
 
+    /**
+     * 任务移交：管理员把任务改派给另一名在册员工（原负责人解套）。
+     * 仅关闭闭环任务（LEGACY 只读）；已完成任务不可移交；目标必须是员工目录成员。
+     */
+    @Transactional
+    public GovernanceTask reassign(long taskId, ReassignTaskCommand command) {
+        synchronized (store) {
+            var task = requireClosedLoop(taskId);
+            if (task.status() == GovernanceTaskStatus.COMPLETED) {
+                throw new GovernanceTaskStateException("已完成治理任务不能移交");
+            }
+            if (command == null || command.ownerUserId() == null || command.ownerUserId().isBlank()) {
+                throw new GovernanceValidationException("新负责人不能为空");
+            }
+            var target = employeeDirectory.findAllEmployees().stream()
+                    .filter(employee -> employee.id().equals(command.ownerUserId()))
+                    .findFirst()
+                    .orElseThrow(() -> new GovernanceValidationException("负责人必须是员工目录成员"));
+            if (target.id().equals(task.ownerUserId())) {
+                throw new GovernanceValidationException("任务已由该负责人跟进，无需移交");
+            }
+            return store.reassign(taskId, target.id(), target.name(), command.expectedVersion());
+        }
+    }
+
     @Transactional
     public GovernanceTask submitForConfirmation(long taskId, long expectedVersion) {
         synchronized (store) {
@@ -392,6 +417,9 @@ public class GovernanceTaskApplicationService {
 
     public record PlanProjection(
             GovernancePlan plan, GovernancePlanStatus status, int completedQuantity) {}
+
+    /** 任务移交命令：新负责人（员工目录 id）+ 期望版本（乐观锁）。 */
+    public record ReassignTaskCommand(String ownerUserId, long expectedVersion) {}
 
     public record TaskProjection(
             GovernanceTask task,
