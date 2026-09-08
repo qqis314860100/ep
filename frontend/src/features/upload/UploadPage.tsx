@@ -555,6 +555,14 @@ export function UploadPage() {
       const submitted = await submitAsset(asset.id)
       setDraftId(submitted.id)
       message.success('已提交，资产进入待整理状态')
+      message.info({
+        content: 'AI 编目整理已排队，完成后可在「AI 编目建议」中查看并确认',
+        key: 'ai-curation-tip',
+        duration: 8,
+        onClick: () => {
+          window.open('/ai/suggestions', '_self')
+        },
+      })
     } catch (error) {
       message.error(error instanceof Error ? error.message : '提交失败')
     } finally {

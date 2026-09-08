@@ -32,6 +32,7 @@ import { useAsset, useAssetRelations, useComments, useFavorite } from '../../hoo
 import { addComment, deleteComment, setCommentLike, setFavorite } from '../../services/assetService'
 import type { AssetFile, AssetRelation } from '../../types/asset'
 import { AssetRelationMap } from './AssetRelationMap'
+import { AiAssetSuggestions } from '../ai/AiAssetSuggestions'
 import {
   formatBytes,
   scopeLabel,
@@ -346,6 +347,11 @@ export function AssetDetailDrawer({ assetId, onClose }: AssetDetailDrawerProps) 
                   </Section>
                 </>
               ),
+            },
+            {
+              key: 'ai-suggestions',
+              label: 'AI 编目建议',
+              children: <AiAssetSuggestions assetId={asset.id} />,
             },
             {
               key: 'relations',
