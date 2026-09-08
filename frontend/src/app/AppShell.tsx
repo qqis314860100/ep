@@ -6,9 +6,11 @@ import {
   FileTextOutlined,
   HeartOutlined,
   HomeOutlined,
+  MessageOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   QuestionCircleOutlined,
+  RobotOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
 import { Avatar, Button, Dropdown, Layout, Tooltip } from 'antd'
@@ -272,6 +274,8 @@ const primaryItems: NavigationItem[] = [
   { key: 'upload', label: '上传资料', path: '/upload', icon: <CloudUploadOutlined />, active: (path) => path === '/upload' || path === '/sys/file' },
   { key: 'favorites', label: '我的收藏', path: '/favorites', icon: <HeartOutlined />, active: (path) => path === '/favorites' },
   { key: 'my-uploads', label: '我的上传', path: '/my-uploads', icon: <BookOutlined />, active: (path) => path === '/my-uploads' },
+  { key: 'ai', label: 'AI 助手', path: '/ai', icon: <RobotOutlined />, active: (path) => path === '/ai' },
+  { key: 'ai-suggestions', label: 'AI 编目建议', path: '/ai/suggestions', icon: <MessageOutlined />, active: (path) => path === '/ai/suggestions' },
 ]
 
 const managementItems: NavigationItem[] = [

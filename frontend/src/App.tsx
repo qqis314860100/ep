@@ -36,6 +36,8 @@ const UploadPage = lazy(() =>
   import('./pages/sys/file'),
 )
 const DictionaryPage = lazy(() => import('./pages/sys/dictionaries'))
+const AiChatPage = lazy(() => import('./features/ai/AiChatPage'))
+const AiSuggestionsPage = lazy(() => import('./features/ai/AiSuggestionsPage'))
 const SystemAdminPage = lazy(() =>
   import('./features/admin/SystemAdminPage').then((module) => ({ default: module.SystemAdminPage })),
 )
@@ -127,6 +129,8 @@ export default function App() {
                             <Route path="/sys/drawing/tasks/:taskId/accept" element={<TaskRoute page={GovernanceAcceptancePage} />} />
                             <Route path="/sys/file" element={<UploadPage />} />
                             <Route path="/favorites" element={<FavoritesPage />} />
+                            <Route path="/ai" element={<AiChatPage />} />
+                            <Route path="/ai/suggestions" element={<AiSuggestionsPage />} />
                             <Route path="/my-uploads" element={<MyUploadsPage />} />
                             <Route path="/dictionaries" element={<DictionaryPage />} />
                             <Route path="/sys/dictionaries" element={<DictionaryPage />} />
