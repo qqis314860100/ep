@@ -1,6 +1,6 @@
 import { ReloadOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Typography } from 'antd'
+import { Alert, Button, Collapse, Typography } from 'antd'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
@@ -42,15 +42,6 @@ const Hero = styled.div`
   gap: 12px;
 `
 
-const Panel = styled.div`
-  min-width: 0;
-  padding: 18px 20px 20px;
-  background: ${railTheme.card};
-  border: 1px solid ${railTheme.line};
-  border-radius: ${railTheme.radius}px;
-  box-shadow: ${railTheme.shadow};
-`
-
 const PanelTitle = styled.h3`
   display: flex;
   align-items: baseline;
@@ -68,6 +59,32 @@ const PanelTitle = styled.h3`
   }
 `
 
+const SecondarySection = styled.div`
+  .ant-collapse {
+    overflow: hidden;
+    background: ${railTheme.card};
+    border: 1px solid ${railTheme.line};
+    border-radius: ${railTheme.radius}px;
+    box-shadow: ${railTheme.shadow};
+  }
+
+  .ant-collapse-header {
+    align-items: center !important;
+    min-height: 52px;
+    color: ${railTheme.text} !important;
+    font-size: 14px;
+    font-weight: 650;
+  }
+
+  .ant-collapse-content {
+    border-top-color: ${railTheme.line};
+  }
+
+  .ant-collapse-content-box {
+    padding: 16px !important;
+  }
+`
+
 const ActionGrid = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.75fr);
@@ -76,6 +93,26 @@ const ActionGrid = styled.div`
 
   @media (max-width: 1080px) {
     grid-template-columns: 1fr;
+  }
+`
+
+const FocusHeader = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 0 -8px;
+
+  h2 {
+    margin: 0;
+    color: ${railTheme.text};
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  span {
+    color: ${railTheme.text3};
+    font-size: 12px;
   }
 `
 
@@ -393,18 +430,10 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
 
       <StatCards cards={statCards} />
 
-      <GovernanceMyTodo onOpenTask={onOpenTask} />
-
-      <Panel>
-        <PanelTitle>治理轨道 <span className="hint">点击任一节点查看该步待办（Tab 聚焦 + Enter 选中）</span></PanelTitle>
-        <GovernanceRail
-          nodes={nodes}
-          selectedKey={effectiveKey}
-          onSelect={key => { setSelectedKey(key); setOverdueOnly(false) }}
-          hint="完成即打勾变绿；当前步骤蓝色呼吸；逾期节点红色警示；节点上的计数与责任人即为该步待办。"
-        />
-      </Panel>
-
+      <FocusHeader>
+        <h2>现在先处理</h2>
+        <span>只看当前最需要推进的一步</span>
+      </FocusHeader>
       <ActionGrid>
         <GovernanceTodoPanel
           title={stepView.title}
@@ -427,10 +456,37 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
         />
       </ActionGrid>
 
-      <Panel>
-        <PanelTitle>任务闭环明细 <span className="hint">按治理任务查看阶段进度与异常，行点击进入任务详情</span></PanelTitle>
-        <GovernanceOverviewPage embedded onOpenTask={onOpenTask} />
-      </Panel>
+      <GovernanceMyTodo onOpenTask={onOpenTask} />
+
+      <SecondarySection>
+        <Collapse
+          ghost
+          items={[{
+            key: 'rail',
+            label: '查看治理阶段进度',
+            children: <>
+              <PanelTitle>治理轨道 <span className="hint">点击任一节点查看该步待办</span></PanelTitle>
+              <GovernanceRail
+                nodes={nodes}
+                selectedKey={effectiveKey}
+                onSelect={key => { setSelectedKey(key); setOverdueOnly(false) }}
+                hint="完成即打勾变绿；当前步骤蓝色呼吸；逾期节点红色警示。"
+              />
+            </>,
+          }]}
+        />
+      </SecondarySection>
+
+      <SecondarySection>
+        <Collapse
+          ghost
+          items={[{
+            key: 'details',
+            label: '查看全部任务明细',
+            children: <GovernanceOverviewPage embedded onOpenTask={onOpenTask} />,
+          }]}
+        />
+      </SecondarySection>
     </Section>
   )
 }
