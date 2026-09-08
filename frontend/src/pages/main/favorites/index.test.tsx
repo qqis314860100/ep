@@ -20,7 +20,7 @@ const coolingAsset = {
   assetNumber: 'M-2026-0001',
   name: '底部水冷模组',
   description: '电池包底部水冷板',
-  assetType: 'MODULE' as const,
+  assetType: 'MIXED_ASSET' as const,
   status: 'STANDARDIZED' as const,
   specialties: ['结构'],
   tags: [],
@@ -54,8 +54,8 @@ describe('FavoritesPage', () => {
     vi.clearAllMocks()
     vi.mocked(getFavoriteAssets).mockResolvedValue([coolingAsset, fixtureAsset])
     vi.mocked(getDictionaryItems).mockResolvedValue([
-      { id: 1, category: 'BASE', code: 'NINGDE', name: '宁德基地', parentId: null, status: 'ENABLED', sortOrder: 10, usageCount: 3, version: 0 },
-      { id: 11, category: 'PRODUCTION_LINE', code: 'NINGDE_A', name: 'A 拉线', parentId: 1, status: 'ENABLED', sortOrder: 10, usageCount: 3, version: 0 },
+      { id: 1, category: 'BASE', code: 'NINGDE', name: '宁德基地', status: 'ENABLED', sortOrder: 10, usageCount: 3, version: 0, directional: false, allowDuplicate: false, updatedAt: '2026-08-01T00:00:00Z' },
+      { id: 11, category: 'PRODUCTION_LINE', code: 'NINGDE_A', name: 'A 拉线', parentId: 1, status: 'ENABLED', sortOrder: 10, usageCount: 3, version: 0, directional: false, allowDuplicate: false, updatedAt: '2026-08-01T00:00:00Z' },
     ])
   })
 

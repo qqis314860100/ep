@@ -76,7 +76,7 @@ describe('AssetRelationDialog', () => {
     const user = userEvent.setup()
     renderDialog()
 
-    const targetItem = (await screen.findByText('目标资料')).closest('.ant-form-item')!
+    const targetItem = (await screen.findByText('目标资料')).closest('.ant-form-item') as HTMLElement
     await user.click(targetItem.querySelector('.ant-select-selector')!)
     const targetCombo = within(targetItem).getByRole('combobox')
     await user.click(targetCombo)

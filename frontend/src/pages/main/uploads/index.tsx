@@ -40,9 +40,9 @@ const Surface = styled.div`
   }
 `
 
-const statusOptions = [
+const statusOptions: Array<{ value: AssetStatus | ''; label: string }> = [
   { value: '', label: '全部状态' },
-  ...Object.entries(assetStatusLabels).map(([value, label]) => ({ value, label })),
+  ...(Object.keys(assetStatusLabels) as AssetStatus[]).map((value) => ({ value, label: assetStatusLabels[value] })),
 ]
 
 export default function MyUploadsPage() {

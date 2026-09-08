@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAsset, getRelationGraph } from '../../../services/assetService'
+import type { RelationGraph } from '../../../services/assetService'
 import RelationBrowserPage from './index'
 
 vi.mock('../../../services/assetService', async (importOriginal) => ({
@@ -17,7 +18,7 @@ const root = {
   linkedModuleAssetIds: [], equipmentInterconnectCode: '', scopes: [], files: [], ownerName: '陈工',
   ownerDepartment: '', updatedAt: '2026-08-01T00:00:00Z', legacy: false,
 }
-const graph = {
+const graph: RelationGraph = {
   nodes: [
     { assetId: 101, assetNumber: 'DM-ND-A-0001', assetName: '焊接工位总成数模', assetType: 'MIXED_ASSET', status: 'STANDARDIZED', depth: 0 },
     { assetId: 102, assetNumber: 'DM-ND-A-0002', assetName: '定位工装数模', assetType: 'THREE_DIMENSIONAL_MODEL', status: 'STANDARDIZED', depth: 1 },

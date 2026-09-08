@@ -251,6 +251,11 @@ export const mockRelations: Record<number, AssetRelation[]> = {
       directionLabel: '引用',
       primaryScope: '宁德基地 / A 拉线 / 焊接段',
       description: '焊接总成引用该定位工装。',
+      createdBy: '周工',
+      createdAt: '2026-07-01T10:00:00Z',
+      updatedBy: '周工',
+      updatedAt: '2026-07-10T11:45:00Z',
+      version: 1,
     },
     {
       id: 2,
@@ -264,6 +269,11 @@ export const mockRelations: Record<number, AssetRelation[]> = {
       directionLabel: '包含',
       primaryScope: '宁德基地 / A 拉线 / 焊接段',
       description: '整线总成包含输送模块。',
+      createdBy: '周工',
+      createdAt: '2026-07-02T09:30:00Z',
+      updatedBy: '周工',
+      updatedAt: '2026-07-08T14:20:00Z',
+      version: 1,
     },
   ],
 }

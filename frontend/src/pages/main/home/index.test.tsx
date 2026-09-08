@@ -19,7 +19,7 @@ vi.mock('../../../features/governance/api', () => ({
 }))
 
 const upload = {
-  id: 11, assetNumber: 'M-2026-0001', name: '底部水冷模组', description: '', assetType: 'MODULE' as const,
+  id: 11, assetNumber: 'M-2026-0001', name: '底部水冷模组', description: '', assetType: 'MIXED_ASSET' as const,
   status: 'PENDING_CURATION' as const, specialties: [], tags: [], moduleTags: [], standardEquipmentModule: false,
   linkedModuleAssetIds: [], equipmentInterconnectCode: '', scopes: [], files: [], ownerName: '陈工',
   ownerDepartment: '', updatedAt: '2026-08-01T00:00:00Z', legacy: false,

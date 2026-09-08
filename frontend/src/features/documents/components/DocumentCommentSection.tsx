@@ -112,7 +112,7 @@ export function DocumentCommentSection({ documentId, currentVersionId }: Documen
         void message.warning('评论图片最多 6 张')
         return
       }
-      setImageKeys((keys) => [...keys, uploaded.storageKey])
+      setImageKeys((keys) => [...keys, uploaded.storageKey].filter((key): key is string => Boolean(key)))
     } catch (error) {
       void message.error(error instanceof Error ? error.message : '图片上传失败')
     } finally {

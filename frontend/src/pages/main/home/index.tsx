@@ -408,7 +408,7 @@ export default function HomePage() {
   const openIssues = (issuesQuery.data ?? []).length
   const today = new Date()
   const upcomingTasks = (tasksQuery.data ?? []).filter((task) => {
-    if (!task.dueDate || task.status === 'COMPLETED' || task.status === 'CLOSED') return false
+    if (!task.dueDate || task.status === 'COMPLETED') return false
     const due = new Date(`${task.dueDate}T23:59:59`)
     const days = (due.getTime() - today.getTime()) / 86_400_000
     return days <= 7

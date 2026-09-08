@@ -18,7 +18,7 @@ const asset = {
   assetNumber: 'M-2026-0001',
   name: '底部水冷模组',
   description: '电池包底部水冷板',
-  assetType: 'MODULE' as const,
+  assetType: 'MIXED_ASSET' as const,
   status: 'STANDARDIZED' as const,
   specialties: ['结构'],
   tags: [],
