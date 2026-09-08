@@ -49,7 +49,7 @@ const PanelHeader = styled.header`
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  padding: 14px 16px 6px;
+  padding: 16px 18px 8px;
 `
 
 const PanelTitle = styled.h3`
@@ -57,10 +57,11 @@ const PanelTitle = styled.h3`
   color: ${railTheme.text};
   font-size: 15px;
   font-weight: 650;
+  letter-spacing: 0.1px;
 `
 
 const PanelBody = styled.div`
-  padding: 0 8px 10px;
+  padding: 0 10px 10px;
 `
 
 const RowButton = styled.button<{ $clickable: boolean }>`
@@ -256,7 +257,7 @@ interface GovernanceNextSuggestionProps {
 
 const SuggestionCard = styled.aside`
   min-width: 0;
-  padding: 16px;
+  padding: 18px;
   background: ${railTheme.card};
   border: 1px solid ${railTheme.line};
   border-radius: ${railTheme.radius}px;

@@ -28,7 +28,7 @@ import { railTheme } from './railTheme'
 const Section = styled.section`
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   min-width: 0;
 `
 
@@ -42,7 +42,7 @@ const Hero = styled.div`
 
 const Panel = styled.div`
   min-width: 0;
-  padding: 16px 18px;
+  padding: 18px 20px 20px;
   background: ${railTheme.card};
   border: 1px solid ${railTheme.line};
   border-radius: ${railTheme.radius}px;
@@ -53,10 +53,11 @@ const PanelTitle = styled.h3`
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   color: ${railTheme.text};
   font-size: 15px;
   font-weight: 650;
+  letter-spacing: 0.1px;
 
   .hint {
     color: ${railTheme.text3};
