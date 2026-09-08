@@ -1,3 +1,10 @@
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
+  FolderOpenOutlined,
+} from '@ant-design/icons'
+import type { ReactNode } from 'react'
 import styled from 'styled-components'
 import { railTheme } from './railTheme'
 
@@ -17,11 +24,11 @@ interface StatCardsProps {
   cards: GovernanceStatCardData[]
 }
 
-const toneColor: Record<GovernanceStatTone, string> = {
-  default: railTheme.brand,
-  warn: railTheme.amber,
-  alert: railTheme.red,
-  success: railTheme.green,
+const toneMeta: Record<GovernanceStatTone, { color: string; weak: string; icon: ReactNode }> = {
+  default: { color: railTheme.brand, weak: railTheme.brandWeak, icon: <FolderOpenOutlined /> },
+  warn: { color: railTheme.amber, weak: railTheme.amberWeak, icon: <ClockCircleOutlined /> },
+  alert: { color: railTheme.red, weak: railTheme.redWeak, icon: <ExclamationCircleOutlined /> },
+  success: { color: railTheme.green, weak: railTheme.greenWeak, icon: <CheckCircleOutlined /> },
 }
 
 const Grid = styled.div`
@@ -41,40 +48,71 @@ const Grid = styled.div`
 const Card = styled.div<{ $tone: GovernanceStatTone }>`
   position: relative;
   min-width: 0;
-  padding: 13px 16px 12px;
+  padding: 14px 16px 13px;
   overflow: hidden;
   background: ${railTheme.card};
   border: 1px solid ${railTheme.line};
   border-radius: ${railTheme.radius}px;
   box-shadow: ${railTheme.shadow};
+  transition: transform 160ms ease, box-shadow 160ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(20, 30, 50, 0.06), 0 10px 24px -12px rgba(20, 30, 50, 0.16);
+  }
 
   &::before {
     content: '';
     position: absolute;
     inset: 0 auto 0 0;
     width: 3px;
-    background: ${props => toneColor[props.$tone]};
+    background: ${props => toneMeta[props.$tone].color};
   }
 `
 
+const TopRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`
+
 const Label = styled.div`
+  min-width: 0;
+  overflow: hidden;
   color: ${railTheme.text2};
   font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+
+const IconChip = styled.span<{ $tone: GovernanceStatTone }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  color: ${props => toneMeta[props.$tone].color};
+  font-size: 15px;
+  background: ${props => toneMeta[props.$tone].weak};
+  border-radius: 9px;
 `
 
 const ValueRow = styled.div`
   display: flex;
   align-items: baseline;
-  gap: 5px;
-  margin-top: 2px;
+  gap: 6px;
+  margin-top: 8px;
 `
 
 const Value = styled.span<{ $tone: GovernanceStatTone }>`
-  color: ${props => (props.$tone === 'default' ? railTheme.text : toneColor[props.$tone])};
-  font-size: 26px;
+  color: ${props => (props.$tone === 'default' ? railTheme.text : toneMeta[props.$tone].color)};
+  font-size: 27px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 0.3px;
+  line-height: 1.15;
+  letter-spacing: 0.2px;
+  font-variant-numeric: tabular-nums;
 `
 
 const Unit = styled.span`
@@ -84,7 +122,7 @@ const Unit = styled.span`
 
 const Footnote = styled.div`
   min-height: 16px;
-  margin-top: 1px;
+  margin-top: 3px;
   overflow: hidden;
   color: ${railTheme.text3};
   font-size: 12px;
@@ -96,16 +134,22 @@ const Footnote = styled.div`
 export function StatCards({ cards }: StatCardsProps) {
   return (
     <Grid>
-      {cards.map(card => (
-        <Card key={card.key} $tone={card.tone ?? 'default'}>
-          <Label>{card.label}</Label>
-          <ValueRow>
-            <Value $tone={card.tone ?? 'default'}>{card.value === null ? '—' : card.value.toLocaleString('zh-CN')}</Value>
-            {card.value !== null && card.unit && <Unit>{card.unit}</Unit>}
-          </ValueRow>
-          <Footnote title={card.footnote}>{card.value === null ? '数据暂不可用' : card.footnote}</Footnote>
-        </Card>
-      ))}
+      {cards.map(card => {
+        const tone = card.tone ?? 'default'
+        return (
+          <Card key={card.key} $tone={tone}>
+            <TopRow>
+              <Label title={card.label}>{card.label}</Label>
+              <IconChip $tone={tone} aria-hidden="true">{toneMeta[tone].icon}</IconChip>
+            </TopRow>
+            <ValueRow>
+              <Value $tone={tone}>{card.value === null ? '—' : card.value.toLocaleString('zh-CN')}</Value>
+              {card.value !== null && card.unit && <Unit>{card.unit}</Unit>}
+            </ValueRow>
+            <Footnote title={card.footnote}>{card.value === null ? '数据暂不可用' : card.footnote}</Footnote>
+          </Card>
+        )
+      })}
     </Grid>
   )
 }
