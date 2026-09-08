@@ -56,6 +56,13 @@ class NotificationControllerTest {
                 GovernanceWorkflowVersion.LEGACY_PROGRESS, null, null, 0, 0, 0);
     }
 
+    private GovernanceTask closedLoopTask(
+            long id, String ownerUserId, String ownerName, LocalDate dueDate, GovernanceTaskStatus status) {
+        return new GovernanceTask(id, "GOV-ESC-" + id, "升级任务 " + id, "FIELD_SUPPLEMENT", "FIELD_COMPLETENESS",
+                ownerUserId, ownerName, ownerUserId, dueDate, status, 1,
+                GovernanceWorkflowVersion.CLOSED_LOOP_V1, null, null, 0, 0, 0);
+    }
+
     @Test
     void returnsTodoSummaryWithPendingAssetsAndOpenIssues() throws Exception {
         issueStore.insertAll(issueStore.withFieldSeeds().find(null, null, null));
@@ -97,6 +104,86 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.items[?(@.id=='task-2')].description", hasItem("已逾期 1 天")))
                 .andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(hasItem("task-3"))))
                 .andExpect(jsonPath("$.items[*].id").value(org.hamcrest.Matchers.not(hasItem("task-4"))));
+    }
+
+    @Test
+    void personalizesDueRemindersToTheirOwnerForLoggedInEmployee() throws Exception {
+        var now = LocalDate.now();
+        taskStore.insert(closedLoopTask(1, "emp-chen", "陈工", now.plusDays(3), GovernanceTaskStatus.IN_PROGRESS));
+        taskStore.insert(closedLoopTask(2, "emp-wang", "王工", now.plusDays(2), GovernanceTaskStatus.PENDING_CONFIRMATION));
+
+        mockMvc.perform(get("/api/v1/notifications").header("X-User-Id", "emp-chen"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem("task-1")))
+                .andExpect(jsonPath("$.items[*].id").value(
+                        org.hamcrest.Matchers.not(hasItem("task-2"))));
+
+        mockMvc.perform(get("/api/v1/notifications").header("X-User-Id", "emp-wang"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem("task-2")))
+                .andExpect(jsonPath("$.items[*].id").value(
+                        org.hamcrest.Matchers.not(hasItem("task-1"))));
+    }
+
+    @Test
+    void escalatesClosedLoopTasksOverdueBeyondThresholdOnlyForManagerRoles() throws Exception {
+        var now = LocalDate.now();
+        taskStore.insert(closedLoopTask(10, "emp-wang", "王工", now.minusDays(5), GovernanceTaskStatus.IN_PROGRESS));
+        taskStore.insert(closedLoopTask(11, "emp-chen", "陈工", now.minusDays(2), GovernanceTaskStatus.IN_PROGRESS));
+        taskStore.insert(legacyTask(12, "历史遗留任务", now.minusDays(9), GovernanceTaskStatus.IN_PROGRESS));
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header("X-User-Id", "emp-li")
+                        .header("X-User-Roles", "CONTENT_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem("task-escalated-3-10")))
+                .andExpect(jsonPath("$.items[?(@.id=='task-escalated-3-10')].description",
+                        hasItem(org.hamcrest.Matchers.containsString("已逾期 5 天"))))
+                .andExpect(jsonPath("$.items[?(@.id=='task-escalated-3-10')].title",
+                        hasItem(org.hamcrest.Matchers.containsString("逾期升级"))))
+                .andExpect(jsonPath("$.items[*].id").value(
+                        org.hamcrest.Matchers.not(hasItem("task-escalated-3-11"))))
+                // 历史（非闭环）任务不进入升级链路
+                .andExpect(jsonPath("$.items[*].id").value(
+                        org.hamcrest.Matchers.not(hasItem("task-escalated-14-12"))));
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header("X-User-Id", "emp-wang")
+                        .header("X-User-Roles", "UPLOADER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id").value(
+                        org.hamcrest.Matchers.not(hasItem("task-escalated-3-10"))));
+
+        // 匿名（无会话）为 demo 全局视图，不含升级
+        mockMvc.perform(get("/api/v1/notifications"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id").value(
+                        org.hamcrest.Matchers.not(hasItem("task-escalated-3-10"))));
+    }
+
+    @Test
+    void escalationAlertsByStageThreeThenSevenThenFourteenDays() throws Exception {
+        var now = LocalDate.now();
+        taskStore.insert(closedLoopTask(21, "emp-wang", "王工", now.minusDays(3), GovernanceTaskStatus.IN_PROGRESS));
+        taskStore.insert(closedLoopTask(22, "emp-wang", "王工", now.minusDays(9), GovernanceTaskStatus.PENDING_CONFIRMATION));
+        taskStore.insert(closedLoopTask(23, "emp-chen", "陈工", now.minusDays(20), GovernanceTaskStatus.REWORK_REQUIRED));
+        taskStore.insert(closedLoopTask(24, "emp-li", "李工", now.minusDays(2), GovernanceTaskStatus.PENDING_ACCEPTANCE));
+        taskStore.insert(closedLoopTask(25, "emp-wang", "王工", now.minusDays(8), GovernanceTaskStatus.COMPLETED));
+
+        mockMvc.perform(get("/api/v1/notifications")
+                        .header("X-User-Id", "emp-admin")
+                        .header("X-User-Roles", "SYSTEM_ADMIN,CONTENT_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem("task-escalated-3-21")))
+                .andExpect(jsonPath("$.items[*].id", hasItem("task-escalated-7-22")))
+                .andExpect(jsonPath("$.items[*].id", hasItem("task-escalated-14-23")))
+                .andExpect(jsonPath("$.items[?(@.id=='task-escalated-7-22')].description",
+                        hasItem(org.hamcrest.Matchers.containsString("已逾期 9 天"))))
+                // 逾期未满 3 天不升级；已完成任务不升级
+                .andExpect(jsonPath("$.items[*].id").value(
+                        org.hamcrest.Matchers.not(hasItem("task-escalated-3-24"))))
+                .andExpect(jsonPath("$.items[*].id").value(
+                        org.hamcrest.Matchers.not(hasItem("task-escalated-7-25"))));
     }
 
     @Test
