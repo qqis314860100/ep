@@ -1,9 +1,10 @@
 import { FileAddOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Input, Pagination, Skeleton } from 'antd'
+import { Alert, Button, Input, Skeleton } from 'antd'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
+import { PaginationBar } from '../../components/PaginationBar'
 import { getDictionaryItems } from '../../services/dictionaryService'
 import { DocumentCategoryNav } from './components/DocumentCategoryNav'
 import { DocumentResultList } from './components/DocumentResultList'
@@ -94,13 +95,6 @@ const StateArea = styled.div`
   padding: 18px;
 `
 
-const Footer = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 14px;
-  border-top: 1px solid #edf0ee;
-`
-
 export default function DocumentSearchPage() {
   const navigate = useNavigate()
   const search = useDocumentSearch()
@@ -116,6 +110,11 @@ export default function DocumentSearchPage() {
   const submit = (event: FormEvent) => {
     event.preventDefault()
     search.setQuery(queryInput.trim())
+  }
+
+  const handlePageChange = (nextPage: number, nextSize: number) => {
+    if (nextSize !== search.perPage) search.setPageSize(nextSize)
+    else search.setPage(nextPage)
   }
 
   return (
@@ -136,7 +135,7 @@ export default function DocumentSearchPage() {
           aria-label="搜索文档"
           onChange={(event) => setQueryInput(event.target.value)}
         />
-        <Button htmlType="submit" type="primary">搜索</Button>
+        <Button htmlType="submit" type="primary" loading={search.result.isFetching}>搜索</Button>
         {(search.query || search.category) && <Button type="link" onClick={search.clear}>清空筛选</Button>}
       </SearchBar>
       <Workspace>
@@ -167,18 +166,7 @@ export default function DocumentSearchPage() {
           {page && !search.result.isError && (
             <>
               <DocumentResultList documents={page.data} categories={categories} onOpen={(id) => navigate(`/documents/${id}`)} />
-              {page.meta.totalPages > 1 && (
-                <Footer>
-                  <Pagination
-                    size="small"
-                    current={page.meta.page}
-                    pageSize={page.meta.perPage}
-                    total={page.meta.total}
-                    showSizeChanger={false}
-                    onChange={search.setPage}
-                  />
-                </Footer>
-              )}
+              <PaginationBar page={page.meta.page} pageSize={search.perPage} total={page.meta.total} onChange={handlePageChange} />
             </>
           )}
         </Main>

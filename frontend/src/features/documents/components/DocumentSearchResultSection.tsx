@@ -1,5 +1,5 @@
 import { FileTextOutlined, RightOutlined } from '@ant-design/icons'
-import { Button, Empty, Skeleton, Tag } from 'antd'
+import { Button, Empty, Skeleton, Spin, Tag } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import type { DocumentPage } from '../../../types/document'
@@ -21,13 +21,17 @@ const Row = styled.button`
 const Title = styled.div`overflow:hidden; color:#314139; font-size:12px; font-weight:650; text-overflow:ellipsis; white-space:nowrap;`
 const Meta = styled.div`margin-top:4px; overflow:hidden; color:#7c8882; font-size:10px; text-overflow:ellipsis; white-space:nowrap;`
 
-interface Props { page?: DocumentPage; loading: boolean; error: boolean; onRetry: () => void; query: string }
+interface Props { page?: DocumentPage; loading: boolean; refreshing?: boolean; error: boolean; onRetry: () => void; query: string }
 
-export function DocumentSearchResultSection({ page, loading, error, onRetry, query }: Props) {
+export function DocumentSearchResultSection({ page, loading, refreshing = false, error, onRetry, query }: Props) {
   const navigate = useNavigate()
   const documents = page?.data ?? []
   return <Section aria-label="知识文档检索结果">
-    <Header><strong>知识文档 <small>{page?.meta.total ?? 0} 项</small></strong><Button type="link" size="small" onClick={() => navigate(`/documents?q=${encodeURIComponent(query)}`)}>进入文档中心</Button></Header>
+    <Header>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><strong>知识文档 <small>{page?.meta.total ?? 0} 项</small></strong>
+        {refreshing && !loading && page ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#5e6b65', fontSize: 12 }}><Spin size="small" />正在更新</span> : null}
+      </span>
+      <Button type="link" size="small" onClick={() => navigate(`/documents?q=${encodeURIComponent(query)}`)}>进入文档中心</Button></Header>
     {loading ? <Skeleton active paragraph={{ rows: 2 }} style={{ padding: 12 }} /> : error ? <Empty description="文档结果加载失败" style={{ margin: 18 }}><Button onClick={onRetry}>重试</Button></Empty>
       : documents.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有匹配的知识文档" style={{ margin: 16 }} />
         : documents.map((document) => <Row key={document.id} type="button" onClick={() => navigate(`/documents/${document.id}`)}>

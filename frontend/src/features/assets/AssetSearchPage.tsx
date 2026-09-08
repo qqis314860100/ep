@@ -17,11 +17,11 @@ import {
   Button,
   Empty,
   Input,
-  Pagination,
   Segmented,
   Select,
   Skeleton,
   Space,
+  Spin,
   Switch,
   Table,
   Tag,
@@ -32,6 +32,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
+import { PaginationBar } from '../../components/PaginationBar'
 import { useAssetSearch } from '../../hooks/useAssets'
 import { SearchSidebar } from '../../pages/main/search/components/SearchSidebar'
 import { DocumentSearchResultSection } from '../documents/components/DocumentSearchResultSection'
@@ -66,6 +67,7 @@ interface SavedSearchState {
   previewableOnly: boolean
   viewMode: ViewMode
   page: number
+  perPage?: number
   scrollY?: number
 }
 
@@ -426,10 +428,15 @@ const GalleryEmpty = styled.div`
   background: #fff;
 `
 
-const PaginationRow = styled.div`
+const UpdatingBar = styled.div`
   display: flex;
-  justify-content: flex-end;
-  padding: 4px 12px 12px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  color: #5e6b65;
+  font-size: 12px;
+  background: #f6faf8;
+  border-bottom: 1px solid #edf0ee;
 `
 
 const AssetNameCell = styled.div`
@@ -509,6 +516,7 @@ export function AssetSearchPage() {
   const [viewMode, setViewMode] = useState<ViewMode>(savedSearch?.viewMode ?? 'gallery')
   const [directoryView, setDirectoryView] = useState<DirectoryView>(savedSearch ? 'custom' : 'previewable')
   const [page, setPage] = useState(savedSearch?.page ?? 1)
+  const [pageSize, setPageSize] = useState(savedSearch?.perPage ?? 20)
   const debouncedQuery = useDebouncedValue(query, 280)
 
   const params: AssetSearchParams = {
@@ -530,7 +538,7 @@ export function AssetSearchPage() {
     sort,
     previewable: previewableOnly,
     page,
-    perPage: viewMode === 'gallery' ? 12 : 20,
+    perPage: pageSize,
   }
   const assetsQuery = useAssetSearch(params)
   const documentsQuery = useQuery({
@@ -547,13 +555,18 @@ export function AssetSearchPage() {
     }),
   })
 
-  useEffect(() => setPage(1), [debouncedQuery, assetType, status, platformFamily, platformVariant, base, productionLine, productLine, processSection, specialty, owner, format, updatedFrom, updatedTo, missingScope, sort, previewableOnly, viewMode])
+  useEffect(() => setPage(1), [debouncedQuery, assetType, status, platformFamily, platformVariant, base, productionLine, productLine, processSection, specialty, owner, format, updatedFrom, updatedTo, missingScope, sort, previewableOnly, viewMode, pageSize])
+
+  const handlePagination = (nextPage: number, nextSize: number) => {
+    if (nextSize !== pageSize) setPageSize(nextSize)
+    setPage(nextPage)
+  }
 
   const openAsset = (id: number) => {
     persistSearchState({
       query, assetType, status, platformFamily, platformVariant, base, productionLine,
       productLine, processSection, specialty, owner, format, updatedFrom, updatedTo,
-      missingScope, sort, previewableOnly, viewMode, page,
+      missingScope, sort, previewableOnly, viewMode, page, perPage: pageSize,
       scrollY: window.scrollY,
     })
     navigate(`/assets/${id}`)
@@ -685,7 +698,7 @@ export function AssetSearchPage() {
           onChange={(event) => setQuery(event.target.value)}
           onPressEnter={() => setPage(1)}
         />
-        <Button type="primary" icon={<SearchOutlined />} onClick={() => setPage(1)}>搜索</Button>
+        <Button type="primary" icon={<SearchOutlined />} loading={assetsQuery.isFetching || documentsQuery.isFetching} onClick={() => setPage(1)}>搜索</Button>
         <SearchHint>支持资料编号精确匹配及名称、说明、文件名模糊搜索</SearchHint>
       </SearchBar>
       <Workspace>
@@ -778,6 +791,9 @@ export function AssetSearchPage() {
               <VisualGrid>{Array.from({ length: 8 }, (_, index) => <AssetCard key={index} type="button"><Skeleton.Node active style={{ width: '100%', height: 168 }} /><CardBody><Skeleton active paragraph={{ rows: 2 }} title={{ width: '70%' }} /></CardBody></AssetCard>)}</VisualGrid>
             ) : assets.length ? (
               <>
+                {assetsQuery.isFetching && !assetsQuery.isLoading && (
+                  <UpdatingBar aria-live="polite"><Spin size="small" />正在更新结果…</UpdatingBar>
+                )}
                 <VisualGrid>
                   {assets.map((asset) => {
                     const file = previewFile(asset)
@@ -801,7 +817,7 @@ export function AssetSearchPage() {
                     )
                   })}
                 </VisualGrid>
-                {total > params.perPage && <PaginationRow><Pagination current={page} pageSize={params.perPage} total={total} showSizeChanger={false} onChange={setPage} /></PaginationRow>}
+                <PaginationBar page={page} pageSize={pageSize} total={total} onChange={handlePagination} />
               </>
             ) : (
               <GalleryEmpty><Empty description={previewableOnly ? '没有符合条件的可预览资产' : '没有符合条件的数模资产'} /></GalleryEmpty>
@@ -811,32 +827,35 @@ export function AssetSearchPage() {
               {assetsQuery.isError ? (
                 <Empty description="资产列表加载失败" style={{ padding: '72px 0' }}><Button type="primary" onClick={() => void assetsQuery.refetch()}>重试</Button></Empty>
               ) : (
-                <Table
-                  rowKey="id"
-                  columns={columns}
-                  dataSource={assets}
-                  loading={assetsQuery.isFetching}
-                  size="small"
-                  scroll={{ x: 1120 }}
-                  locale={{ emptyText: <Empty description="没有符合条件的数模资产" /> }}
-                  pagination={{ current: page, pageSize: params.perPage, total, showSizeChanger: false, onChange: setPage }}
-                  onRow={(record) => ({
-                    onClick: () => openAsset(record.id),
-                    tabIndex: 0,
-                    onKeyDown: (event) => {
-                      if (event.key === 'Enter' && event.target === event.currentTarget) {
-                        event.preventDefault()
-                        openAsset(record.id)
-                      }
-                    },
-                  })}
-                />
+                <>
+                  <Table
+                    rowKey="id"
+                    columns={columns}
+                    dataSource={assets}
+                    loading={assetsQuery.isFetching}
+                    size="small"
+                    scroll={{ x: 1120 }}
+                    locale={{ emptyText: <Empty description="没有符合条件的数模资产" /> }}
+                    onRow={(record) => ({
+                      onClick: () => openAsset(record.id),
+                      tabIndex: 0,
+                      onKeyDown: (event) => {
+                        if (event.key === 'Enter' && event.target === event.currentTarget) {
+                          event.preventDefault()
+                          openAsset(record.id)
+                        }
+                      },
+                    })}
+                  />
+                  <PaginationBar page={page} pageSize={pageSize} total={total} onChange={handlePagination} />
+                </>
               )}
             </Results>
           )}
           <DocumentSearchResultSection
             page={documentsQuery.data}
             loading={documentsQuery.isLoading}
+            refreshing={documentsQuery.isFetching}
             error={documentsQuery.isError}
             onRetry={() => void documentsQuery.refetch()}
             query={query}

@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { App as AntdApp, Button, Empty, Input, Modal, Select, Space, Table, Tabs, Tag, Typography } from 'antd'
 import { useState } from 'react'
 import styled from 'styled-components'
+import { PaginationBar } from '../../components/PaginationBar'
 import { getOperationLogs, getSystemUsers, updateUserRoles, updateUserScopes } from './api'
 import type { OperationLog, SystemRole, SystemUser, SystemUserScope } from './types'
 
@@ -74,11 +75,12 @@ export function SystemAdminPage() {
   const [saving, setSaving] = useState(false)
   const [logAction, setLogAction] = useState<string>()
   const [logPage, setLogPage] = useState(1)
+  const [logPageSize, setLogPageSize] = useState(20)
 
   const usersQuery = useQuery({ queryKey: ['system-users'], queryFn: getSystemUsers })
   const logsQuery = useQuery({
-    queryKey: ['operation-logs', logAction, logPage],
-    queryFn: () => getOperationLogs({ action: logAction, page: logPage, perPage: 20 }),
+    queryKey: ['operation-logs', logAction, logPage, logPageSize],
+    queryFn: () => getOperationLogs({ action: logAction, page: logPage, perPage: logPageSize }),
   })
 
   const invalidateUsers = () => queryClient.invalidateQueries({ queryKey: ['system-users'] })
@@ -189,10 +191,23 @@ export function SystemAdminPage() {
                   rowKey="id"
                   columns={logColumns}
                   dataSource={logs}
-                  loading={logsQuery.isLoading}
+                  loading={logsQuery.isFetching}
                   size="middle"
                   locale={{ emptyText: <Empty description="暂无操作记录" /> }}
-                  pagination={{ current: logPage, pageSize: 20, total: logTotal, showSizeChanger: false, onChange: setLogPage }}
+                  pagination={false}
+                />
+                <PaginationBar
+                  page={logPage}
+                  pageSize={logPageSize}
+                  total={logTotal}
+                  onChange={(nextPage, nextSize) => {
+                    if (nextSize !== logPageSize) {
+                      setLogPageSize(nextSize)
+                      setLogPage(1)
+                    } else {
+                      setLogPage(nextPage)
+                    }
+                  }}
                 />
               </Space>
             ),
