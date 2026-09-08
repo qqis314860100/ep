@@ -65,6 +65,28 @@ mysql "${DB_NAME}" -e "CREATE TABLE IF NOT EXISTS operation_log_ext (
   KEY idx_operation_log_ext_target (target_type, target_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Local operation log for JdbcOperationLogStore';" >/dev/null
 
+# AI 建议（AI 一期 T1，仅 local profile 使用；字段与 JdbcAiSuggestionRepository 映射一致，OceanBase 正本 schema 不含）。
+mysql "${DB_NAME}" -e "CREATE TABLE IF NOT EXISTS ai_suggestion (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  target_type VARCHAR(32) NOT NULL,
+  target_id BIGINT NOT NULL,
+  target_title VARCHAR(200) NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  source VARCHAR(32) NOT NULL DEFAULT 'AI',
+  proposed TEXT NOT NULL,
+  evidence TEXT NOT NULL,
+  confidence DOUBLE NULL,
+  scopes TEXT NOT NULL,
+  created_by VARCHAR(64) NOT NULL,
+  created_at DATETIME(6) NOT NULL,
+  resolved_by VARCHAR(64) NOT NULL DEFAULT '',
+  resolved_at DATETIME(6) NULL,
+  version BIGINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY idx_ai_suggestion_target (target_type, target_id, status),
+  KEY idx_ai_suggestion_status (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI suggestion for JdbcAiSuggestionRepository';" >/dev/null
+
 applied_file() { # file_name
   local count
   count="$(mysql -N -B "${DB_NAME}" -e "SELECT COUNT(*) FROM schema_migration_applied WHERE file_name='$1';")"

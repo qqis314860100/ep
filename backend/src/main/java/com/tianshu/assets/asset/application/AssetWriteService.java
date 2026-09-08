@@ -7,6 +7,7 @@ import com.tianshu.assets.asset.domain.AssetFile;
 import com.tianshu.assets.asset.domain.AssetRepository;
 import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.domain.AssetStatus;
+import com.tianshu.assets.asset.domain.AssetType;
 import com.tianshu.assets.system.domain.OperationLog;
 import com.tianshu.assets.system.domain.OperationLogStore;
 import java.time.Instant;
@@ -107,6 +108,57 @@ public class AssetWriteService {
                 asset.ownerDepartment(),
                 Instant.now(),
                 asset.legacy()));
+    }
+
+    /**
+     * 应用 AI 编目建议（AI 一期，经人确认后调用）：仅草稿/待整理可应用；
+     * 空字段不覆盖；经仓储更新并写操作日志（来源 AI）。不在此处做越权判断——由调用方（AI 建议域）先行授权。
+     */
+    public Asset applyAiCuratedMetadata(long assetId, String name, String description, AssetType assetType,
+            List<String> tags, String operatorUserId, String operatorName) {
+        var asset = assetRepository.findById(assetId).orElseThrow(() -> new AssetNotFoundException(assetId));
+        if (asset.status() != AssetStatus.DRAFT && asset.status() != AssetStatus.PENDING_CURATION) {
+            throw new IllegalArgumentException("仅草稿或待整理状态的资料可应用 AI 编目建议");
+        }
+        var curatedName = (name == null || name.isBlank()) ? asset.name() : name.trim();
+        var curatedDescription = (description == null || description.isBlank()) ? asset.description() : description.trim();
+        var curatedTags = (tags == null || tags.isEmpty()) ? asset.tags() : List.copyOf(tags);
+        var curatedType = assetType == null ? asset.assetType() : assetType;
+        var updated = new Asset(
+                asset.id(),
+                asset.assetNumber(),
+                curatedName,
+                curatedDescription,
+                curatedType,
+                asset.status(),
+                asset.specialties(),
+                curatedTags,
+                asset.moduleTags(),
+                asset.standardEquipmentModule(),
+                asset.linkedModuleAssetIds(),
+                asset.equipmentInterconnectCode(),
+                asset.scopes(),
+                asset.files(),
+                asset.ownerName(),
+                asset.ownerDepartment(),
+                Instant.now(),
+                asset.legacy());
+        var saved = assetRepository.update(updated);
+        try {
+            operationLogs.append(new OperationLog(0, operatorUserId, "ASSET_AI_CURATED", "ASSET", saved.id(),
+                    objectMapper.writeValueAsString(Map.of(
+                            "source", "AI",
+                            "operatorName", operatorName == null ? "" : operatorName,
+                            "name", curatedName,
+                            "description", curatedDescription,
+                            "assetType", curatedType == null ? "" : curatedType.name(),
+                            "tags", curatedTags)),
+                    Instant.now()));
+        } catch (Exception exception) {
+            LOGGER.error("AI 编目应用审计写入失败 assetId={} operator={}", saved.id(), operatorUserId, exception);
+            throw new IllegalStateException("AI 编目应用审计写入失败", exception);
+        }
+        return saved;
     }
 
     /** 停用资料（DISABLE-01/02）：仅待整理/已标准化可停用，原因必填，停用后默认不进入普通检索。 */

@@ -164,6 +164,30 @@ public class ApiExceptionHandler {
         return response(HttpStatus.UNAUTHORIZED, "auth_failed", exception.getMessage(), List.of());
     }
 
+    @ExceptionHandler(com.tianshu.assets.ai.application.AiSuggestionNotFoundException.class)
+    ResponseEntity<ApiError> handleAiSuggestionNotFound(
+            com.tianshu.assets.ai.application.AiSuggestionNotFoundException exception) {
+        return response(HttpStatus.NOT_FOUND, "ai_suggestion_not_found", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(com.tianshu.assets.ai.application.AiSuggestionStateException.class)
+    ResponseEntity<ApiError> handleAiSuggestionStateConflict(
+            com.tianshu.assets.ai.application.AiSuggestionStateException exception) {
+        return response(HttpStatus.CONFLICT, "ai_suggestion_state_conflict", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(com.tianshu.assets.ai.application.AiSuggestionScopeException.class)
+    ResponseEntity<ApiError> handleAiSuggestionScopeForbidden(
+            com.tianshu.assets.ai.application.AiSuggestionScopeException exception) {
+        return response(HttpStatus.FORBIDDEN, "ai_suggestion_scope_forbidden", exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(com.tianshu.assets.ai.application.AiSuggestionValidationException.class)
+    ResponseEntity<ApiError> handleAiSuggestionValidation(
+            com.tianshu.assets.ai.application.AiSuggestionValidationException exception) {
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, "ai_suggestion_invalid", exception.getMessage(), List.of());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException exception) {
         return response(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_request", exception.getMessage(), List.of());
