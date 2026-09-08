@@ -277,7 +277,7 @@ export async function uploadAssetFile(file: File): Promise<AssetFile> {
       format,
       sizeBytes: file.size,
       role: '其他附件',
-      previewable: ['PDF', 'PNG', 'JPG', 'JPEG', 'TIFF'].includes(format),
+      previewable: ['PDF', 'PNG', 'JPG', 'JPEG', 'TIFF', 'DOCX', 'DOC', 'XLS', 'XLSX', 'PPT', 'PPTX', 'CSV', 'TXT'].includes(format),
       primary: false,
       storageKey: '',
       contentSha256: '',

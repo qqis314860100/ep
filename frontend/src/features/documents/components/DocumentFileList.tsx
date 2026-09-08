@@ -1,4 +1,13 @@
-import { DeleteOutlined, FileImageOutlined, FileOutlined, FilePdfOutlined } from '@ant-design/icons'
+import {
+  DeleteOutlined,
+  FileExcelOutlined,
+  FileImageOutlined,
+  FileOutlined,
+  FilePdfOutlined,
+  FilePptOutlined,
+  FileTextOutlined,
+  FileWordOutlined,
+} from '@ant-design/icons'
 import { Button, Tooltip } from 'antd'
 import styled from 'styled-components'
 import type { DocumentFile } from '../../../types/document'
@@ -42,6 +51,10 @@ const Meta = styled.div`
 
 function fileIcon(file: DocumentFile) {
   if (file.format === 'PDF') return <FilePdfOutlined />
+  if (['DOC', 'DOCX'].includes(file.format)) return <FileWordOutlined />
+  if (['XLS', 'XLSX'].includes(file.format)) return <FileExcelOutlined />
+  if (['PPT', 'PPTX'].includes(file.format)) return <FilePptOutlined />
+  if (['CSV', 'TXT'].includes(file.format)) return <FileTextOutlined />
   if (['PNG', 'JPG', 'JPEG', 'TIFF'].includes(file.format)) return <FileImageOutlined />
   return <FileOutlined />
 }

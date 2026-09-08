@@ -88,7 +88,9 @@ export function DocumentPreview({ documentId, versionId, file }: DocumentPreview
   const previewUrl = getDocumentFileUrl(documentId, versionId, file.id, true)
   const downloadUrl = getDocumentFileUrl(documentId, versionId, file.id, false)
   const isImage = ['PNG', 'JPG', 'JPEG', 'TIFF'].includes(file.format)
-  const isFramePreview = file.format === 'PDF' || file.format === 'DOCX' || file.format === 'DOC'
+  // Office 与文本格式由后端经 LibreOffice 转 PDF 后以内联 PDF 帧预览。
+  const framePreviewFormats = ['PDF', 'DOCX', 'DOC', 'XLSX', 'XLS', 'PPTX', 'PPT', 'CSV', 'TXT']
+  const isFramePreview = framePreviewFormats.includes(file.format)
   const canPreview = file.previewable && (isFramePreview || isImage)
 
   return (

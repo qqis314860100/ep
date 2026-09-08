@@ -340,7 +340,7 @@ const fallbackAssetTypeOptions = [
 
 const fallbackRoleOptions = ['三维源模型', '二维图纸', '预览文件', '说明附件', '其他附件']
 const fallbackSpecialtyOptions = ['机械', '电气', '液压', '气动', '工装']
-const recognizedFormats = new Set(['X_T', 'STEP', 'STP', 'IGES', 'IGS', 'DWG', 'DXF', 'PDF', 'PNG', 'JPG', 'JPEG', 'TIFF', 'WEBP', 'DOC', 'DOCX', 'ZIP', 'RAR'])
+const recognizedFormats = new Set(['X_T', 'STEP', 'STP', 'IGES', 'IGS', 'DWG', 'DXF', 'PDF', 'PNG', 'JPG', 'JPEG', 'TIFF', 'WEBP', 'DOC', 'DOCX', 'XLS', 'XLSX', 'PPT', 'PPTX', 'CSV', 'TXT', 'ZIP', 'RAR'])
 function fileFormat(name: string) {
   const extension = name.split('.').pop()
   return extension ? extension.toUpperCase() : 'OTHER'
@@ -440,7 +440,7 @@ export function UploadPage() {
     beforeUpload: () => false,
     onChange: handleFilesChange,
     showUploadList: false,
-    accept: '.x_t,.step,.stp,.iges,.igs,.dwg,.dxf,.pdf,.png,.jpg,.jpeg,.tiff,.webp,.doc,.docx,.zip,.rar',
+    accept: '.x_t,.step,.stp,.iges,.igs,.dwg,.dxf,.pdf,.png,.jpg,.jpeg,.tiff,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip,.rar',
   }
 
   const valuesToInput = (values: UploadFormValues): AssetDraftInput => ({

@@ -14,7 +14,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:8080',
+      // 联调时可把 /api 指向另一后端实例，例如：
+      // VITE_PROXY_TARGET=http://127.0.0.1:8081 pnpm dev
+      '/api': process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8080',
     },
   },
   build: {
