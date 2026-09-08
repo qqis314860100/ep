@@ -163,6 +163,45 @@ export interface GovernanceOperationsOverview {
   generatedAt: string
 }
 
+/** R4 责任看板：单个责任人（或部门合计行）的分桶计数（逾期与整改中/确认/验收重叠统计）。 */
+export interface GovernanceResponsibilityRow {
+  userId: string
+  name: string
+  department: string
+  executing: number
+  confirming: number
+  accepting: number
+  overdue: number
+  escalated: number
+  completed: number
+  totalAssigned: number
+}
+
+/** R4 月度治理复盘：按时段统计的活动量 + 当前存量，附上月环比值。 */
+export interface GovernanceResponsibilityReview {
+  month: string
+  prevMonth: string
+  scanRuns: number
+  scannedAssets: number
+  newIssues: number
+  closedTasks: number
+  openIssues: number
+  overdueTasks: number
+  escalatedTasks: number
+  prevScanRuns: number
+  prevScannedAssets: number
+  prevNewIssues: number
+  prevClosedTasks: number
+}
+
+export interface GovernanceResponsibilityBoard {
+  month: string
+  generatedAt: string
+  employees: GovernanceResponsibilityRow[]
+  totals: GovernanceResponsibilityRow
+  monthly: GovernanceResponsibilityReview
+}
+
 export interface GovernanceProgress {
   total: number
   submitted: number

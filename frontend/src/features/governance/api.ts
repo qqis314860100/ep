@@ -17,6 +17,7 @@ import type {
   GovernanceMappingStatus,
   GovernanceOperationsFilter,
   GovernanceOperationsOverview,
+  GovernanceResponsibilityBoard,
   GovernanceScanRun,
   GovernancePlan,
   GovernancePlanProjection,
@@ -472,4 +473,9 @@ export function retryGovernanceScan(id: number): Promise<GovernanceScanRun> {
 
 export function getGovernanceOperationsOverview(filters: GovernanceOperationsFilter = {}): Promise<GovernanceOperationsOverview> {
   return request(`/api/v1/governance/operations/overview${queryString(filters)}`)
+}
+
+export function getGovernanceResponsibilityBoard(month?: string): Promise<GovernanceResponsibilityBoard> {
+  const suffix = month ? `?month=${encodeURIComponent(month)}` : ''
+  return request(`/api/v1/governance/responsibility/board${suffix}`)
 }
