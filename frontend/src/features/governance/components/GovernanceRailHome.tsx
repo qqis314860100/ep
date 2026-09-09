@@ -1,131 +1,355 @@
-import { ReloadOutlined } from '@ant-design/icons'
+import {
+  ArrowRightOutlined,
+  AppstoreOutlined,
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  ExclamationCircleFilled,
+  FileDoneOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  RightOutlined,
+  TeamOutlined,
+} from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Collapse, Typography } from 'antd'
-import { useMemo, useState } from 'react'
+import { Alert, Button, Dropdown, Empty, Skeleton } from 'antd'
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
+import { authSession } from '../../auth/session'
 import { getGovernanceIssues, getGovernanceScanRuns, getGovernanceTasks, getInventory } from '../api'
-import { GovernanceOverviewPage } from '../overview/GovernanceOverviewPage'
-import type { GovernanceIssue, GovernanceScanRun, GovernanceTask, GovernanceTaskStatus } from '../types'
-import { GovernanceNextSuggestion, GovernanceTodoPanel } from './GovernanceStepPanel'
-import type { GovernanceTodoRow } from './GovernanceStepPanel'
+import type { GovernanceIssue, GovernanceTask, GovernanceTaskStatus } from '../types'
 import type { GovernanceStatCardData } from './StatCards'
 import { StatCards } from './StatCards'
 import {
   buildGovernanceRailModel,
-  classifyGovernanceTaskStage,
   dueDayDiff,
   emptyGovernanceRailCounts,
-  governanceTaskStageWait,
   isTaskEscalated,
   summarizeGovernanceDue,
   summarizeGovernanceIssuesForRail,
   summarizeGovernanceTasksForRail,
 } from './governanceRailModel'
-import type { GovernanceRailCounts, GovernanceRailStageKey } from './governanceRailModel'
-import { GovernanceRail } from './GovernanceRail'
-import { GovernanceMyTodo } from './GovernanceMyTodo'
 import { railTheme } from './railTheme'
 
-const Section = styled.section`
+const Page = styled.section`
   display: flex;
-  flex-direction: column;
-  gap: 20px;
   min-width: 0;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 28px;
 `
 
-const Hero = styled.div`
+const Hero = styled.header`
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-`
+  gap: 24px;
+  min-height: 96px;
+  padding: 22px 24px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid ${railTheme.line};
+  border-radius: 8px;
 
-const PanelTitle = styled.h3`
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0 0 8px;
-  color: ${railTheme.text};
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: 0.1px;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: ${railTheme.brand};
+  }
 
-  .hint {
-    color: ${railTheme.text3};
-    font-size: 12px;
-    font-weight: 400;
+  @media (max-width: 720px) {
+    align-items: flex-start;
+    flex-direction: column;
   }
 `
 
-const SecondarySection = styled.div`
-  .ant-collapse {
-    overflow: hidden;
-    background: ${railTheme.card};
-    border: 1px solid ${railTheme.line};
-    border-radius: ${railTheme.radius}px;
-    box-shadow: ${railTheme.shadow};
-  }
+const HeroCopy = styled.div`
+  min-width: 0;
 
-  .ant-collapse-header {
-    align-items: center !important;
-    min-height: 52px;
-    color: ${railTheme.text} !important;
-    font-size: 14px;
-    font-weight: 650;
-  }
-
-  .ant-collapse-content {
-    border-top-color: ${railTheme.line};
-  }
-
-  .ant-collapse-content-box {
-    padding: 16px !important;
-  }
-`
-
-const ActionGrid = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.75fr);
-  gap: 16px;
-  align-items: start;
-
-  @media (max-width: 1080px) {
-    grid-template-columns: 1fr;
-  }
-`
-
-const FocusHeader = styled.div`
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 2px 0 -8px;
-
-  h2 {
+  h1 {
     margin: 0;
     color: ${railTheme.text};
-    font-size: 18px;
+    font-size: 24px;
     font-weight: 700;
+    line-height: 1.25;
   }
 
-  span {
-    color: ${railTheme.text3};
-    font-size: 12px;
+  p {
+    margin: 7px 0 0;
+    color: ${railTheme.text2};
+    font-size: 13px;
+    line-height: 1.6;
   }
+`
+
+const Identity = styled.div`
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 8px;
+  background: #f7f9f8;
+  border: 1px solid #e6ebe8;
+  border-radius: 8px;
+`
+
+const HeroActions = styled.div`
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+
+  @media (max-width: 560px) {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+`
+
+const Avatar = styled.span`
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  background: ${railTheme.brand};
+  border-radius: 6px;
+`
+
+const IdentityText = styled.span`
+  display: flex;
+  flex-direction: column;
+
+  strong { color: ${railTheme.text}; font-size: 13px; font-weight: 650; }
+  small { color: ${railTheme.text3}; font-size: 11px; }
+`
+
+const WorkbenchHeading = styled.div`
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+
+  h2 { margin: 0; color: ${railTheme.text}; font-size: 18px; font-weight: 700; }
+  p { margin: 4px 0 0; color: ${railTheme.text3}; font-size: 12px; }
+`
+
+const WorkGrid = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+
+  @media (max-width: 980px) { grid-template-columns: 1fr; }
+`
+
+const WorkCard = styled.article<{ $tone: 'dispatch' | 'task' }>`
+  display: flex;
+  min-width: 0;
+  min-height: 292px;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid ${props => props.$tone === 'dispatch' ? '#e4e8e6' : '#e2e7ed'};
+  border-radius: 8px;
+  box-shadow: 0 8px 24px -20px rgba(22, 34, 29, 0.35);
+`
+
+const WorkCardHeader = styled.header`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid #eef1ef;
+`
+
+const WorkCardTitle = styled.div`
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+
+  .icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    place-items: center;
+    color: ${railTheme.brand};
+    font-size: 17px;
+    background: ${railTheme.brandWeak};
+    border-radius: 7px;
+  }
+
+  h3 { margin: 0; color: ${railTheme.text}; font-size: 16px; font-weight: 680; }
+  p { margin: 3px 0 0; color: ${railTheme.text3}; font-size: 12px; }
+`
+
+const CountBadge = styled.span<{ $alert?: boolean }>`
+  display: inline-flex;
+  flex: none;
+  align-items: baseline;
+  gap: 3px;
+  color: ${props => props.$alert ? railTheme.red : railTheme.text};
+  font-variant-numeric: tabular-nums;
+
+  strong { font-size: 25px; font-weight: 720; line-height: 1; }
+  small { color: ${railTheme.text3}; font-size: 11px; }
+`
+
+const Queue = styled.div`
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 7px 10px 4px;
+`
+
+const QueueRow = styled.button`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 8px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #f0f2f1;
+  cursor: pointer;
+
+  &:last-child { border-bottom: 0; }
+  &:hover { background: #f7faf8; }
+  &:focus-visible { outline: 2px solid ${railTheme.brand}; outline-offset: -2px; }
+`
+
+const RowMain = styled.span`
+  min-width: 0;
+  strong {
+    display: block;
+    overflow: hidden;
+    color: ${railTheme.text};
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  small {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: ${railTheme.text3};
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+`
+
+const RowMeta = styled.span<{ $danger?: boolean }>`
+  color: ${props => props.$danger ? railTheme.red : railTheme.text2};
+  font-size: 11.5px;
+  font-weight: ${props => props.$danger ? 600 : 400};
+  white-space: nowrap;
+`
+
+const CardFooter = styled.footer`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px 14px;
+  border-top: 1px solid #eef1ef;
+
+  span { color: ${railTheme.text3}; font-size: 11.5px; }
+`
+
+const ProgressPanel = styled.section`
+  padding: 17px 18px 18px;
+  background: #fff;
+  border: 1px solid ${railTheme.line};
+  border-radius: 8px;
+`
+
+const SectionHeader = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 15px;
+
+  h2 { margin: 0; color: ${railTheme.text}; font-size: 15px; font-weight: 680; }
+  p { margin: 3px 0 0; color: ${railTheme.text3}; font-size: 11.5px; }
+`
+
+const ProgressTrack = styled.ol`
+  display: grid;
+  grid-template-columns: repeat(6, minmax(100px, 1fr));
+  gap: 0;
+  min-width: 660px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+`
+
+const ProgressScroll = styled.div`
+  overflow-x: auto;
+  scrollbar-width: thin;
+`
+
+const Stage = styled.li<{ $state: 'done' | 'current' | 'overdue' | 'wait' }>`
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 9px;
+  min-width: 0;
+  padding-right: 13px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 13px;
+    left: 32px;
+    right: 4px;
+    height: 1px;
+    background: ${props => props.$state === 'done' ? '#9ac8b8' : '#e3e7e5'};
+  }
+`
+
+const StageDot = styled.span<{ $state: 'done' | 'current' | 'overdue' | 'wait' }>`
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: ${props => props.$state === 'done' ? '#fff' : props.$state === 'overdue' ? railTheme.red : props.$state === 'current' ? railTheme.brand : railTheme.text3};
+  font-size: 11px;
+  font-weight: 700;
+  background: ${props => props.$state === 'done' ? railTheme.green : props.$state === 'overdue' ? railTheme.redWeak : props.$state === 'current' ? railTheme.brandWeak : '#f1f3f2'};
+  border: 1px solid ${props => props.$state === 'overdue' ? '#efb9b9' : props.$state === 'current' ? '#aad0c5' : 'transparent'};
+  border-radius: 50%;
+`
+
+const StageText = styled.span`
+  min-width: 0;
+  strong { display: block; overflow: hidden; color: ${railTheme.text}; font-size: 12px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
+  small { display: block; margin-top: 2px; overflow: hidden; color: ${railTheme.text3}; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 `
 
 const tasksTitleStatus: Record<GovernanceTaskStatus, string> = {
-  DRAFT: '草稿',
-  IN_PROGRESS: '执行中',
+  DRAFT: '待启动',
+  IN_PROGRESS: '整改中',
   PENDING_CONFIRMATION: '待确认',
   PENDING_ACCEPTANCE: '待验收',
   REWORK_REQUIRED: '需返工',
   COMPLETED: '已完成',
 }
-
-type PillTone = 'success' | 'danger' | 'warning' | 'info' | 'plain'
 
 const fieldLabels: Record<string, string> = {
   DESCRIPTION: '功能说明',
@@ -134,78 +358,62 @@ const fieldLabels: Record<string, string> = {
   SCOPE: '适用范围',
 }
 
-const scanStatusMeta: Record<GovernanceScanRun['status'], { label: string; tone: PillTone }> = {
-  SUCCEEDED: { label: '成功', tone: 'success' },
-  FAILED: { label: '失败', tone: 'danger' },
-  RUNNING: { label: '运行中', tone: 'warning' },
-}
-
-const taskStatusTone: Record<GovernanceTaskStatus, PillTone> = {
-  DRAFT: 'plain',
-  IN_PROGRESS: 'info',
-  PENDING_CONFIRMATION: 'warning',
-  PENDING_ACCEPTANCE: 'warning',
-  REWORK_REQUIRED: 'danger',
-  COMPLETED: 'success',
-}
-
-function formatMonthDay(value: string | null | undefined): string | null {
+function formatMonthDay(value: string | null | undefined): string {
   const date = value ? new Date(value) : null
-  if (!date || Number.isNaN(date.getTime())) return null
+  if (!date || Number.isNaN(date.getTime())) return '未设置截止日'
   return `${date.getMonth() + 1}月${date.getDate()}日`
 }
 
-function formatDateTime(value: string | null | undefined): string {
-  const date = value ? new Date(value) : null
-  if (!date || Number.isNaN(date.getTime())) return '—'
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`
+function issueLabel(issue: GovernanceIssue): string {
+  return `资产 #${issue.assetId} · ${fieldLabels[issue.targetField] ?? issue.targetField}`
 }
 
-function groupTasksByStage(tasks: GovernanceTask[]): Record<'assign' | 'confirm' | 'accept' | 'apply', GovernanceTask[]> {
-  const grouped: Record<'assign' | 'confirm' | 'accept' | 'apply', GovernanceTask[]> = { assign: [], confirm: [], accept: [], apply: [] }
-  for (const task of tasks) {
-    grouped[classifyGovernanceTaskStage(task)].push(task)
+function taskPriority(task: GovernanceTask, today: Date): number {
+  const diff = dueDayDiff(task.dueDate, today)
+  const statusWeight: Record<GovernanceTaskStatus, number> = {
+    REWORK_REQUIRED: 60,
+    PENDING_ACCEPTANCE: 50,
+    PENDING_CONFIRMATION: 40,
+    IN_PROGRESS: 30,
+    DRAFT: 20,
+    COMPLETED: 0,
   }
-  return grouped
+  return (diff !== null && diff < 0 ? 100 : 0) + statusWeight[task.status] - (diff ?? 999) / 1000
 }
 
 interface GovernanceRailHomeProps {
   onOpenTask?: (taskId: number) => void
 }
 
-/** R1a 治理中心首页：指标卡 + 六节点轨道 + 该步待办 + 下一步建议 + 任务闭环明细。 */
 export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
   const navigate = useNavigate()
-  const [selectedKey, setSelectedKey] = useState<GovernanceRailStageKey | null>(null)
-  const [overdueOnly, setOverdueOnly] = useState(false)
-
+  const user = authSession.get()
+  const isAdministrator = user?.roles.some(role => role === 'CONTENT_ADMIN' || role === 'SYSTEM_ADMIN') ?? true
   const inventoryQuery = useQuery({ queryKey: ['rail-inventory'], queryFn: () => getInventory({ page: 1, perPage: 1 }), staleTime: 60_000 })
   const issuesQuery = useQuery({ queryKey: ['rail-issues'], queryFn: () => getGovernanceIssues(), staleTime: 60_000 })
   const tasksQuery = useQuery({ queryKey: ['governance-tasks'], queryFn: () => getGovernanceTasks(), staleTime: 60_000 })
   const scansQuery = useQuery({ queryKey: ['rail-scans'], queryFn: getGovernanceScanRuns, staleTime: 60_000 })
 
-  const derived = useMemo(() => {
+  const model = useMemo(() => {
     const today = new Date()
     const tasks = tasksQuery.data ?? []
     const issues = issuesQuery.data ?? []
     const scans = scansQuery.data ?? []
     const totals = inventoryQuery.data?.totals
-    const rates = inventoryQuery.data?.rates
-
     const taskSummary = summarizeGovernanceTasksForRail(tasks, today)
     const issueSummary = summarizeGovernanceIssuesForRail(issues)
     const dueSummary = summarizeGovernanceDue(tasks, today)
-
-    const successfulScanAssets = scans
-      .filter(run => run.status === 'SUCCEEDED')
-      .reduce((sum, run) => sum + run.scannedAssetCount, 0)
-    const scannedAssetCount = totals && totals.total > 0 ? totals.total : successfulScanAssets
-    const acceptedInCompleted = tasks
-      .filter(task => task.status === 'COMPLETED')
-      .reduce((sum, task) => sum + (task.progress?.accepted ?? task.completed ?? 0), 0)
-
-    const counts: GovernanceRailCounts = {
+    const pendingIssues = issues.filter(issue => issue.status !== 'RESOLVED' && issue.taskId === null)
+    const openTasks = tasks
+      .filter(task => task.status !== 'COMPLETED')
+      .sort((a, b) => taskPriority(b, today) - taskPriority(a, today))
+    const myTasks = user && !isAdministrator
+      ? openTasks.filter(task => task.assigneeId === user.userId || task.owner === user.name)
+      : openTasks
+    const scannedAssetCount = totals && totals.total > 0
+      ? totals.total
+      : scans.filter(run => run.status === 'SUCCEEDED').reduce((sum, run) => sum + run.scannedAssetCount, 0)
+    const counts = {
       ...emptyGovernanceRailCounts(),
       scanRunCount: scans.length,
       scanSucceeded: scans.some(run => run.status === 'SUCCEEDED'),
@@ -218,204 +426,68 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
       confirm: taskSummary.confirm,
       accept: taskSummary.accept,
       completedTaskCount: tasks.filter(task => task.status === 'COMPLETED').length,
-      standardizedAssets: totals?.standardized ?? acceptedInCompleted,
+      standardizedAssets: totals?.standardized ?? 0,
       taskTotalCount: tasks.length,
       applyOwners: taskSummary.applyOwners,
     }
-
     return {
-      counts,
-      nodes: buildGovernanceRailModel(counts),
-      stageTasks: groupTasksByStage(tasks),
-      poolIssues: issues.filter(issue => issue.status !== 'RESOLVED' && issue.taskId === null),
-      scans,
-      dueSummary,
-      escalatedCount: tasks.filter(task => isTaskEscalated(task, today)).length,
-      rates,
-      inventoryTotal: totals?.total,
-      pendingCuration: totals?.pendingCuration ?? null,
-      standardized: totals?.standardized ?? null,
-      duplicateSuspects: totals?.duplicateSuspects ?? 0,
       today,
+      pendingIssues,
+      focusTasks: myTasks,
+      dueSummary,
+      nodes: buildGovernanceRailModel(counts),
+      escalatedCount: tasks.filter(task => isTaskEscalated(task, today)).length,
+      totals,
+      rates: inventoryQuery.data?.rates,
     }
-  }, [inventoryQuery.data, issuesQuery.data, tasksQuery.data, scansQuery.data])
-
-  const { nodes } = derived
-  const effectiveKey: GovernanceRailStageKey = selectedKey
-    ?? (nodes.find(node => node.state === 'current')?.key ?? (nodes.every(node => node.state === 'done') ? 'apply' : 'scan'))
+  }, [inventoryQuery.data, issuesQuery.data, tasksQuery.data, scansQuery.data, isAdministrator, user])
 
   const statCards: GovernanceStatCardData[] = [
-    {
-      key: 'pending',
-      label: '待整理资产',
-      value: derived.pendingCuration,
-      unit: '条',
-      tone: 'default',
-      footnote: derived.inventoryTotal !== undefined
-        ? `共 ${derived.inventoryTotal.toLocaleString('zh-CN')} 条存量 · 疑似重复 ${derived.duplicateSuspects} 条`
-        : '',
-    },
-    {
-      key: 'week',
-      label: '本周到期任务',
-      value: tasksQuery.isError ? null : derived.dueSummary.dueWithin7Days,
-      unit: '个',
-      tone: derived.dueSummary.dueWithin7Days > 0 ? 'warn' : 'default',
-      footnote: `${derived.dueSummary.dueWithin48Hours} 条 48 小时内到期`,
-    },
-    {
-      key: 'overdue',
-      label: '已逾期',
-      value: tasksQuery.isError ? null : derived.dueSummary.overdue,
-      unit: '个',
-      tone: 'alert',
-      footnote: derived.dueSummary.overdue === 0
-        ? '暂无逾期任务 · 逾期满 3 天自动升级内容管理员'
-        : derived.escalatedCount > 0
-          ? `涉及 ${derived.dueSummary.overdueOwnerCount} 位责任人 · ${derived.escalatedCount} 个已升级，管理员待跟进`
-          : `涉及 ${derived.dueSummary.overdueOwnerCount} 位责任人 · 责任人跟进中（逾期满 3 天升级）`,
-    },
-    {
-      key: 'standardized',
-      label: '已标准化',
-      value: derived.standardized,
-      unit: '条',
-      tone: 'success',
-      footnote: derived.rates?.scopeCoverage !== undefined ? `范围覆盖率 ${Math.round(derived.rates.scopeCoverage)}%` : '',
-    },
+    { key: 'pending', label: '待整理资产', value: model.totals?.pendingCuration ?? null, unit: '条', footnote: `疑似重复 ${model.totals?.duplicateSuspects ?? 0} 条` },
+    { key: 'week', label: '7 天内到期', value: tasksQuery.isError ? null : model.dueSummary.dueWithin7Days, unit: '个', tone: model.dueSummary.dueWithin7Days > 0 ? 'warn' : 'default', footnote: `${model.dueSummary.dueWithin48Hours} 个将在 48 小时内到期` },
+    { key: 'overdue', label: '已逾期', value: tasksQuery.isError ? null : model.dueSummary.overdue, unit: '个', tone: 'alert', footnote: model.escalatedCount > 0 ? `${model.escalatedCount} 个已升级，请优先跟进` : '暂无升级任务' },
+    { key: 'standardized', label: '已标准化', value: model.totals?.standardized ?? null, unit: '条', tone: 'success', footnote: model.rates ? `适用范围覆盖率 ${Math.round(model.rates.scopeCoverage)}%` : '' },
   ]
 
   const failedSources = [
-    inventoryQuery.isError && '待整理/标准化盘点',
+    inventoryQuery.isError && '资产盘点',
     issuesQuery.isError && '问题池',
     tasksQuery.isError && '治理任务',
     scansQuery.isError && '扫描运行',
-  ].filter((label): label is string => Boolean(label))
+  ].filter((item): item is string => Boolean(item))
   const retryAll = () => {
     for (const query of [inventoryQuery, issuesQuery, tasksQuery, scansQuery]) {
       if (query.isError) void query.refetch()
     }
   }
-
-  const stepView = useMemo(() => {
-    const buildTaskRows = (stageTasks: GovernanceTask[]): GovernanceTodoRow[] => {
-      const rows: GovernanceTodoRow[] = stageTasks
-        .map(task => {
-          const diff = dueDayDiff(task.dueDate, derived.today)
-          const overdue = diff !== null && diff < 0
-          const wait = governanceTaskStageWait(task)
-          return {
-            key: `task-${task.id}`,
-            kind: 'task',
-            title: task.name || `治理任务 #${task.id}`,
-            description: wait > 0 ? `该阶段待办 ${wait} 条 · ${tasksTitleStatus[task.status]}` : tasksTitleStatus[task.status],
-            pill: { label: overdue ? '已逾期' : tasksTitleStatus[task.status], tone: overdue ? 'danger' : taskStatusTone[task.status] },
-            owner: task.owner,
-            due: formatMonthDay(task.dueDate) ?? undefined,
-            dueTone: overdue ? 'overdue' : diff !== null && diff >= 0 && diff <= 2 ? 'soon' : undefined,
-            overdue,
-            onClick: () => onOpenTask?.(task.id),
-          } satisfies GovernanceTodoRow
-        })
-        .sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.due?.localeCompare(b.due ?? '') || a.title.localeCompare(b.title, 'zh-CN'))
-      const filtered = overdueOnly ? rows.filter(row => row.overdue) : rows
-      return filtered.slice(0, 6)
-    }
-
-    const middleKeys: Array<Exclude<GovernanceRailStageKey, 'scan' | 'issuePool'>> = ['assign', 'confirm', 'accept', 'apply']
-    if (middleKeys.includes(effectiveKey as (typeof middleKeys)[number])) {
-      const key = effectiveKey as (typeof middleKeys)[number]
-      const stageTasks = derived.stageTasks[key]
-      const overdueCount = key === 'apply' ? 0 : derived.counts[key].overdue
-      const singleTask = stageTasks.length === 1 ? stageTasks[0] : null
-      const targetRoute = singleTask ? `/sys/drawing/tasks/${singleTask.id}` : '/sys/drawing/operations'
-      const tasksRow = buildTaskRows(stageTasks)
-      const isApply = key === 'apply'
-      return {
-        key,
-        title: isApply
-          ? '正式应用 · 已完成闭环'
-          : key === 'assign' ? '整改分派 · 整改待办' : key === 'confirm' ? '业务确认 · 待确认清单' : '质量验收 · 待验收清单',
-        rows: tasksRow,
-        emptyText: isApply
-          ? (derived.standardized ?? 0) > 0 ? `尚无已完成闭环任务（已标准化 ${derived.standardized} 条资产）` : '还没有完成闭环的治理任务'
-          : `该阶段暂无待办${overdueCount > 0 ? '，仅剩逾期未跟进' : ''}`,
-        emptyAction: isApply ? { label: '去盘点查看标准化成果', onClick: () => navigate('/sys/drawing/inventory') } : undefined,
-        footer: isApply
-          ? `已标准化 ${derived.standardized ?? 0} 条资产 · 已完成 ${derived.stageTasks.apply.length} 个闭环任务`
-          : `共 ${stageTasks.length} 个任务处于该阶段 · 点击行进入任务详情`,
-        suggestionText: suggestionTextFor(key),
-        primary: singleTask ? `进入「${singleTask.name || `任务 #${singleTask.id}`}」` : primaryLabelFor(key),
-        onPrimary: () => navigate(targetRoute),
-        note: noteFor(key),
-      }
-    }
-
-    if (effectiveKey === 'scan') {
-      const scanRows: GovernanceTodoRow[] = derived.scans.slice(0, 5).map(run => {
-        const meta = scanStatusMeta[run.status]
-        return {
-          key: `scan-${run.id}`,
-          kind: 'scan',
-          title: `扫描 #${run.id} · ${formatDateTime(run.startedAt)}`,
-          description: `扫描 ${run.scannedAssetCount} 条资产 · 新增问题 ${run.createdIssueCount}${run.errorMessage ? ` · ${run.errorMessage}` : ''}`,
-          pill: { label: meta.label, tone: meta.tone },
-        } satisfies GovernanceTodoRow
-      })
-      return {
-        key: 'scan' as const,
-        title: '扫描入库 · 运行记录',
-        rows: scanRows,
-        emptyText: '还没有扫描运行记录',
-        emptyAction: { label: '去自动扫描', onClick: () => navigate('/sys/drawing/scans') },
-        footer: scanRows.length > 0 ? `共 ${derived.scans.length} 次运行 · 完整记录见「自动扫描」子页` : undefined,
-        suggestionText: scanRows.length === 0
-          ? '运行扫描会按启用中的标准核验资产并生成问题记录，之后资产进入治理轨道。'
-          : '扫描已完成入库，接下来把扫描发现的问题从问题池分派成治理任务即可推进闭环。',
-        primary: '去自动扫描',
-        onPrimary: () => navigate('/sys/drawing/scans'),
-        note: '每次扫描会记录核验资产数与新发现问题数，可在「自动扫描」回看。',
-      }
-    }
-
-    const issueRows: GovernanceTodoRow[] = derived.poolIssues.slice(0, 6).map((issue: GovernanceIssue) => ({
-      key: `issue-${issue.id}`,
-      kind: 'issue',
-      title: `资产 #${issue.assetId} · ${fieldLabels[issue.targetField] ?? issue.targetField}`,
-      description: `${issue.issueType} · ${issue.severity} 级${issue.blocking ? ' · 阻塞' : ''} · ${formatDateTime(issue.createdAt)} 发现`,
-      pill: { label: '待分派', tone: 'info' },
-    }))
-    return {
-      key: 'issuePool' as const,
-      title: '问题池 · 待分派',
-      rows: issueRows,
-      emptyText: '问题池已清空或尚未生成问题',
-      emptyAction: issueRows.length === 0 && derived.counts.issueTotalEver === 0
-        ? { label: '先去运行扫描', onClick: () => navigate('/sys/drawing/scans') }
-        : undefined,
-      footer: derived.counts.issueTotalEver > 0
-        ? `累计生成 ${derived.counts.issueTotalEver} 条问题 · 可在「字段问题池」筛选并创建治理任务`
-        : undefined,
-      suggestionText: derived.counts.poolOpenCount > 0
-        ? `把「问题池」的 ${derived.counts.poolOpenCount} 条开放问题按集合创建治理任务，任务进入整改分派后由责任人跟进。`
-        : '当前没有待分派问题；新的扫描发现会出现在这里。',
-      primary: '去问题池分派',
-      onPrimary: () => navigate('/sys/drawing/issues'),
-      note: '勾选多条问题即可一次创建治理任务，系统自动把资产与规则带入任务。',
-    }
-  }, [effectiveKey, overdueOnly, derived, navigate, onOpenTask])
-
-  const rowsCount = stepView.rows.length
-  const panelLoading = effectiveKey === 'scan' ? scansQuery.isLoading : effectiveKey === 'issuePool' ? issuesQuery.isLoading : tasksQuery.isLoading
+  const queueLoading = issuesQuery.isLoading || tasksQuery.isLoading
+  const toolItems = [
+    { key: '/sys/drawing/inventory', label: '资产盘点' },
+    { key: '/sys/drawing/scans', label: '自动扫描' },
+    { key: '/sys/drawing/standards', label: '标准中心' },
+    { key: '/sys/drawing/mappings', label: '映射规则' },
+    { key: '/sys/drawing/operations', label: '治理运营' },
+  ]
 
   return (
-    <Section>
+    <Page>
       <Hero>
-        <div>
-          <Typography.Title level={3} style={{ margin: 0 }}>数据治理 · 分派工作台</Typography.Title>
-          <Typography.Text type="secondary">让「下一步该谁做」一眼可见 —— 指标与轨道由治理事实实时汇总</Typography.Text>
-        </div>
-        <Button icon={<ReloadOutlined />} onClick={retryAll}>刷新</Button>
+        <HeroCopy>
+          <h1>数据治理工作台</h1>
+          <p>聚焦今天要推进的任务。先派发问题，再跟进责任人处理。</p>
+        </HeroCopy>
+        <HeroActions>
+          <Dropdown menu={{ items: toolItems, onClick: ({ key }) => navigate(key) }} placement="bottomRight">
+            <Button icon={<AppstoreOutlined aria-hidden />}>治理工具</Button>
+          </Dropdown>
+          <Identity aria-label={`当前用户 ${user?.name ?? '管理员'}`}>
+            <Avatar>{(user?.name ?? '管').charAt(0)}</Avatar>
+            <IdentityText>
+              <strong>{user?.name ?? '管理员'}</strong>
+              <small>{user?.department ?? '数据治理中心'} · 当前登录</small>
+            </IdentityText>
+          </Identity>
+        </HeroActions>
       </Hero>
 
       {failedSources.length > 0 && (
@@ -423,107 +495,99 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
           type="warning"
           showIcon
           message="部分数据未加载成功"
-          description={`以下数据源加载失败：${failedSources.join('、')}。相关数字显示为「—」，可点击重试恢复。`}
-          action={<Button size="small" type="primary" onClick={retryAll}>重试</Button>}
+          description={`${failedSources.join('、')}暂不可用，页面已保留可操作内容。`}
+          action={<Button size="small" icon={<ReloadOutlined />} onClick={retryAll}>重试</Button>}
         />
       )}
 
+      <WorkbenchHeading>
+        <div>
+          <h2>今日工作</h2>
+          <p>两个入口覆盖最常用的派发与处理流程</p>
+        </div>
+        <Button type="text" aria-label="责任看板" icon={<TeamOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/responsibility')}>责任看板</Button>
+      </WorkbenchHeading>
+
+      <WorkGrid>
+        <WorkCard $tone="dispatch">
+          <WorkCardHeader>
+            <WorkCardTitle>
+              <span className="icon"><PlusOutlined /></span>
+              <div><h3>派发任务</h3><p>从待处理问题直接创建治理任务</p></div>
+            </WorkCardTitle>
+            <CountBadge><strong>{issuesQuery.isError ? '—' : model.pendingIssues.length}</strong><small>项待派发</small></CountBadge>
+          </WorkCardHeader>
+          <Queue aria-label="待派发问题">
+            {queueLoading ? <Skeleton active paragraph={{ rows: 3 }} title={false} /> : model.pendingIssues.length === 0 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有待派发问题" style={{ margin: '25px 0' }} />
+            ) : model.pendingIssues.slice(0, 3).map(issue => (
+              <QueueRow key={issue.id} type="button" onClick={() => navigate('/sys/drawing/issues')}>
+                <RowMain><strong>{issueLabel(issue)}</strong><small>{issue.issueType} · {issue.blocking ? '阻塞问题' : `${issue.severity} 级`}</small></RowMain>
+                <RowMeta $danger={issue.blocking}>{issue.blocking ? '优先派发' : '待派发'}</RowMeta>
+                <RightOutlined aria-hidden />
+              </QueueRow>
+            ))}
+          </Queue>
+          <CardFooter>
+            <span>支持勾选多个问题后一次派发</span>
+            <Button type="primary" aria-label="派发任务" icon={<PlusOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/issues')}>派发任务</Button>
+          </CardFooter>
+        </WorkCard>
+
+        <WorkCard $tone="task">
+          <WorkCardHeader>
+            <WorkCardTitle>
+              <span className="icon"><FileDoneOutlined /></span>
+              <div><h3>认领任务</h3><p>{isAdministrator ? '优先展示逾期和待验收任务' : '优先展示分配给我的任务'}</p></div>
+            </WorkCardTitle>
+            <CountBadge $alert={model.dueSummary.overdue > 0}><strong>{tasksQuery.isError ? '—' : model.focusTasks.length}</strong><small>项待推进</small></CountBadge>
+          </WorkCardHeader>
+          <Queue aria-label="待处理任务">
+            {queueLoading ? <Skeleton active paragraph={{ rows: 3 }} title={false} /> : model.focusTasks.length === 0 ? (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有待处理任务" style={{ margin: '25px 0' }} />
+            ) : model.focusTasks.slice(0, 3).map(task => {
+              const diff = dueDayDiff(task.dueDate, model.today)
+              const overdue = diff !== null && diff < 0
+              return (
+                <QueueRow key={task.id} type="button" onClick={() => onOpenTask?.(task.id)}>
+                  <RowMain><strong>{task.name || `治理任务 #${task.id}`}</strong><small>{tasksTitleStatus[task.status]} · {task.owner || '待认领'}</small></RowMain>
+                  <RowMeta $danger={overdue}>{overdue ? `逾期 ${Math.abs(diff ?? 0)} 天` : formatMonthDay(task.dueDate)}</RowMeta>
+                  <RightOutlined aria-hidden />
+                </QueueRow>
+              )
+            })}
+          </Queue>
+          <CardFooter>
+            <span>任务详情中可启动、移交或继续处理</span>
+            <Button type="primary" aria-label={model.focusTasks.length > 0 ? '处理首要任务' : '查看全部任务'} icon={<ArrowRightOutlined aria-hidden />} onClick={() => {
+              const firstTask = model.focusTasks[0]
+              if (firstTask) onOpenTask?.(firstTask.id)
+              else navigate('/sys/drawing/operations')
+            }}>{model.focusTasks.length > 0 ? '处理首要任务' : '查看全部任务'}</Button>
+          </CardFooter>
+        </WorkCard>
+      </WorkGrid>
+
       <StatCards cards={statCards} />
 
-      <FocusHeader>
-        <h2>现在先处理</h2>
-        <span>只看当前最需要推进的一步</span>
-      </FocusHeader>
-      <ActionGrid>
-        <GovernanceTodoPanel
-          title={stepView.title}
-          hint={overdueOnly ? '仅显示逾期条目' : undefined}
-          rows={stepView.rows}
-          loading={panelLoading}
-          emptyText={stepView.emptyText}
-          emptyAction={stepView.emptyAction}
-          footer={stepView.footer}
-          filtered={overdueOnly}
-        />
-        <GovernanceNextSuggestion
-          text={stepView.suggestionText}
-          primaryLabel={stepView.primary}
-          onPrimary={stepView.onPrimary}
-          secondaryLabel={['assign', 'confirm', 'accept'].includes(effectiveKey) && rowsCount > 0 ? '只看逾期' : undefined}
-          secondaryActive={overdueOnly}
-          onSecondary={() => setOverdueOnly(value => !value)}
-          note={stepView.note}
-        />
-      </ActionGrid>
-
-      <GovernanceMyTodo onOpenTask={onOpenTask} />
-
-      <SecondarySection>
-        <Collapse
-          ghost
-          items={[{
-            key: 'rail',
-            label: '查看治理阶段进度',
-            children: <>
-              <PanelTitle>治理轨道 <span className="hint">点击任一节点查看该步待办</span></PanelTitle>
-              <GovernanceRail
-                nodes={nodes}
-                selectedKey={effectiveKey}
-                onSelect={key => { setSelectedKey(key); setOverdueOnly(false) }}
-                hint="完成即打勾变绿；当前步骤蓝色呼吸；逾期节点红色警示。"
-              />
-            </>,
-          }]}
-        />
-      </SecondarySection>
-
-      <SecondarySection>
-        <Collapse
-          ghost
-          items={[{
-            key: 'details',
-            label: '查看全部任务明细',
-            children: <GovernanceOverviewPage embedded onOpenTask={onOpenTask} />,
-          }]}
-        />
-      </SecondarySection>
-    </Section>
+      <ProgressPanel>
+        <SectionHeader>
+          <div><h2>治理阶段进度</h2><p>只读展示全局进度，不改变上方工作内容</p></div>
+          <Button type="link" aria-label="查看完整进度" icon={<ClockCircleOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/operations')}>查看完整进度</Button>
+        </SectionHeader>
+        <ProgressScroll>
+          <ProgressTrack aria-label="治理阶段进度：扫描入库、问题池、整改分派、业务确认、质量验收、正式应用">
+            {model.nodes.map((node, index) => (
+              <Stage key={node.key} $state={node.state}>
+                <StageDot $state={node.state}>
+                  {node.state === 'done' ? <CheckCircleFilled /> : node.state === 'overdue' ? <ExclamationCircleFilled /> : index + 1}
+                </StageDot>
+                <StageText><strong>{node.label}</strong><small>{node.caption}</small></StageText>
+              </Stage>
+            ))}
+          </ProgressTrack>
+        </ProgressScroll>
+      </ProgressPanel>
+    </Page>
   )
-}
-
-function suggestionTextFor(key: 'assign' | 'confirm' | 'accept' | 'apply'): string {
-  switch (key) {
-    case 'assign':
-      return '把待整改条目分配给责任人执行，提交后进入业务确认；临近到期自动提醒责任人，逾期满 3 天自动升级给内容管理员跟进。'
-    case 'confirm':
-      return '资产责任人核对整改结果并确认归属；全部通过后进入质量验收，退回项回到整改分派。'
-    case 'accept':
-      return '按质量指标与抽样复核验收；全部通过后修正值正式应用，原值保留可追溯。'
-    default:
-      return '验收通过的修正值已写入资产并保留原值；可在盘点与标准中心核对成果。'
-  }
-}
-
-function primaryLabelFor(key: 'assign' | 'confirm' | 'accept' | 'apply'): string {
-  switch (key) {
-    case 'apply': return '查看标准化成果'
-    default: return '查看治理运营'
-  }
-}
-
-function noteFor(key: GovernanceRailStageKey): string {
-  switch (key) {
-    case 'scan':
-      return '每次扫描会记录核验资产数与新发现问题数。'
-    case 'issuePool':
-      return '勾选多条问题即可一次创建治理任务。'
-    case 'assign':
-      return '分派后任务进入责任人「我的待办」；可在下方任务闭环明细查看每个任务所处阶段。'
-    case 'confirm':
-      return '业务确认由资产责任人执行；逾期满 3 天自动升级给内容管理员跟进（3/7/14 天分档提醒）。'
-    case 'accept':
-      return '验收包含指标通过率与抽样复核；失败项返回整改。'
-    default:
-      return '正式应用由系统执行，全程保留操作记录与原始值快照。'
-  }
 }
