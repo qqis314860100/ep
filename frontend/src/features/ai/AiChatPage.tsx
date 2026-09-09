@@ -1,7 +1,12 @@
-import { DeleteOutlined, EditOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons'
+import {
+  DeleteOutlined,
+  EditOutlined,
+  RobotOutlined,
+  SendOutlined,
+  StopOutlined,
+} from '@ant-design/icons'
 import {
   Button,
-  Empty,
   Input,
   List,
   Modal,
@@ -22,6 +27,9 @@ import {
   sessionMessages,
   streamChat,
 } from './api'
+import CitationBlock from './components/CitationBlock'
+import MarkdownAnswer from './components/MarkdownAnswer'
+import WelcomePanel from './components/WelcomePanel'
 
 const { Text } = Typography
 
@@ -58,21 +66,35 @@ const SessionList = styled.div`
   padding: 6px;
 `
 
-const SessionItem = styled.button<{ $active: boolean }>`
-  display: block;
-  width: 100%;
-  padding: 8px 10px;
+const SessionItem = styled.div<{ $active: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 2px;
   margin-bottom: 4px;
-  text-align: left;
-  color: ${({ $active }) => ($active ? '#fff' : '#3a4a55')};
-  background: ${({ $active }) => ($active ? '#2f7567' : 'transparent')};
-  border: 0;
+  padding: 2px 2px 2px 8px;
   border-radius: 6px;
-  cursor: pointer;
+  background: ${({ $active }) => ($active ? '#e7f0ec' : 'transparent')};
 
   &:hover {
-    background: ${({ $active }) => ($active ? '#2f7567' : '#f0f3f2')};
+    background: ${({ $active }) => ($active ? '#e7f0ec' : '#f4f6f5')};
   }
+`
+
+const SessionOpen = styled.button`
+  flex: 1;
+  min-width: 0;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: #3a4a55;
+  cursor: pointer;
+  font-size: 13px;
+`
+
+const SessionActions = styled.span`
+  display: inline-flex;
+  flex: none;
 `
 
 const ChatPane = styled.section`
@@ -92,28 +114,97 @@ const ChatBody = styled.div`
 
 const BubbleRow = styled.div<{ $assistant: boolean }>`
   display: flex;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   justify-content: ${({ $assistant }) => ($assistant ? 'flex-start' : 'flex-end')};
 `
 
-const Bubble = styled.div<{ $assistant: boolean }>`
+const BubbleColumn = styled.div<{ $assistant: boolean }>`
   max-width: 82%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: ${({ $assistant }) => ($assistant ? 'flex-start' : 'flex-end')};
+`
+
+const RoleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+`
+
+const RoleChip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #2f7567;
+  font-weight: 500;
+`
+
+const TurnTime = styled.span`
+  font-size: 11px;
+  color: #a5b2b8;
+`
+
+const Bubble = styled.div<{ $assistant: boolean }>`
   padding: 9px 12px;
   border-radius: 8px;
   background: ${({ $assistant }) => ($assistant ? '#f4f6f5' : '#e7f0ec')};
-  white-space: pre-wrap;
+  border: ${({ $assistant }) => ($assistant ? '1px solid #eceff1' : '1px solid transparent')};
   word-break: break-word;
+  min-width: 0;
 `
 
-const CitationLink = styled.button`
-  display: block;
-  margin-top: 6px;
-  padding: 0;
-  color: #2f7567;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
+const Thinking = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #5a6b74;
+  font-size: 13px;
+`
+
+const Dot = styled.span<{ $delay: number }>`
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2f7567;
+  animation: ai-dot-bounce 1.2s infinite;
+  animation-delay: ${({ $delay }) => `${$delay}ms`};
+
+  @keyframes ai-dot-bounce {
+    0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-2px); }
+  }
+`
+
+const Caret = styled.span`
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  background: #2f7567;
+  border-radius: 1px;
+  animation: ai-caret-blink 1s step-end infinite;
+
+  @keyframes ai-caret-blink {
+    50% { opacity: 0; }
+  }
+`
+
+const ErrorBox = styled.div`
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fdf0ef;
+  border: 1px solid #f3d3d0;
+  color: #c2452f;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 `
 
 const Composer = styled.div`
@@ -123,12 +214,22 @@ const Composer = styled.div`
   border-top: 1px solid #eceff1;
 `
 
+const StopBar = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #e0e5e2;
+`
+
 interface Turn {
   key: string
   assistant: boolean
   content: string
   citations: ChatCitation[]
   pending?: boolean
+  createdAt?: string
+  failed?: { code: string; message: string; question: string } | null
 }
 
 export default function AiChatPage() {
@@ -148,7 +249,7 @@ export default function AiChatPage() {
       const items = await listSessions()
       setSessions(items)
       if (preferId !== undefined) setActiveId(preferId)
-      else if (activeId === null && items.length > 0) setActiveId(items[0].id)
+      else if (items.length > 0) setActiveId((current) => current ?? items[0].id)
     } catch (error) {
       message.error(error instanceof AiApiError ? error.message : '会话列表加载失败')
     } finally {
@@ -165,6 +266,7 @@ export default function AiChatPage() {
         assistant: item.role === 'ASSISTANT',
         content: item.content,
         citations: item.citations,
+        createdAt: item.createdAt,
       })))
     } catch (error) {
       message.error(error instanceof AiApiError ? error.message : '历史加载失败')
@@ -187,23 +289,21 @@ export default function AiChatPage() {
     await loadMessages(sessionId)
   }
 
-  const send = async () => {
-    const content = question.trim()
-    if (!content || streaming) return
-    setQuestion('')
+  const finishPending = (updates: Partial<Turn> & { failed?: Turn['failed'] }) => {
+    setTurns((previous) => previous.map((turn) => (turn.pending ? { ...turn, pending: false, ...updates } : turn)))
+  }
+
+  const appendAssistant = () => {
     setTurns((previous) => [...previous, {
-      key: `user-${Date.now()}`,
-      assistant: false,
-      content,
-      citations: [],
-    }, {
       key: `assistant-${Date.now()}`,
       assistant: true,
       content: '',
       citations: [],
       pending: true,
     }])
-    setStreaming(true)
+  }
+
+  const stream = async (content: string) => {
     const controller = new AbortController()
     abortRef.current = controller
     let streamingSessionId = activeId
@@ -212,10 +312,11 @@ export default function AiChatPage() {
         { sessionId: activeId ?? undefined, question: content },
         {
           onMeta: (sessionId) => {
-            streamingSessionId = Number(sessionId)
-            if (activeId === null) {
-              setActiveId(streamingSessionId)
-              void refreshSessions(streamingSessionId)
+            const parsed = Number(sessionId)
+            if (Number.isFinite(parsed) && parsed > 0) streamingSessionId = parsed
+            if (activeId === null && Number.isFinite(parsed) && parsed > 0) {
+              setActiveId(parsed)
+              void refreshSessions(parsed)
             }
           },
           onDelta: (text) => {
@@ -239,26 +340,57 @@ export default function AiChatPage() {
             })
           },
           onDone: async () => {
-            setTurns((previous) => previous.map((turn) => (turn.pending ? { ...turn, pending: false } : turn)))
+            finishPending({ failed: null })
             if (streamingSessionId !== null) await loadMessages(streamingSessionId)
-            if (activeId === null) await refreshSessions(streamingSessionId ?? undefined)
           },
           onError: (code, messageText) => {
-            setTurns((previous) => previous.map((turn) => (turn.pending ? { ...turn, pending: false } : turn)))
-            message.error(code === 'unavailable' || code === 'timeout'
-              ? `AI 服务暂不可用：${messageText}（可重试）`
-              : messageText)
+            finishPending({ failed: { code, message: messageText, question: content } })
           },
         },
         controller.signal,
       )
     } catch (error) {
-      if (error instanceof AiApiError) message.error(error.message)
-      else if (!(error instanceof DOMException && error.name === 'AbortError')) message.error('问答失败，请重试')
+      if (error instanceof AiApiError) {
+        finishPending({ failed: { code: error.code, message: error.message, question: content } })
+      } else if (error instanceof DOMException && error.name === 'AbortError') {
+        finishPending({ failed: null })
+      } else {
+        finishPending({ failed: { code: 'unknown', message: '问答失败，请重试', question: content } })
+      }
     } finally {
       setStreaming(false)
+      abortRef.current = null
     }
   }
+
+  const send = async (text?: string) => {
+    const content = (text ?? question).trim()
+    if (!content || streaming) return
+    setQuestion('')
+    setTurns((previous) => [...previous, {
+      key: `user-${Date.now()}`,
+      assistant: false,
+      content,
+      citations: [],
+    }])
+    appendAssistant()
+    setStreaming(true)
+    await stream(content)
+  }
+
+  const retry = async (failed: NonNullable<Turn['failed']>) => {
+    if (streaming) return
+    setTurns((previous) => {
+      const copy = [...previous]
+      if (copy.length > 0 && copy[copy.length - 1].assistant) copy.pop()
+      return copy
+    })
+    appendAssistant()
+    setStreaming(true)
+    await stream(failed.question)
+  }
+
+  const stop = () => abortRef.current?.abort()
 
   const removeSession = async (sessionId: number) => {
     try {
@@ -286,11 +418,17 @@ export default function AiChatPage() {
     }
   }
 
-  return (    <Page>
+  const streamingTurn = turns[turns.length - 1]?.assistant && turns[turns.length - 1]?.pending
+    ? turns[turns.length - 1]
+    : null
+
+  return (
+    <Page>
       <SessionPane>
         <SessionHead>
           <span>会话</span>
-          <Button size="small" type="text" icon={<RobotOutlined />} onClick={() => { void refreshSessions(); setActiveId(null); setTurns([]) }}>
+          <Button size="small" type="text" icon={<RobotOutlined />} aria-label="新建会话"
+            onClick={() => { void refreshSessions(); setActiveId(null); setTurns([]) }}>
             新对话
           </Button>
         </SessionHead>
@@ -299,20 +437,26 @@ export default function AiChatPage() {
             <List
               dataSource={sessions}
               split={false}
-              locale={{ emptyText: <Empty description="暂无会话" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+              locale={{ emptyText: '暂无会话' }}
               renderItem={(item) => (
-                <SessionItem $active={activeId === item.id} onClick={() => void openSession(item.id)}>
-                  <Text ellipsis style={{ width: 150, display: 'block' }}>{item.title}</Text>
-                  <span>
+                <SessionItem $active={activeId === item.id}>
+                  <SessionOpen type="button" aria-label={`打开会话：${item.title}`}
+                    onClick={() => void openSession(item.id)}>
+                    <Text ellipsis style={{ display: 'block', color: 'inherit', fontSize: 13 }}>
+                      {item.title}
+                    </Text>
+                  </SessionOpen>
+                  <SessionActions>
                     <Tooltip title="重命名">
                       <Button size="small" type="text" icon={<EditOutlined />}
-                        onClick={(event) => { event.stopPropagation(); setRenameTarget(item); setRenameValue(item.title) }} />
+                        aria-label={`重命名会话：${item.title}`}
+                        onClick={() => { setRenameTarget(item); setRenameValue(item.title) }} />
                     </Tooltip>
                     <Popconfirm title="删除该会话？" onConfirm={() => void removeSession(item.id)}>
                       <Button size="small" type="text" danger icon={<DeleteOutlined />}
-                        onClick={(event) => event.stopPropagation()} />
+                        aria-label={`删除会话：${item.title}`} />
                     </Popconfirm>
-                  </span>
+                  </SessionActions>
                 </SessionItem>
               )}
             />
@@ -323,30 +467,68 @@ export default function AiChatPage() {
       <ChatPane>
         <ChatBody ref={chatBodyRef}>
           {turns.length === 0 ? (
-            <Empty style={{ marginTop: 80 }} description="向 AI 助手提问，如：宁德基地 A 拉线有哪些焊接数模？"
-              image={Empty.PRESENTED_IMAGE_SIMPLE} />
-          ) : turns.map((turn) => (
+            <WelcomePanel onAsk={(prompt) => void send(prompt)} />
+          ) : turns.map((turn) => {
+            if (turn.assistant && !turn.pending && !turn.failed && !turn.content) return null
+            return (
             <BubbleRow key={turn.key} $assistant={turn.assistant}>
-              <div style={{ maxWidth: '82%' }}>
+              <BubbleColumn $assistant={turn.assistant}>
+                {turn.assistant && (
+                  <RoleRow>
+                    <RoleChip>
+                      <RobotOutlined /> AI
+                    </RoleChip>
+                    {turn.createdAt && <TurnTime>{new Date(turn.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</TurnTime>}
+                  </RoleRow>
+                )}
                 <Bubble $assistant={turn.assistant}>
-                  {turn.content || (turn.pending ? '正在思考…' : '')}
+                  {turn.pending ? (
+                    turn.content === '' ? (
+                      <Thinking>
+                        正在生成答案
+                        <Dot $delay={0} />
+                        <Dot $delay={150} />
+                        <Dot $delay={300} />
+                      </Thinking>
+                    ) : (
+                      <span>
+                        {turn.content}
+                        <Caret />
+                      </span>
+                    )
+                  ) : turn.failed ? (
+                    <>
+                      {turn.content && <MarkdownAnswer content={turn.content} />}
+                      <ErrorBox role="alert">
+                        <span>
+                          {(turn.failed.code === 'unavailable' || turn.failed.code === 'timeout' || turn.failed.code === 'network_failed')
+                            ? `AI 服务暂不可用：${turn.failed.message}`
+                            : turn.failed.message}
+                        </span>
+                        <Button size="small" danger onClick={() => void retry(turn.failed!)}>
+                          重试
+                        </Button>
+                      </ErrorBox>
+                    </>
+                  ) : (
+                    turn.content && <MarkdownAnswer content={turn.content} />
+                  )}
+                  {turn.pending && streamingTurn === turn && (
+                    <StopBar>
+                      <Button type="text" size="small" danger icon={<StopOutlined />}
+                        aria-label="停止生成" onClick={stop}>
+                        停止
+                      </Button>
+                    </StopBar>
+                  )}
                 </Bubble>
                 {turn.assistant && turn.citations.length > 0 && (
-                  <div>
-                    {turn.citations.map((citation, index) => (
-                      <CitationLink key={`${turn.key}-${index}`} type="button"
-                        onClick={() => {
-                          const assetId = Number.parseInt(citation.docId, 10)
-                          window.open(Number.isFinite(assetId) ? `/assets/${assetId}` : '/', '_blank')
-                        }}>
-                        引用 {index + 1}：{citation.location || citation.docId}
-                      </CitationLink>
-                    ))}
-                  </div>
+                  <CitationBlock citations={turn.citations} />
                 )}
-              </div>
+              </BubbleColumn>
             </BubbleRow>
-          ))}
+            )
+          })}
         </ChatBody>
         <Composer>
           <Input.TextArea
