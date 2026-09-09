@@ -13,15 +13,11 @@ import com.tianshu.assets.ai.application.AiCapabilityClient.IngestResult;
 import com.tianshu.assets.ai.application.AiCapabilityException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
 
 /**
  * dev 环境的 AI 能力服务替身（T2）：canned 事件流与抽取载荷，
  * 记录最近一次请求参数以便测试/联调断言；可用 setter 注入自定义序列或强制失败。
  */
-@Component
-@Profile("dev")
 public class FakeAiCapabilityClient implements AiCapabilityClient {
 
     private volatile List<ChatEvent> chatEvents = defaultChatEvents();

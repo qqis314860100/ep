@@ -24,6 +24,7 @@ asset:
 # AI 能力服务（泛化 rag 服务）连接：base-url 指向其根地址，api-key 为空时请求不带 X-Service-Key。
 ai:
   capability:
+    mock: ${AI_CAPABILITY_MOCK:true}
     base-url: ${AI_CAPABILITY_BASE_URL:http://localhost:8000}
     api-key: ${AI_CAPABILITY_API_KEY:}
     namespace: ${AI_CAPABILITY_NAMESPACE:ep-docs}

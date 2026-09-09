@@ -32,8 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
 
 /**
  * 泛化 AI 能力服务的 HTTP/SSE 实现（T2）：local/oceanbase 使用。
@@ -43,8 +41,6 @@ import org.springframework.stereotype.Component;
  * 其余 IOException/非 2xx→UNAVAILABLE、解析失败→PROTOCOL。
  * 注意：请求超时仅覆盖响应头到达；200 后 SSE 流中断的中途停顿由调用方（问答会话层）按整体超时兜底。
  */
-@Component
-@Profile({"local", "oceanbase"})
 public class HttpAiCapabilityClient implements AiCapabilityClient {
 
     private final AiCapabilityProperties properties;
