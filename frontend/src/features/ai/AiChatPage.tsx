@@ -283,10 +283,18 @@ export default function AiChatPage() {
     if (chatBodyRef.current) chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight
   }, [turns])
 
+  // 选中会话（含路由返回/初次挂载自动选中首会话）时载入该会话历史
+  useEffect(() => {
+    if (activeId === null) {
+      setTurns([])
+      return
+    }
+    void loadMessages(activeId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId])
+
   const openSession = async (sessionId: number) => {
     setActiveId(sessionId)
-    setTurns([])
-    await loadMessages(sessionId)
   }
 
   const finishPending = (updates: Partial<Turn> & { failed?: Turn['failed'] }) => {

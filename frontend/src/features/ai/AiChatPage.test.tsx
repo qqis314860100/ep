@@ -47,16 +47,19 @@ const sseErrorBody = [
   '',
 ].join('\n')
 
-function installFetchMock(chatBody: string) {
+function installFetchMock(chatBody: string, historyMessages = false) {
   const calls: Array<{ url: string; init?: RequestInit }> = []
+  let chatSent = false
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     calls.push({ url, init })
     if (url.endsWith('/ai/chat')) {
+      chatSent = true
       return new Response(chatBody, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
     }
     if (url.includes('/messages')) {
-      return new Response(JSON.stringify(messagesPayload()), {
+      const body = historyMessages || chatSent ? messagesPayload() : []
+      return new Response(JSON.stringify(body), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
@@ -116,6 +119,15 @@ describe('AiChatPage（T5 AI 助手工作台）', () => {
       const body = JSON.parse(String(chatCall!.init?.body))
       expect(body.question).toBe('宁德基地 A 拉线有哪些焊接数模？')
     })
+    expect(await screen.findByText('流式回答内容')).toBeVisible()
+  })
+
+  it('路由返回后自动载入首个会话历史（无需再次点击）', async () => {
+    installFetchMock(sseBody, true)
+    render(<AiChatPage />)
+
+    expect(await screen.findByText('这是什么资产？')).toBeVisible()
+    expect(await screen.findByText('宁德基地有哪些焊接数模')).toBeVisible()
     expect(await screen.findByText('流式回答内容')).toBeVisible()
   })
 
