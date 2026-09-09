@@ -6,15 +6,15 @@
 #
 # 用法：
 #   bash scripts/e2e/start-real-stack.sh
-#   AI_RAG_DIR=/path/to/ai-rag PORT_BACK=8081 PORT_FRONT=5174 bash scripts/e2e/start-real-stack.sh
+#   AI_RAG_DIR=/path/to/ai-rag bash scripts/e2e/start-real-stack.sh   # 默认 8080/5173
 # 停止：kill "$(cat /tmp/ep-stack.pids)" 2>/dev/null; rm -f /tmp/ep-stack.pids
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 AI_RAG_DIR="${AI_RAG_DIR:-/Users/tomtong/Software/js/ai-rag}"
-PORT_BACK="${PORT_BACK:-8081}"
-PORT_FRONT="${PORT_FRONT:-5174}"
+PORT_BACK="${PORT_BACK:-8080}"
+PORT_FRONT="${PORT_FRONT:-5173}"
 RAG_URL="${RAG_URL:-http://127.0.0.1:8000}"
 JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home}"
 PIDS_FILE=/tmp/ep-stack.pids
