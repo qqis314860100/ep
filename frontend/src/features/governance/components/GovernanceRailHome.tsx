@@ -1,16 +1,21 @@
 import {
+  ApartmentOutlined,
   ArrowRightOutlined,
   AppstoreOutlined,
+  BookOutlined,
   ClockCircleOutlined,
+  DatabaseOutlined,
   FileDoneOutlined,
   PlusOutlined,
   ReloadOutlined,
   RightOutlined,
+  ScanOutlined,
+  SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Dropdown, Empty, Skeleton } from 'antd'
-import { useMemo } from 'react'
+import { Alert, Button, Empty, Skeleton } from 'antd'
+import { useMemo, useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { authSession } from '../../auth/session'
@@ -43,11 +48,10 @@ const Page = styled.section`
 const Hero = styled.header`
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
   min-height: 96px;
-  padding: 22px 24px;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 24px 20px;
   overflow: hidden;
   background: #fff;
   border: 1px solid ${railTheme.line};
@@ -60,6 +64,13 @@ const Hero = styled.header`
     width: 4px;
     background: ${railTheme.brand};
   }
+`
+
+const HeroHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 
   @media (max-width: 720px) {
     align-items: flex-start;
@@ -84,50 +95,6 @@ const HeroCopy = styled.div`
     font-size: 13px;
     line-height: 1.6;
   }
-`
-
-const Identity = styled.div`
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px 8px 8px;
-  background: #f7f9f8;
-  border: 1px solid #e6ebe8;
-  border-radius: 8px;
-`
-
-const HeroActions = styled.div`
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 10px;
-
-  @media (max-width: 560px) {
-    width: 100%;
-    align-items: stretch;
-    flex-direction: column-reverse;
-  }
-`
-
-const Avatar = styled.span`
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  background: ${railTheme.brand};
-  border-radius: 6px;
-`
-
-const IdentityText = styled.span`
-  display: flex;
-  flex-direction: column;
-
-  strong { color: ${railTheme.text}; font-size: 13px; font-weight: 650; }
-  small { color: ${railTheme.text3}; font-size: 11px; }
 `
 
 const WorkbenchHeading = styled.div`
@@ -304,6 +271,22 @@ const fieldLabels: Record<string, string> = {
   SCOPE: '适用范围',
 }
 
+interface GovernanceTool {
+  path: string
+  label: string
+  icon: ComponentType
+  desc: string
+}
+
+const governanceTools: GovernanceTool[] = [
+  { path: '/sys/drawing/inventory', label: '资产盘点', icon: DatabaseOutlined, desc: '待整理与已标准化的资产盘点情况' },
+  { path: '/sys/drawing/scans', label: '自动扫描', icon: ScanOutlined, desc: '扫描运行记录与最近一次结果' },
+  { path: '/sys/drawing/standards', label: '标准中心', icon: BookOutlined, desc: '三维数模命名与归档标准维护' },
+  { path: '/sys/drawing/mappings', label: '映射规则', icon: ApartmentOutlined, desc: '来源字段到标准字典的映射配置' },
+  { path: '/sys/drawing/operations', label: '治理运营', icon: SettingOutlined, desc: '全链路任务与阶段推进管理' },
+  { path: '/sys/drawing/responsibility', label: '责任看板', icon: TeamOutlined, desc: '各责任人任务分布与负载' },
+]
+
 function formatMonthDay(value: string | null | undefined): string {
   const date = value ? new Date(value) : null
   if (!date || Number.isNaN(date.getTime())) return '未设置截止日'
@@ -327,12 +310,92 @@ function taskPriority(task: GovernanceTask, today: Date): number {
   return (diff !== null && diff < 0 ? 100 : 0) + statusWeight[task.status] - (diff ?? 999) / 1000
 }
 
+const ToolsPanel = styled.section`
+  padding: 17px 18px 18px;
+  background: #fff;
+  border: 1px solid ${railTheme.line};
+  border-radius: 8px;
+`
+
+const ToolsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+
+  @media (max-width: 980px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
+`
+
+const ToolCard = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: #fafbfb;
+  border: 1px solid ${railTheme.line};
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+
+  .ic {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    place-items: center;
+    color: ${railTheme.brand};
+    font-size: 16px;
+    background: ${railTheme.brandWeak};
+    border-radius: 8px;
+  }
+
+  strong {
+    display: block;
+    overflow: hidden;
+    color: ${railTheme.text};
+    font-size: 13.5px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: ${railTheme.text3};
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover {
+    border-color: ${railTheme.brand};
+    box-shadow: 0 2px 8px rgba(20, 30, 50, 0.06);
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${railTheme.blue};
+    outline-offset: 1px;
+  }
+`
+
 interface GovernanceRailHomeProps {
   onOpenTask?: (taskId: number) => void
 }
 
 export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
   const navigate = useNavigate()
+  const [view, setView] = useState<'workbench' | 'tools'>('workbench')
   const user = authSession.get()
   const isAdministrator = user?.roles.some(role => role === 'CONTENT_ADMIN' || role === 'SYSTEM_ADMIN') ?? true
   const inventoryQuery = useQuery({ queryKey: ['rail-inventory'], queryFn: () => getInventory({ page: 1, perPage: 1 }), staleTime: 60_000 })
@@ -411,13 +474,6 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
   const currentStageKey = model.nodes.find(node => node.state === 'current')?.key
     ?? model.nodes.find(node => node.state === 'overdue')?.key
     ?? 'scan'
-  const toolItems = [
-    { key: '/sys/drawing/inventory', label: '资产盘点' },
-    { key: '/sys/drawing/scans', label: '自动扫描' },
-    { key: '/sys/drawing/standards', label: '标准中心' },
-    { key: '/sys/drawing/mappings', label: '映射规则' },
-    { key: '/sys/drawing/operations', label: '治理运营' },
-  ]
   const openStage = (key: GovernanceRailStageKey) => {
     if (key === 'scan') {
       navigate('/sys/drawing/scans')
@@ -442,22 +498,20 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
   return (
     <Page>
       <Hero>
-        <HeroCopy>
-          <h1>数据治理工作台</h1>
-          <p>聚焦今天要推进的任务。先派发问题，再跟进责任人处理。</p>
-        </HeroCopy>
-        <HeroActions>
-          <Dropdown menu={{ items: toolItems, onClick: ({ key }) => navigate(key) }} placement="bottomRight">
-            <Button icon={<AppstoreOutlined aria-hidden />}>治理工具</Button>
-          </Dropdown>
-          <Identity aria-label={`当前用户 ${user?.name ?? '管理员'}`}>
-            <Avatar>{(user?.name ?? '管').charAt(0)}</Avatar>
-            <IdentityText>
-              <strong>{user?.name ?? '管理员'}</strong>
-              <small>{user?.department ?? '数据治理中心'} · 当前登录</small>
-            </IdentityText>
-          </Identity>
-        </HeroActions>
+        <HeroHead>
+          <HeroCopy>
+            <h1>数据治理工作台</h1>
+            <p>聚焦今天要推进的任务。先派发问题，再跟进责任人处理。</p>
+          </HeroCopy>
+          <Button
+            aria-label={view === 'workbench' ? '切换至治理工具' : '返回工作台'}
+            icon={view === 'workbench' ? <AppstoreOutlined aria-hidden /> : <ArrowRightOutlined aria-hidden />}
+            onClick={() => setView(value => (value === 'workbench' ? 'tools' : 'workbench'))}
+          >
+            {view === 'workbench' ? '治理工具' : '返回工作台'}
+          </Button>
+        </HeroHead>
+        <StatCards cards={statCards} />
       </Hero>
 
       {failedSources.length > 0 && (
@@ -470,88 +524,107 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
         />
       )}
 
-      <ProgressPanel>
-        <SectionHeader>
-          <div><h2>治理阶段进度</h2><p>从问题发现到正式应用，掌握全链路推进状态</p></div>
-          <Button type="link" aria-label="查看完整进度" icon={<ClockCircleOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/operations')}>查看完整进度</Button>
-        </SectionHeader>
-        <GovernanceRail
-          nodes={model.nodes}
-          selectedKey={currentStageKey}
-          onSelect={openStage}
-          hint="点击任一阶段进入对应工作页面"
-        />
-      </ProgressPanel>
+      {view === 'workbench' ? (
+        <>
+          <ProgressPanel>
+            <SectionHeader>
+              <div><h2>治理阶段进度</h2><p>从问题发现到正式应用，掌握全链路推进状态</p></div>
+              <Button type="link" aria-label="查看完整进度" icon={<ClockCircleOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/operations')}>查看完整进度</Button>
+            </SectionHeader>
+            <GovernanceRail
+              nodes={model.nodes}
+              selectedKey={currentStageKey}
+              onSelect={openStage}
+              hint="点击任一阶段进入对应工作页面"
+            />
+          </ProgressPanel>
 
-      <WorkbenchHeading>
-        <div>
-          <h2>今日工作</h2>
-          <p>两个入口覆盖最常用的派发与处理流程</p>
-        </div>
-        <Button type="text" aria-label="责任看板" icon={<TeamOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/responsibility')}>责任看板</Button>
-      </WorkbenchHeading>
+          <WorkbenchHeading>
+            <div>
+              <h2>今日工作</h2>
+              <p>两个入口覆盖最常用的派发与处理流程</p>
+            </div>
+            <Button type="text" aria-label="责任看板" icon={<TeamOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/responsibility')}>责任看板</Button>
+          </WorkbenchHeading>
 
-      <WorkGrid>
-        <WorkCard $tone="dispatch">
-          <WorkCardHeader>
-            <WorkCardTitle>
-              <span className="icon"><PlusOutlined /></span>
-              <div><h3>派发任务</h3><p>从待处理问题直接创建治理任务</p></div>
-            </WorkCardTitle>
-            <CountBadge><strong>{issuesQuery.isError ? '—' : model.pendingIssues.length}</strong><small>项待派发</small></CountBadge>
-          </WorkCardHeader>
-          <Queue aria-label="待派发问题">
-            {queueLoading ? <Skeleton active paragraph={{ rows: 3 }} title={false} /> : model.pendingIssues.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有待派发问题" style={{ margin: '25px 0' }} />
-            ) : model.pendingIssues.slice(0, 3).map(issue => (
-              <QueueRow key={issue.id} type="button" onClick={() => navigate('/sys/drawing/issues')}>
-                <RowMain><strong>{issueLabel(issue)}</strong><small>{issue.issueType} · {issue.blocking ? '阻塞问题' : `${issue.severity} 级`}</small></RowMain>
-                <RowMeta $danger={issue.blocking}>{issue.blocking ? '优先派发' : '待派发'}</RowMeta>
-                <RightOutlined aria-hidden />
-              </QueueRow>
+          <WorkGrid>
+            <WorkCard $tone="dispatch">
+              <WorkCardHeader>
+                <WorkCardTitle>
+                  <span className="icon"><PlusOutlined /></span>
+                  <div><h3>派发任务</h3><p>从待处理问题直接创建治理任务</p></div>
+                </WorkCardTitle>
+                <CountBadge><strong>{issuesQuery.isError ? '—' : model.pendingIssues.length}</strong><small>项待派发</small></CountBadge>
+              </WorkCardHeader>
+              <Queue aria-label="待派发问题">
+                {queueLoading ? <Skeleton active paragraph={{ rows: 3 }} title={false} /> : model.pendingIssues.length === 0 ? (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有待派发问题" style={{ margin: '25px 0' }} />
+                ) : model.pendingIssues.slice(0, 3).map(issue => (
+                  <QueueRow key={issue.id} type="button" onClick={() => navigate('/sys/drawing/issues')}>
+                    <RowMain><strong>{issueLabel(issue)}</strong><small>{issue.issueType} · {issue.blocking ? '阻塞问题' : `${issue.severity} 级`}</small></RowMain>
+                    <RowMeta $danger={issue.blocking}>{issue.blocking ? '优先派发' : '待派发'}</RowMeta>
+                    <RightOutlined aria-hidden />
+                  </QueueRow>
+                ))}
+              </Queue>
+              <CardFooter>
+                <span>支持勾选多个问题后一次派发</span>
+                <Button type="primary" aria-label="派发任务" icon={<PlusOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/issues')}>派发任务</Button>
+              </CardFooter>
+            </WorkCard>
+
+            <WorkCard $tone="task">
+              <WorkCardHeader>
+                <WorkCardTitle>
+                  <span className="icon"><FileDoneOutlined /></span>
+                  <div><h3>认领任务</h3><p>{isAdministrator ? '优先展示逾期和待验收任务' : '优先展示分配给我的任务'}</p></div>
+                </WorkCardTitle>
+                <CountBadge $alert={model.dueSummary.overdue > 0}><strong>{tasksQuery.isError ? '—' : model.focusTasks.length}</strong><small>项待推进</small></CountBadge>
+              </WorkCardHeader>
+              <Queue aria-label="待处理任务">
+                {queueLoading ? <Skeleton active paragraph={{ rows: 3 }} title={false} /> : model.focusTasks.length === 0 ? (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有待处理任务" style={{ margin: '25px 0' }} />
+                ) : model.focusTasks.slice(0, 3).map(task => {
+                  const diff = dueDayDiff(task.dueDate, model.today)
+                  const overdue = diff !== null && diff < 0
+                  return (
+                    <QueueRow key={task.id} type="button" onClick={() => onOpenTask?.(task.id)}>
+                      <RowMain><strong>{task.name || `治理任务 #${task.id}`}</strong><small>{tasksTitleStatus[task.status]} · {task.owner || '待认领'}</small></RowMain>
+                      <RowMeta $danger={overdue}>{overdue ? `逾期 ${Math.abs(diff ?? 0)} 天` : formatMonthDay(task.dueDate)}</RowMeta>
+                      <RightOutlined aria-hidden />
+                    </QueueRow>
+                  )
+                })}
+              </Queue>
+              <CardFooter>
+                <span>任务详情中可启动、移交或继续处理</span>
+                <Button type="primary" aria-label={model.focusTasks.length > 0 ? '处理首要任务' : '查看全部任务'} icon={<ArrowRightOutlined aria-hidden />} onClick={() => {
+                  const firstTask = model.focusTasks[0]
+                  if (firstTask) onOpenTask?.(firstTask.id)
+                  else navigate('/sys/drawing/operations')
+                }}>{model.focusTasks.length > 0 ? '处理首要任务' : '查看全部任务'}</Button>
+              </CardFooter>
+            </WorkCard>
+          </WorkGrid>
+        </>
+      ) : (
+        <ToolsPanel>
+          <SectionHeader>
+            <div><h2>治理工具</h2><p>从盘点、扫描到映射与责任，直达各治理页面</p></div>
+          </SectionHeader>
+          <ToolsGrid>
+            {governanceTools.map(tool => (
+              <ToolCard key={tool.path} type="button" onClick={() => navigate(tool.path)}>
+                <span className="ic" aria-hidden="true"><tool.icon /></span>
+                <div>
+                  <strong>{tool.label}</strong>
+                  <small>{tool.desc}</small>
+                </div>
+              </ToolCard>
             ))}
-          </Queue>
-          <CardFooter>
-            <span>支持勾选多个问题后一次派发</span>
-            <Button type="primary" aria-label="派发任务" icon={<PlusOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/issues')}>派发任务</Button>
-          </CardFooter>
-        </WorkCard>
-
-        <WorkCard $tone="task">
-          <WorkCardHeader>
-            <WorkCardTitle>
-              <span className="icon"><FileDoneOutlined /></span>
-              <div><h3>认领任务</h3><p>{isAdministrator ? '优先展示逾期和待验收任务' : '优先展示分配给我的任务'}</p></div>
-            </WorkCardTitle>
-            <CountBadge $alert={model.dueSummary.overdue > 0}><strong>{tasksQuery.isError ? '—' : model.focusTasks.length}</strong><small>项待推进</small></CountBadge>
-          </WorkCardHeader>
-          <Queue aria-label="待处理任务">
-            {queueLoading ? <Skeleton active paragraph={{ rows: 3 }} title={false} /> : model.focusTasks.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前没有待处理任务" style={{ margin: '25px 0' }} />
-            ) : model.focusTasks.slice(0, 3).map(task => {
-              const diff = dueDayDiff(task.dueDate, model.today)
-              const overdue = diff !== null && diff < 0
-              return (
-                <QueueRow key={task.id} type="button" onClick={() => onOpenTask?.(task.id)}>
-                  <RowMain><strong>{task.name || `治理任务 #${task.id}`}</strong><small>{tasksTitleStatus[task.status]} · {task.owner || '待认领'}</small></RowMain>
-                  <RowMeta $danger={overdue}>{overdue ? `逾期 ${Math.abs(diff ?? 0)} 天` : formatMonthDay(task.dueDate)}</RowMeta>
-                  <RightOutlined aria-hidden />
-                </QueueRow>
-              )
-            })}
-          </Queue>
-          <CardFooter>
-            <span>任务详情中可启动、移交或继续处理</span>
-            <Button type="primary" aria-label={model.focusTasks.length > 0 ? '处理首要任务' : '查看全部任务'} icon={<ArrowRightOutlined aria-hidden />} onClick={() => {
-              const firstTask = model.focusTasks[0]
-              if (firstTask) onOpenTask?.(firstTask.id)
-              else navigate('/sys/drawing/operations')
-            }}>{model.focusTasks.length > 0 ? '处理首要任务' : '查看全部任务'}</Button>
-          </CardFooter>
-        </WorkCard>
-      </WorkGrid>
-
-      <StatCards cards={statCards} />
+          </ToolsGrid>
+        </ToolsPanel>
+      )}
     </Page>
   )
 }
