@@ -1,7 +1,6 @@
 import {
   ApartmentOutlined,
   ArrowRightOutlined,
-  AppstoreOutlined,
   BookOutlined,
   ClockCircleOutlined,
   DatabaseOutlined,
@@ -15,7 +14,7 @@ import {
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Button, Empty, Skeleton } from 'antd'
-import { useMemo, useState, type ComponentType } from 'react'
+import { useMemo, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { authSession } from '../../auth/session'
@@ -63,18 +62,6 @@ const Hero = styled.header`
     inset: 0 auto 0 0;
     width: 4px;
     background: ${railTheme.brand};
-  }
-`
-
-const HeroHead = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-
-  @media (max-width: 720px) {
-    align-items: flex-start;
-    flex-direction: column;
   }
 `
 
@@ -395,7 +382,6 @@ interface GovernanceRailHomeProps {
 
 export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
   const navigate = useNavigate()
-  const [view, setView] = useState<'workbench' | 'tools'>('workbench')
   const user = authSession.get()
   const isAdministrator = user?.roles.some(role => role === 'CONTENT_ADMIN' || role === 'SYSTEM_ADMIN') ?? true
   const inventoryQuery = useQuery({ queryKey: ['rail-inventory'], queryFn: () => getInventory({ page: 1, perPage: 1 }), staleTime: 60_000 })
@@ -498,19 +484,10 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
   return (
     <Page>
       <Hero>
-        <HeroHead>
-          <HeroCopy>
-            <h1>数据治理工作台</h1>
-            <p>聚焦今天要推进的任务。先派发问题，再跟进责任人处理。</p>
-          </HeroCopy>
-          <Button
-            aria-label={view === 'workbench' ? '切换至治理工具' : '返回工作台'}
-            icon={view === 'workbench' ? <AppstoreOutlined aria-hidden /> : <ArrowRightOutlined aria-hidden />}
-            onClick={() => setView(value => (value === 'workbench' ? 'tools' : 'workbench'))}
-          >
-            {view === 'workbench' ? '治理工具' : '返回工作台'}
-          </Button>
-        </HeroHead>
+        <HeroCopy>
+          <h1>数据治理工作台</h1>
+          <p>聚焦今天要推进的任务。先派发问题，再跟进责任人处理。</p>
+        </HeroCopy>
         <StatCards cards={statCards} />
       </Hero>
 
@@ -524,20 +501,18 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
         />
       )}
 
-      {view === 'workbench' ? (
-        <>
-          <ProgressPanel>
-            <SectionHeader>
-              <div><h2>治理阶段进度</h2><p>从问题发现到正式应用，掌握全链路推进状态</p></div>
-              <Button type="link" aria-label="查看完整进度" icon={<ClockCircleOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/operations')}>查看完整进度</Button>
-            </SectionHeader>
-            <GovernanceRail
-              nodes={model.nodes}
-              selectedKey={currentStageKey}
-              onSelect={openStage}
-              hint="点击任一阶段进入对应工作页面"
-            />
-          </ProgressPanel>
+      <ProgressPanel>
+        <SectionHeader>
+          <div><h2>治理阶段进度</h2><p>从问题发现到正式应用，掌握全链路推进状态</p></div>
+          <Button type="link" aria-label="查看完整进度" icon={<ClockCircleOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/operations')}>查看完整进度</Button>
+        </SectionHeader>
+        <GovernanceRail
+          nodes={model.nodes}
+          selectedKey={currentStageKey}
+          onSelect={openStage}
+          hint="点击任一阶段进入对应工作页面"
+        />
+      </ProgressPanel>
 
           <WorkbenchHeading>
             <div>
@@ -606,25 +581,23 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
               </CardFooter>
             </WorkCard>
           </WorkGrid>
-        </>
-      ) : (
-        <ToolsPanel>
-          <SectionHeader>
-            <div><h2>治理工具</h2><p>从盘点、扫描到映射与责任，直达各治理页面</p></div>
-          </SectionHeader>
-          <ToolsGrid>
-            {governanceTools.map(tool => (
-              <ToolCard key={tool.path} type="button" onClick={() => navigate(tool.path)}>
-                <span className="ic" aria-hidden="true"><tool.icon /></span>
-                <div>
-                  <strong>{tool.label}</strong>
-                  <small>{tool.desc}</small>
-                </div>
-              </ToolCard>
-            ))}
-          </ToolsGrid>
-        </ToolsPanel>
-      )}
+
+      <ToolsPanel>
+        <SectionHeader>
+          <div><h2>治理工具</h2><p>从盘点、扫描到映射与责任，直达各治理页面</p></div>
+        </SectionHeader>
+        <ToolsGrid>
+          {governanceTools.map(tool => (
+            <ToolCard key={tool.path} type="button" onClick={() => navigate(tool.path)}>
+              <span className="ic" aria-hidden="true"><tool.icon /></span>
+              <div>
+                <strong>{tool.label}</strong>
+                <small>{tool.desc}</small>
+              </div>
+            </ToolCard>
+          ))}
+        </ToolsGrid>
+      </ToolsPanel>
     </Page>
   )
 }
