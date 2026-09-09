@@ -2,9 +2,11 @@ package com.tianshu.assets.ai.infrastructure;
 
 import com.tianshu.assets.ai.application.AiCapabilityClient;
 import com.tianshu.assets.ai.application.AiCapabilityClient.ChatCitations;
+import com.tianshu.assets.ai.application.AiCapabilityClient.ChatDelta;
 import com.tianshu.assets.ai.application.AiCapabilityClient.ChatDone;
 import com.tianshu.assets.ai.application.AiCapabilityClient.ChatEvent;
 import com.tianshu.assets.ai.application.AiCapabilityClient.ChatMeta;
+import com.tianshu.assets.ai.application.AiCapabilityClient.ChatMessage;
 import com.tianshu.assets.ai.application.AiCapabilityClient.ChatRequest;
 import com.tianshu.assets.ai.application.AiCapabilityClient.Citation;
 import com.tianshu.assets.ai.application.AiCapabilityClient.DocumentRequest;
@@ -15,8 +17,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * dev 环境的 AI 能力服务替身（T2）：canned 事件流与抽取载荷，
- * 记录最近一次请求参数以便测试/联调断言；可用 setter 注入自定义序列或强制失败。
+ * 测试专用能力服务替身（位于 test 源；生产运行时唯一实现为 {@link HttpAiCapabilityClient}）。
+ * canned 事件流与抽取载荷，记录最近一次请求参数供断言；可用 setter 注入自定义序列或强制失败。
  */
 public class FakeAiCapabilityClient implements AiCapabilityClient {
 
@@ -33,7 +35,7 @@ public class FakeAiCapabilityClient implements AiCapabilityClient {
         return List.of(
                 new ChatMeta("fake-session", "fake-message"),
                 new ChatDelta("来自 Fake 能力服务的回答。"),
-                new ChatCitations(List.of(new Citation("doc-1", "第 3 页", "示例摘录"))),
+                new ChatCitations(List.of(new Citation("doc-1", "第 3 页", "示例摘录", true))),
                 new ChatDone("{\"promptTokens\":1}"));
     }
 
@@ -52,7 +54,7 @@ public class FakeAiCapabilityClient implements AiCapabilityClient {
         this.extractionResult = result == null ? defaultExtractionResult() : result;
     }
 
-    /** 让后续调用按指定错误失败（sticky，直到再次调用并传 null 清除），供上层降级联调/测试。 */
+    /** 让后续调用按指定错误失败（sticky，直到再次调用并传 null 清除）。 */
     public void failWith(AiCapabilityException exception) {
         this.failure = exception;
     }

@@ -32,15 +32,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
- * 泛化 AI 能力服务的 HTTP/SSE 实现（T2）：local/oceanbase 使用。
+ * 泛化 AI 能力服务的 HTTP/SSE 实现：ep 运行时唯一能力客户端（默认启用，指向 rag 真实服务）。
  * 契约端点：{base}/rag/chat/stream（SSE）、{base}/rag/documents/ingest、{base}/rag/extract；
  * 鉴权走 X-Service-Key；检索请求只携带 scope/namespace，不携带用户身份。
  * 失败映射：401/403→AUTH_FAILED、头部/响应超时（HttpTimeoutException）→TIMEOUT、
  * 其余 IOException/非 2xx→UNAVAILABLE、解析失败→PROTOCOL。
  * 注意：请求超时仅覆盖响应头到达；200 后 SSE 流中断的中途停顿由调用方（问答会话层）按整体超时兜底。
  */
+@Component
 public class HttpAiCapabilityClient implements AiCapabilityClient {
 
     private final AiCapabilityProperties properties;

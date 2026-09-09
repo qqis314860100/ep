@@ -13,8 +13,8 @@ import java.util.List;
  * </ul>
  * 检索请求只携带 scope 过滤条件与语料 namespace，不携带任何用户身份。</p>
  *
- * <p>实现：dev 用 {@code FakeAiCapabilityClient}（canned 数据，供开发/联调/测试），
- * local/oceanbase 用 {@code HttpAiCapabilityClient}。失败一律抛 {@link AiCapabilityException}。</p>
+ * <p>实现：运行时唯一实现为 {@code HttpAiCapabilityClient}（真实能力服务，rag/…/extract）；
+ * 离线单测使用 test 源内的 Fake 替身。失败一律抛 {@link AiCapabilityException}。</p>
  */
 public interface AiCapabilityClient {
 
