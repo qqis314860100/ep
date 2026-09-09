@@ -172,6 +172,34 @@ describe('buildGovernanceRailModel 状态机', () => {
     expect(nodes[1].state).toBe('current')
     expect(nodes[1].badge).toBe(12)
   })
+
+  it('当前阶段已越过问题池：问题池记 done（即使仍有待分派剩余）', () => {
+    const counts = emptyGovernanceRailCounts()
+    counts.scanSucceeded = true
+    counts.scannedAssetCount = 5
+    counts.inventoryTotal = 5
+    counts.issueTotalEver = 12
+    counts.poolOpenCount = 5
+    counts.assign.overdue = 1
+    counts.confirm.wait = 42
+    const nodes = buildGovernanceRailModel(counts)
+    expect(nodes.map(node => node.state)).toEqual(['done', 'done', 'overdue', 'current', 'wait', 'wait'])
+    expect(nodes[1].badge).toBe(5)
+    expect(nodes[1].caption).toContain('剩余 5 条')
+  })
+
+  it('后序阶段为 current 时，前序整改阶段有余量但无逾期 → 记 done（已推进）', () => {
+    const counts = emptyGovernanceRailCounts()
+    counts.scanSucceeded = true
+    counts.inventoryTotal = 30
+    counts.issueTotalEver = 12
+    counts.assign.wait = 4
+    counts.confirm.wait = 20
+    const nodes = buildGovernanceRailModel(counts)
+    expect(nodes[2].state).toBe('done')
+    expect(nodes[2].badge).toBe(4)
+    expect(nodes[2].caption).toContain('剩余 4 条')
+  })
 })
 
 describe('summarizeGovernanceTasksForRail', () => {

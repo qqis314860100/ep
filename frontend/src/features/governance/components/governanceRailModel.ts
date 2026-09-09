@@ -311,8 +311,17 @@ function poolNode(counts: GovernanceRailCounts, dominantIndex: number): Governan
   let state: GovernanceRailNodeState
   let caption: string
   if (waiting) {
-    state = dominantIndex === 1 ? 'current' : 'wait'
-    caption = dominantIndex === 1 ? `当前步骤 · ${counts.poolOpenCount} 条待分派` : `待分派 ${counts.poolOpenCount} 条`
+    if (dominantIndex === 1) {
+      state = 'current'
+      caption = `当前步骤 · ${counts.poolOpenCount} 条待分派`
+    } else if (dominantIndex > 1) {
+      // 问题池已被后序阶段越过：不再"未开始"，标记为已完成，剩余条目以徽标/说明呈现。
+      state = 'done'
+      caption = `已分派 · 剩余 ${counts.poolOpenCount} 条`
+    } else {
+      state = 'wait'
+      caption = `待分派 ${counts.poolOpenCount} 条`
+    }
   } else if (counts.issueTotalEver > 0 || counts.taskTotalCount > 0 || dominantIndex > 1) {
     state = 'done'
     caption = counts.issueTotalEver > 0 ? `已分派 · 累计 ${counts.issueTotalEver} 条` : '问题池已清空'
@@ -333,7 +342,16 @@ function middleNode(
   const isCurrent = index === dominantIndex && stage.wait > 0
   let state: GovernanceRailNodeState
   if (stage.wait > 0) {
-    state = isCurrent ? 'current' : stage.overdue > 0 ? 'overdue' : 'wait'
+    if (isCurrent) {
+      state = 'current'
+    } else if (stage.overdue > 0) {
+      state = 'overdue'
+    } else if (index < dominantIndex) {
+      // 该阶段已被 current 越过：即使仍有余量也不能"未开始"，记为已完成（余量以徽标/说明呈现）。
+      state = 'done'
+    } else {
+      state = 'wait'
+    }
   } else if (stage.overdue > 0) {
     state = 'overdue'
   } else if (index < dominantIndex || everythingDrained) {
@@ -343,14 +361,16 @@ function middleNode(
   }
   const verb = key === 'assign' ? '整改' : key === 'confirm' ? '业务确认' : '验收'
   let caption: string
-  if (state === 'done') {
-    caption = key === 'assign' ? '整改已完成' : key === 'confirm' ? '业务确认已完成' : '质量验收已完成'
-  } else if (state === 'overdue') {
+  if (state === 'overdue') {
     caption = `逾期 ${stage.overdue} 条待跟进`
   } else if (state === 'current') {
     caption = stage.overdue > 0
       ? `当前步骤 · 待${verb} ${stage.wait} 条（含逾期 ${stage.overdue}）`
       : `当前步骤 · 待${verb} ${stage.wait} 条`
+  } else if (state === 'done' && stage.wait > 0) {
+    caption = `已推进 · 剩余 ${stage.wait} 条`
+  } else if (state === 'done') {
+    caption = key === 'assign' ? '整改已完成' : key === 'confirm' ? '业务确认已完成' : '质量验收已完成'
   } else if (stage.wait > 0) {
     caption = `待${verb} ${stage.wait} 条`
   } else {
