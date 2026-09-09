@@ -58,7 +58,7 @@ describe('GovernanceRailHome 工作台', () => {
     expect(screen.getByRole('button', { name: '处理首要任务' })).toBeInTheDocument()
     expect(within(screen.getByLabelText('待派发问题')).getAllByRole('button')).toHaveLength(3)
     expect(within(screen.getByLabelText('待处理任务')).getAllByRole('button')).toHaveLength(2)
-    const progress = screen.getByLabelText(/治理阶段进度：/)
+    const progress = screen.getByLabelText(/治理轨道：/)
     for (const label of ['扫描入库', '问题池', '整改分派', '业务确认', '质量验收', '正式应用']) {
       expect(within(progress).getByText(label)).toBeInTheDocument()
     }
@@ -68,7 +68,7 @@ describe('GovernanceRailHome 工作台', () => {
   it('点击问题池阶段直接跳转，不改写工作台内容', async () => {
     const user = userEvent.setup()
     renderHome()
-    const progress = await screen.findByLabelText(/治理阶段进度：/)
+    const progress = await screen.findByLabelText(/治理轨道：/)
     await user.click(within(progress).getByRole('button', { name: /问题池/ }))
     expect(await screen.findByText('字段问题池页面')).toBeInTheDocument()
   })
@@ -79,6 +79,6 @@ describe('GovernanceRailHome 工作台', () => {
     expect(await screen.findByText('部分数据未加载成功')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '派发任务' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '认领任务' })).toBeInTheDocument()
-    expect(screen.getByLabelText(/治理阶段进度：/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/治理轨道：/)).toBeInTheDocument()
   })
 })

@@ -204,10 +204,18 @@ const StepCaption = styled.span`
   display: flex;
   align-items: center;
   gap: 6px;
+  max-width: 112px;
   min-height: 16px;
+  overflow: hidden;
   color: ${railTheme.text2};
   font-size: 11.5px;
-  white-space: nowrap;
+
+  > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 `
 
 const StateChip = styled.span<{ $state: GovernanceRailNodeState; $count: number }>`
@@ -249,13 +257,10 @@ const Avatar = styled.span<{ $color: string }>`
   }
 `
 
-/** 六节点治理轨道：点击/键盘聚焦选中节点并联动详情；状态同时以文字与图例说明呈现。 */
+/** 六节点治理轨道：点击节点进入对应工作页面；状态同时以文字与图例说明呈现。 */
 export function GovernanceRail({ nodes, selectedKey, onSelect, hint }: GovernanceRailProps) {
-  const currentIndex = Math.max(
-    0,
-    nodes.findIndex(node => node.state === 'current' || node.state === 'overdue'),
-  )
-  const current = nodes.find(node => node.state === 'current' || node.state === 'overdue')
+  const current = nodes.find(node => node.state === 'current') ?? nodes.find(node => node.state === 'overdue')
+  const currentIndex = Math.max(0, current ? nodes.indexOf(current) : 0)
   const currentLabel = current?.label ?? '进行中'
   return (
     <div>
@@ -281,7 +286,7 @@ export function GovernanceRail({ nodes, selectedKey, onSelect, hint }: Governanc
                   type="button"
                   $state={node.state}
                   $selected={selected}
-                  aria-pressed={selected}
+                  aria-current={selected ? 'step' : undefined}
                   aria-label={`${node.label}：${node.caption}`}
                   onClick={() => onSelect(node.key)}
                 >

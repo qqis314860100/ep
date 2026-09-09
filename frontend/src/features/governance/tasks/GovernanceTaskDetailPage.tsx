@@ -1,4 +1,4 @@
-import { ArrowLeftOutlined, CheckCircleOutlined, EditOutlined, PlayCircleOutlined, SafetyCertificateOutlined, SwapOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, EditOutlined, PlayCircleOutlined, SafetyCertificateOutlined, SwapOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, App, Button, Collapse, Descriptions, Modal, Select, Space, Table, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -13,6 +13,7 @@ import type { GovernanceIssue } from '../types'
 import { GovernanceMilestoneStrip } from './GovernanceMilestoneStrip'
 import { GovernancePlanEditor } from './GovernancePlanEditor'
 import { dueDayDiff } from '../components/governanceRailModel'
+import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
 
 const Header = styled.div`display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:16px;`
 const Section = styled.section`padding:18px 0; border-top:1px solid #dfe5e2; h4{margin-top:0;}`
@@ -58,7 +59,7 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
     .filter(employee => employee.id !== task.assigneeId)
     .map(employee => ({ value: employee.id, label: employee.name }))
   return <article>
-    <Header><Space align="start"><Button aria-label="返回治理总览" icon={<ArrowLeftOutlined aria-hidden />} onClick={onBack ?? (() => navigate('/sys/drawing'))} /><div><Typography.Title level={3} style={{ margin: 0 }}>{task.name}</Typography.Title><Space><GovernanceStatusTag status={task.status} /><Typography.Text type="secondary">任务 #{task.id}</Typography.Text></Space></div></Space><Space>{legacy ? <Typography.Text type="secondary">历史任务只读</Typography.Text> : <>{!completed && <Button icon={<SwapOutlined aria-hidden />} onClick={() => { setNextOwnerUserId(undefined); setReassignOpen(true) }}>移交</Button>}{task.status === 'DRAFT' && <Button type="primary" icon={<PlayCircleOutlined aria-hidden />} loading={startMutation.isPending} onClick={() => startMutation.mutate()}>启动任务</Button>}{task.status === 'IN_PROGRESS' && <Button type="primary" icon={<EditOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/execute`)}>进入清洗</Button>}{task.status === 'REWORK_REQUIRED' && <Button type="primary" icon={<EditOutlined aria-hidden />} loading={reworkMutation.isPending} onClick={() => reworkMutation.mutate()}>开启返工</Button>}{task.status === 'PENDING_CONFIRMATION' && <Button type="primary" icon={<CheckCircleOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/confirm`)}>进入确认</Button>}{task.status === 'PENDING_ACCEPTANCE' && <Button type="primary" icon={<SafetyCertificateOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/accept`)}>进入验收</Button>}</>}</Space></Header>
+    <Header><div><GovernanceWorkspaceBack onBack={onBack} /><Typography.Title level={3} style={{ margin: 0 }}>{task.name}</Typography.Title><Space><GovernanceStatusTag status={task.status} /><Typography.Text type="secondary">任务 #{task.id}</Typography.Text></Space></div><Space>{legacy ? <Typography.Text type="secondary">历史任务只读</Typography.Text> : <>{!completed && <Button icon={<SwapOutlined aria-hidden />} onClick={() => { setNextOwnerUserId(undefined); setReassignOpen(true) }}>移交</Button>}{task.status === 'DRAFT' && <Button type="primary" icon={<PlayCircleOutlined aria-hidden />} loading={startMutation.isPending} onClick={() => startMutation.mutate()}>启动任务</Button>}{task.status === 'IN_PROGRESS' && <Button type="primary" icon={<EditOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/execute`)}>进入清洗</Button>}{task.status === 'REWORK_REQUIRED' && <Button type="primary" icon={<EditOutlined aria-hidden />} loading={reworkMutation.isPending} onClick={() => reworkMutation.mutate()}>开启返工</Button>}{task.status === 'PENDING_CONFIRMATION' && <Button type="primary" icon={<CheckCircleOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/confirm`)}>进入确认</Button>}{task.status === 'PENDING_ACCEPTANCE' && <Button type="primary" icon={<SafetyCertificateOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/accept`)}>进入验收</Button>}</>}</Space></Header>
     <Modal
       title="移交任务"
       open={reassignOpen}

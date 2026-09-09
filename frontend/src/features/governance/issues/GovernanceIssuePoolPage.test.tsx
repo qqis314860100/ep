@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from 'antd'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as governanceApi from '../api'
@@ -21,7 +22,7 @@ const issues = [
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(<QueryClientProvider client={client}><App><GovernanceIssuePoolPage /></App></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><MemoryRouter><App><GovernanceIssuePoolPage /></App></MemoryRouter></QueryClientProvider>)
 }
 
 describe('GovernanceIssuePoolPage', () => {
@@ -35,6 +36,7 @@ describe('GovernanceIssuePoolPage', () => {
     const user = userEvent.setup()
     renderPage()
 
+    expect(await screen.findByRole('button', { name: /返回治理工作台/ })).toBeInTheDocument()
     await user.click(await screen.findByRole('checkbox', { name: '选择问题 1001' }))
     await user.click(screen.getByRole('checkbox', { name: '选择问题 1002' }))
     await user.click(screen.getByRole('button', { name: '创建治理任务' }))

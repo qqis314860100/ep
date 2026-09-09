@@ -6,6 +6,7 @@ import { useState } from 'react'
 import styled from 'styled-components'
 import { createGovernanceTask, getGovernanceEmployees, getGovernanceIssues } from '../api'
 import type { GovernanceField, GovernanceIssue, GovernanceIssueStatus } from '../types'
+import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
 
 const Layout = styled.div`display:grid; grid-template-columns:220px minmax(0, 1fr); gap:20px; @media(max-width:800px){grid-template-columns:1fr;}`
 const Filters = styled.aside`border-right:1px solid #dfe5e2; padding-right:16px; @media(max-width:800px){border-right:0; padding-right:0;}`
@@ -41,7 +42,7 @@ export function GovernanceIssuePoolPage() {
   ]
   const rowSelection: TableRowSelection<GovernanceIssue> = { selectedRowKeys: selectedIds, preserveSelectedRowKeys: true, onChange: setSelectedIds, getCheckboxProps: issue => ({ 'aria-label': `选择问题 ${issue.id}`, disabled: issue.status !== 'OPEN' }) }
   return <section>
-    <Header><div><Typography.Title level={3} style={{ margin: 0 }}>字段问题池</Typography.Title><Typography.Text type="secondary">筛选问题并按问题集合创建治理任务</Typography.Text></div><Button type="primary" icon={<PlusOutlined aria-hidden />} disabled={!selectedIds.length} onClick={() => setDrawerOpen(true)}>创建治理任务</Button></Header>
+    <Header><div><GovernanceWorkspaceBack /><Typography.Title level={3} style={{ margin: 0 }}>字段问题池</Typography.Title><Typography.Text type="secondary">筛选问题并按问题集合创建治理任务</Typography.Text></div><Button type="primary" icon={<PlusOutlined aria-hidden />} disabled={!selectedIds.length} onClick={() => setDrawerOpen(true)}>创建治理任务</Button></Header>
     <Layout><Filters><Typography.Text strong><FilterOutlined /> 筛选</Typography.Text><Space direction="vertical" style={{ width: '100%', marginTop: 12 }}>
       <Select aria-label="目标字段" allowClear placeholder="全部字段" options={fieldOptions} value={field} onChange={setField} />
       <Select aria-label="问题状态" allowClear placeholder="全部状态" options={statusOptions} value={status} onChange={setStatus} />

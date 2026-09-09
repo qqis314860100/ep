@@ -1,9 +1,7 @@
 import {
   ArrowRightOutlined,
   AppstoreOutlined,
-  CheckCircleFilled,
   ClockCircleOutlined,
-  ExclamationCircleFilled,
   FileDoneOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -31,6 +29,7 @@ import {
   summarizeGovernanceTasksForRail,
 } from './governanceRailModel'
 import type { GovernanceRailStageKey } from './governanceRailModel'
+import { GovernanceRail } from './GovernanceRail'
 import { railTheme } from './railTheme'
 
 const Page = styled.section`
@@ -289,89 +288,6 @@ const SectionHeader = styled.header`
   p { margin: 3px 0 0; color: ${railTheme.text3}; font-size: 11.5px; }
 `
 
-const ProgressTrack = styled.ol`
-  display: grid;
-  grid-template-columns: repeat(6, minmax(100px, 1fr));
-  gap: 0;
-  min-width: 660px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-`
-
-const ProgressScroll = styled.div`
-  overflow-x: auto;
-  scrollbar-width: thin;
-`
-
-const Stage = styled.li<{ $state: 'done' | 'current' | 'overdue' | 'wait' }>`
-  position: relative;
-  min-width: 0;
-  padding-right: 13px;
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 13px;
-    left: 32px;
-    right: 4px;
-    height: 1px;
-    background: ${props => props.$state === 'done' ? '#9ac8b8' : '#e3e7e5'};
-  }
-`
-
-const StageButton = styled.button`
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 9px;
-  align-items: start;
-  width: 100%;
-  min-width: 0;
-  margin: -5px 0;
-  padding: 5px 4px 5px 0;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 150ms ease, transform 150ms ease;
-
-  &:hover {
-    background: #f4f8f6;
-    transform: translateY(-1px);
-  }
-
-  &:focus-visible {
-    outline: 2px solid ${railTheme.brand};
-    outline-offset: 2px;
-  }
-`
-
-const StageDot = styled.span<{ $state: 'done' | 'current' | 'overdue' | 'wait' }>`
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  color: ${props => props.$state === 'done' ? '#fff' : props.$state === 'overdue' ? railTheme.red : props.$state === 'current' ? railTheme.brand : railTheme.text3};
-  font-size: 11px;
-  font-weight: 700;
-  background: ${props => props.$state === 'done' ? railTheme.green : props.$state === 'overdue' ? railTheme.redWeak : props.$state === 'current' ? railTheme.brandWeak : '#f1f3f2'};
-  border: 1px solid ${props => props.$state === 'overdue' ? '#efb9b9' : props.$state === 'current' ? '#aad0c5' : 'transparent'};
-  border-radius: 50%;
-`
-
-const StageText = styled.span`
-  min-width: 0;
-  strong { display: block; overflow: hidden; color: ${railTheme.text}; font-size: 12px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
-  small { display: block; margin-top: 2px; overflow: hidden; color: ${railTheme.text3}; font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
-`
-
 const tasksTitleStatus: Record<GovernanceTaskStatus, string> = {
   DRAFT: '待启动',
   IN_PROGRESS: '整改中',
@@ -492,6 +408,9 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
     }
   }
   const queueLoading = issuesQuery.isLoading || tasksQuery.isLoading
+  const currentStageKey = model.nodes.find(node => node.state === 'current')?.key
+    ?? model.nodes.find(node => node.state === 'overdue')?.key
+    ?? 'scan'
   const toolItems = [
     { key: '/sys/drawing/inventory', label: '资产盘点' },
     { key: '/sys/drawing/scans', label: '自动扫描' },
@@ -556,20 +475,12 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
           <div><h2>治理阶段进度</h2><p>从问题发现到正式应用，掌握全链路推进状态</p></div>
           <Button type="link" aria-label="查看完整进度" icon={<ClockCircleOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/operations')}>查看完整进度</Button>
         </SectionHeader>
-        <ProgressScroll>
-          <ProgressTrack aria-label="治理阶段进度：扫描入库、问题池、整改分派、业务确认、质量验收、正式应用">
-            {model.nodes.map((node, index) => (
-              <Stage key={node.key} $state={node.state}>
-                <StageButton type="button" aria-label={`${node.label}：${node.caption}，点击进入`} onClick={() => openStage(node.key)}>
-                  <StageDot $state={node.state}>
-                    {node.state === 'done' ? <CheckCircleFilled /> : node.state === 'overdue' ? <ExclamationCircleFilled /> : index + 1}
-                  </StageDot>
-                  <StageText><strong>{node.label}</strong><small>{node.caption}</small></StageText>
-                </StageButton>
-              </Stage>
-            ))}
-          </ProgressTrack>
-        </ProgressScroll>
+        <GovernanceRail
+          nodes={model.nodes}
+          selectedKey={currentStageKey}
+          onSelect={openStage}
+          hint="点击任一阶段进入对应工作页面"
+        />
       </ProgressPanel>
 
       <WorkbenchHeading>

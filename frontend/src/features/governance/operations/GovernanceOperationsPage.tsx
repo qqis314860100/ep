@@ -7,6 +7,7 @@ import styled from 'styled-components'
 import { FilterGrid } from '../../../components/FilterGrid'
 import { getGovernanceEmployees, getGovernanceOperationsOverview, getGovernanceStandards } from '../api'
 import type { GovernanceAssetType, GovernanceOperationsFilter, GovernanceOperationsMetric } from '../types'
+import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
 
 const Header = styled.header`display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px;@media(max-width:760px){align-items:stretch;flex-direction:column;}`
 const FilterBar = styled.div`padding:14px;background:#fff;border:1px solid #dfe5e2;border-radius:4px;margin-bottom:14px;`
@@ -42,7 +43,7 @@ export function GovernanceOperationsPage() {
   ]
   const submit = (values: GovernanceOperationsFilter) => setFilters(Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined && value !== '')))
   return <section>
-    <Header><div><Typography.Title level={3} style={{ margin: 0 }}>治理运营</Typography.Title><Typography.Text type="secondary">从问题发现到验收应用，按责任、标准和风险推动常态治理</Typography.Text></div><Button icon={<ReloadOutlined />} onClick={() => void overview.refetch()}>刷新</Button></Header>
+    <Header><div><GovernanceWorkspaceBack /><Typography.Title level={3} style={{ margin: 0 }}>治理运营</Typography.Title><Typography.Text type="secondary">从问题发现到验收应用，按责任、标准和风险推动常态治理</Typography.Text></div><Button icon={<ReloadOutlined />} onClick={() => void overview.refetch()}>刷新</Button></Header>
     <FilterBar>
       <Form form={form} layout="vertical" onFinish={submit}>
         <FilterGrid>

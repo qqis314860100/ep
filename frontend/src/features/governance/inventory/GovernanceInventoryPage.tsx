@@ -10,6 +10,7 @@ import type { InventoryFilters, InventoryView } from '../api'
 import { AssetStatusTag, AssetTypeTag } from '../../assets/AssetTags'
 import { assetTypeLabels } from '../../assets/assetPresentation'
 import { FilterGrid } from '../../../components/FilterGrid'
+import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
 
 const Header = styled.header`
   display: flex;
@@ -93,6 +94,7 @@ export function GovernanceInventoryPage() {
     <section>
       <Header>
         <div>
+          <GovernanceWorkspaceBack />
           <Typography.Title level={3} style={{ margin: 0 }}>资产盘点</Typography.Title>
           <Typography.Text type="secondary">统计资产质量与治理缺口，按旧维度或缺字段筛选问题资产</Typography.Text>
         </div>
