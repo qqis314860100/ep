@@ -500,6 +500,25 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
         />
       )}
 
+      <ProgressPanel>
+        <SectionHeader>
+          <div><h2>治理阶段进度</h2><p>从问题发现到正式应用，掌握全链路推进状态</p></div>
+          <Button type="link" aria-label="查看完整进度" icon={<ClockCircleOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/operations')}>查看完整进度</Button>
+        </SectionHeader>
+        <ProgressScroll>
+          <ProgressTrack aria-label="治理阶段进度：扫描入库、问题池、整改分派、业务确认、质量验收、正式应用">
+            {model.nodes.map((node, index) => (
+              <Stage key={node.key} $state={node.state}>
+                <StageDot $state={node.state}>
+                  {node.state === 'done' ? <CheckCircleFilled /> : node.state === 'overdue' ? <ExclamationCircleFilled /> : index + 1}
+                </StageDot>
+                <StageText><strong>{node.label}</strong><small>{node.caption}</small></StageText>
+              </Stage>
+            ))}
+          </ProgressTrack>
+        </ProgressScroll>
+      </ProgressPanel>
+
       <WorkbenchHeading>
         <div>
           <h2>今日工作</h2>
@@ -569,25 +588,6 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
       </WorkGrid>
 
       <StatCards cards={statCards} />
-
-      <ProgressPanel>
-        <SectionHeader>
-          <div><h2>治理阶段进度</h2><p>只读展示全局进度，不改变上方工作内容</p></div>
-          <Button type="link" aria-label="查看完整进度" icon={<ClockCircleOutlined aria-hidden />} onClick={() => navigate('/sys/drawing/operations')}>查看完整进度</Button>
-        </SectionHeader>
-        <ProgressScroll>
-          <ProgressTrack aria-label="治理阶段进度：扫描入库、问题池、整改分派、业务确认、质量验收、正式应用">
-            {model.nodes.map((node, index) => (
-              <Stage key={node.key} $state={node.state}>
-                <StageDot $state={node.state}>
-                  {node.state === 'done' ? <CheckCircleFilled /> : node.state === 'overdue' ? <ExclamationCircleFilled /> : index + 1}
-                </StageDot>
-                <StageText><strong>{node.label}</strong><small>{node.caption}</small></StageText>
-              </Stage>
-            ))}
-          </ProgressTrack>
-        </ProgressScroll>
-      </ProgressPanel>
     </Page>
   )
 }
