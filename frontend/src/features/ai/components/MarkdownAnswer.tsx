@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import styled from 'styled-components'
 
 /** 完成态回答的 Markdown 渲染（无 raw HTML，避免注入），样式对齐 ep 设计基调。 */
@@ -91,7 +92,7 @@ interface MarkdownAnswerProps {
 export default function MarkdownAnswer({ content, compact = false }: MarkdownAnswerProps) {
   return (
     <Prose $compact={compact}>
-      <ReactMarkdown>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </Prose>
   )
 }
