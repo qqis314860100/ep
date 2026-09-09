@@ -99,22 +99,31 @@ public interface AiCapabilityClient {
     // ---- 文档入库与抽取 ----
 
     /**
-     * 入库/抽取的目标文档请求（命名空间 + 目标标识 + 范围）。
-     * 文件内容/版本的上传与返回的 docId 语义随「入库触发 AI 编目」切片（T4）在运输层精化；
-     * 本端口只承载契约的形状。
+     * 入库/抽取的目标文档请求（命名空间 + 目标标识 + 范围 + 可选文件字节）。
+     * 文件内容/版本经 fileContentBase64 + fileName（需带扩展名，服务端据此选解析器）运输；
+     * 二者为空时仅登记元数据（能力服务将返回缺文件错误）。返回的 docId 语义见能力服务契约。
      */
     record DocumentRequest(
             String namespace,
             String targetType,
             long targetId,
             String title,
-            List<AiTargetScope> scopes) {
+            List<AiTargetScope> scopes,
+            String fileContentBase64,
+            String fileName) {
 
         public DocumentRequest {
             namespace = text(namespace);
             targetType = text(targetType);
             title = text(title);
             scopes = scopes == null ? List.of() : List.copyOf(scopes);
+            fileContentBase64 = text(fileContentBase64);
+            fileName = text(fileName);
+        }
+
+        public DocumentRequest(String namespace, String targetType, long targetId, String title,
+                List<AiTargetScope> scopes) {
+            this(namespace, targetType, targetId, title, scopes, "", "");
         }
 
         private static String text(String value) {

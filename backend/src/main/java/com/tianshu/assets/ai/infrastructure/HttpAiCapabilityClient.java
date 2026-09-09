@@ -45,7 +45,8 @@ public class HttpAiCapabilityClient implements AiCapabilityClient {
 
     private final AiCapabilityProperties properties;
     private final HttpClient httpClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     @Autowired
     public HttpAiCapabilityClient(AiCapabilityProperties properties) {
@@ -59,6 +60,7 @@ public class HttpAiCapabilityClient implements AiCapabilityClient {
 
     private static HttpClient defaultHttpClient(AiCapabilityProperties properties) {
         return HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMillis()))
                 .build();
     }
@@ -235,12 +237,17 @@ public class HttpAiCapabilityClient implements AiCapabilityClient {
     }
 
     private Map<String, Object> documentPayload(DocumentRequest request) {
-        return Map.of(
-                "namespace", text(request.namespace(), properties.getNamespace()),
-                "targetType", request.targetType(),
-                "targetId", request.targetId(),
-                "title", request.title(),
-                "scopes", request.scopes());
+        var payload = new LinkedHashMap<String, Object>();
+        payload.put("namespace", text(request.namespace(), properties.getNamespace()));
+        payload.put("targetType", request.targetType());
+        payload.put("targetId", request.targetId());
+        payload.put("title", request.title());
+        payload.put("scopes", request.scopes());
+        if (!request.fileContentBase64().isBlank()) {
+            payload.put("fileContentBase64", request.fileContentBase64());
+            payload.put("fileName", request.fileName());
+        }
+        return payload;
     }
 
     private static AiCapabilityException timeout(java.net.http.HttpTimeoutException cause) {
