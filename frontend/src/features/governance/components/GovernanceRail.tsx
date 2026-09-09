@@ -156,6 +156,14 @@ const Dot = styled.span<{ $state: GovernanceRailNodeState }>`
   color: ${railTheme.text3};
   transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
 
+  .wait-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.7;
+  }
+
   ${StepButton}:hover & {
     transform: translateY(-2px) scale(1.04);
   }
@@ -292,7 +300,7 @@ export function GovernanceRail({ nodes, selectedKey, onSelect, hint }: Governanc
                 >
                   <DotWrap>
                     <Dot $state={node.state}>
-                      {node.state === 'done' ? '✓' : node.state === 'current' ? '→' : node.state === 'overdue' ? '!' : ''}
+                      {node.state === 'done' ? '✓' : node.state === 'current' ? '→' : node.state === 'overdue' ? '!' : <span className="wait-dot" aria-hidden />}
                     </Dot>
                     {hasCount && node.state === 'wait' && (
                       <Badge count={node.badge} overflowCount={999} color={railTheme.text2} style={{ position: 'absolute', top: -4, insetInlineEnd: -8 }} />
