@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GovernanceRailHome } from './GovernanceRailHome'
 
@@ -31,14 +32,23 @@ function mockFetch(fail: boolean) {
 
 function renderHome() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
-  return render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/sys/drawing']}><GovernanceRailHome /></MemoryRouter></QueryClientProvider>)
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/sys/drawing']}>
+        <Routes>
+          <Route path="/sys/drawing" element={<GovernanceRailHome />} />
+          <Route path="/sys/drawing/issues" element={<div>字段问题池页面</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
 }
 
 describe('GovernanceRailHome 工作台', () => {
   beforeEach(() => mockFetch(false))
   afterEach(() => vi.unstubAllGlobals())
 
-  it('首屏直接呈现派发与处理入口，并保持阶段进度只读', async () => {
+  it('首屏直接呈现派发与处理入口，阶段节点作为业务导航', async () => {
     renderHome()
     expect(await screen.findByText('数据治理工作台')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '派发任务' })).toBeInTheDocument()
@@ -52,7 +62,15 @@ describe('GovernanceRailHome 工作台', () => {
     for (const label of ['扫描入库', '问题池', '整改分派', '业务确认', '质量验收', '正式应用']) {
       expect(within(progress).getByText(label)).toBeInTheDocument()
     }
-    expect(within(progress).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(progress).getAllByRole('button')).toHaveLength(6)
+  })
+
+  it('点击问题池阶段直接跳转，不改写工作台内容', async () => {
+    const user = userEvent.setup()
+    renderHome()
+    const progress = await screen.findByLabelText(/治理阶段进度：/)
+    await user.click(within(progress).getByRole('button', { name: /问题池/ }))
+    expect(await screen.findByText('字段问题池页面')).toBeInTheDocument()
   })
 
   it('数据失败时保留工作台结构并显示重试提示', async () => {

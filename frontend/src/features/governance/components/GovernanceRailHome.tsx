@@ -22,6 +22,7 @@ import type { GovernanceStatCardData } from './StatCards'
 import { StatCards } from './StatCards'
 import {
   buildGovernanceRailModel,
+  classifyGovernanceTaskStage,
   dueDayDiff,
   emptyGovernanceRailCounts,
   isTaskEscalated,
@@ -29,6 +30,7 @@ import {
   summarizeGovernanceIssuesForRail,
   summarizeGovernanceTasksForRail,
 } from './governanceRailModel'
+import type { GovernanceRailStageKey } from './governanceRailModel'
 import { railTheme } from './railTheme'
 
 const Page = styled.section`
@@ -304,9 +306,6 @@ const ProgressScroll = styled.div`
 
 const Stage = styled.li<{ $state: 'done' | 'current' | 'overdue' | 'wait' }>`
   position: relative;
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 9px;
   min-width: 0;
   padding-right: 13px;
 
@@ -318,6 +317,37 @@ const Stage = styled.li<{ $state: 'done' | 'current' | 'overdue' | 'wait' }>`
     right: 4px;
     height: 1px;
     background: ${props => props.$state === 'done' ? '#9ac8b8' : '#e3e7e5'};
+  }
+`
+
+const StageButton = styled.button`
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+  margin: -5px 0;
+  padding: 5px 4px 5px 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 150ms ease, transform 150ms ease;
+
+  &:hover {
+    background: #f4f8f6;
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${railTheme.brand};
+    outline-offset: 2px;
   }
 `
 
@@ -433,6 +463,7 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
     return {
       today,
       pendingIssues,
+      openTasks,
       focusTasks: myTasks,
       dueSummary,
       nodes: buildGovernanceRailModel(counts),
@@ -468,6 +499,26 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
     { key: '/sys/drawing/mappings', label: '映射规则' },
     { key: '/sys/drawing/operations', label: '治理运营' },
   ]
+  const openStage = (key: GovernanceRailStageKey) => {
+    if (key === 'scan') {
+      navigate('/sys/drawing/scans')
+      return
+    }
+    if (key === 'issuePool') {
+      navigate('/sys/drawing/issues')
+      return
+    }
+    if (key === 'apply') {
+      navigate('/sys/drawing/inventory')
+      return
+    }
+    const stageTasks = model.openTasks.filter(task => classifyGovernanceTaskStage(task) === key)
+    if (stageTasks.length === 1 && onOpenTask) {
+      onOpenTask(stageTasks[0].id)
+      return
+    }
+    navigate('/sys/drawing/operations')
+  }
 
   return (
     <Page>
@@ -509,10 +560,12 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
           <ProgressTrack aria-label="治理阶段进度：扫描入库、问题池、整改分派、业务确认、质量验收、正式应用">
             {model.nodes.map((node, index) => (
               <Stage key={node.key} $state={node.state}>
-                <StageDot $state={node.state}>
-                  {node.state === 'done' ? <CheckCircleFilled /> : node.state === 'overdue' ? <ExclamationCircleFilled /> : index + 1}
-                </StageDot>
-                <StageText><strong>{node.label}</strong><small>{node.caption}</small></StageText>
+                <StageButton type="button" aria-label={`${node.label}：${node.caption}，点击进入`} onClick={() => openStage(node.key)}>
+                  <StageDot $state={node.state}>
+                    {node.state === 'done' ? <CheckCircleFilled /> : node.state === 'overdue' ? <ExclamationCircleFilled /> : index + 1}
+                  </StageDot>
+                  <StageText><strong>{node.label}</strong><small>{node.caption}</small></StageText>
+                </StageButton>
               </Stage>
             ))}
           </ProgressTrack>
