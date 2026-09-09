@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { App } from 'antd'
+import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as governanceApi from '../api'
 import type { GovernanceDataStandard } from '../types'
@@ -37,7 +38,7 @@ const standard: GovernanceDataStandard = {
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(<QueryClientProvider client={client}><App><GovernanceStandardsPage /></App></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><App><MemoryRouter><GovernanceStandardsPage /></MemoryRouter></App></QueryClientProvider>)
 }
 
 describe('GovernanceStandardsPage', () => {

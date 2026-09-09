@@ -1,5 +1,6 @@
 import {
   ApartmentOutlined,
+  AppstoreOutlined,
   ArrowRightOutlined,
   BookOutlined,
   ClockCircleOutlined,
@@ -13,8 +14,8 @@ import {
   TeamOutlined,
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Empty, Skeleton } from 'antd'
-import { useMemo, type ComponentType } from 'react'
+import { Alert, Button, Drawer, Empty, Skeleton } from 'antd'
+import { useMemo, useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { authSession } from '../../auth/session'
@@ -44,24 +45,16 @@ const Page = styled.section`
   padding-bottom: 28px;
 `
 
-const Hero = styled.header`
-  position: relative;
+const Header = styled.header`
   display: flex;
-  min-height: 96px;
-  flex-direction: column;
-  gap: 18px;
-  padding: 22px 24px 20px;
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid ${railTheme.line};
-  border-radius: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 2px 2px 0;
 
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 4px;
-    background: ${railTheme.brand};
+  @media (max-width: 720px) {
+    align-items: flex-start;
+    flex-direction: column;
   }
 `
 
@@ -82,6 +75,13 @@ const HeroCopy = styled.div`
     font-size: 13px;
     line-height: 1.6;
   }
+`
+
+const HeaderActions = styled.div`
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
 `
 
 const WorkbenchHeading = styled.div`
@@ -297,25 +297,10 @@ function taskPriority(task: GovernanceTask, today: Date): number {
   return (diff !== null && diff < 0 ? 100 : 0) + statusWeight[task.status] - (diff ?? 999) / 1000
 }
 
-const ToolsPanel = styled.section`
-  padding: 17px 18px 18px;
-  background: #fff;
-  border: 1px solid ${railTheme.line};
-  border-radius: 8px;
-`
-
 const ToolsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-
-  @media (max-width: 980px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: 1fr;
+  gap: 10px;
 `
 
 const ToolCard = styled.button`
@@ -382,6 +367,7 @@ interface GovernanceRailHomeProps {
 
 export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
   const navigate = useNavigate()
+  const [toolsOpen, setToolsOpen] = useState(false)
   const user = authSession.get()
   const isAdministrator = user?.roles.some(role => role === 'CONTENT_ADMIN' || role === 'SYSTEM_ADMIN') ?? true
   const inventoryQuery = useQuery({ queryKey: ['rail-inventory'], queryFn: () => getInventory({ page: 1, perPage: 1 }), staleTime: 60_000 })
@@ -483,13 +469,19 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
 
   return (
     <Page>
-      <Hero>
+      <Header>
         <HeroCopy>
           <h1>数据治理工作台</h1>
           <p>聚焦今天要推进的任务。先派发问题，再跟进责任人处理。</p>
         </HeroCopy>
-        <StatCards cards={statCards} />
-      </Hero>
+        <HeaderActions>
+          <Button aria-label="打开治理工具" icon={<AppstoreOutlined aria-hidden />} onClick={() => setToolsOpen(true)}>
+            治理工具
+          </Button>
+        </HeaderActions>
+      </Header>
+
+      <StatCards cards={statCards} />
 
       {failedSources.length > 0 && (
         <Alert
@@ -582,13 +574,16 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
             </WorkCard>
           </WorkGrid>
 
-      <ToolsPanel>
-        <SectionHeader>
-          <div><h2>治理工具</h2><p>从盘点、扫描到映射与责任，直达各治理页面</p></div>
-        </SectionHeader>
+      <Drawer
+        title="治理工具"
+        placement="right"
+        width={400}
+        open={toolsOpen}
+        onClose={() => setToolsOpen(false)}
+      >
         <ToolsGrid>
           {governanceTools.map(tool => (
-            <ToolCard key={tool.path} type="button" onClick={() => navigate(tool.path)}>
+            <ToolCard key={tool.path} type="button" onClick={() => { setToolsOpen(false); navigate(tool.path) }}>
               <span className="ic" aria-hidden="true"><tool.icon /></span>
               <div>
                 <strong>{tool.label}</strong>
@@ -597,7 +592,7 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
             </ToolCard>
           ))}
         </ToolsGrid>
-      </ToolsPanel>
+      </Drawer>
     </Page>
   )
 }

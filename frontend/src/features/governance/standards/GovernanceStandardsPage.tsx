@@ -35,6 +35,7 @@ import {
   getGovernanceStandardImpactReviews,
   getGovernanceStandards,
 } from '../api'
+import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
 import type {
   CreateGovernanceStandardInput,
   GovernanceAssetType,
@@ -302,6 +303,7 @@ export function GovernanceStandardsPage() {
   const impactedCount = standardsQuery.data?.filter(item => item.status === 'ENABLED').reduce((total, item) => total + item.affectedAssetCount, 0) ?? 0
 
   return <Workspace>
+    <GovernanceWorkspaceBack />
     <PageHeader>
       <div><Typography.Title level={3} style={{ margin: 0 }}>数据标准中心</Typography.Title><Typography.Text type="secondary">统一维护分类、字段、命名、文件角色和质量门槛的版本基线</Typography.Text></div>
       <Space><Button aria-label="新建标准" icon={<PlusOutlined aria-hidden />} onClick={() => openDrawer('new')}>新建标准</Button><Button aria-label="新建版本" type="primary" icon={<FileProtectOutlined aria-hidden />} disabled={!selected} onClick={() => openDrawer('version')}>新建版本</Button></Space>

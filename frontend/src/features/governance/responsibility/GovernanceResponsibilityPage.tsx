@@ -11,6 +11,7 @@ import type {
   GovernanceTask,
 } from '../types'
 import { dueDayDiff } from '../components/governanceRailModel'
+import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
 import { GovernanceStatusTag } from '../shared/GovernanceStatusTag'
 import { StatCards } from '../components/StatCards'
 import type { GovernanceStatCardData } from '../components/StatCards'
@@ -225,6 +226,7 @@ export function GovernanceResponsibilityPage() {
 
   return (
     <Page>
+      <GovernanceWorkspaceBack />
       <Header>
         <div>
           <Typography.Title level={3} style={{ margin: 0 }}>组织与责任看板</Typography.Title>
