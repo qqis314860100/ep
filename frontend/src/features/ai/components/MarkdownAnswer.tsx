@@ -2,8 +2,8 @@ import ReactMarkdown from 'react-markdown'
 import styled from 'styled-components'
 
 /** 完成态回答的 Markdown 渲染（无 raw HTML，避免注入），样式对齐 ep 设计基调。 */
-const Prose = styled.div`
-  font-size: 14px;
+const Prose = styled.div<{ $compact: boolean }>`
+  font-size: ${({ $compact }) => ($compact ? '13px' : '14px')};
   line-height: 1.7;
   color: #26322d;
   word-break: break-word;
@@ -82,9 +82,15 @@ const Prose = styled.div`
   }
 `
 
-export default function MarkdownAnswer({ content }: { content: string }) {
+interface MarkdownAnswerProps {
+  content: string
+  /** 紧凑模式：引用片段等次级内容的字号（13px） */
+  compact?: boolean
+}
+
+export default function MarkdownAnswer({ content, compact = false }: MarkdownAnswerProps) {
   return (
-    <Prose>
+    <Prose $compact={compact}>
       <ReactMarkdown>{content}</ReactMarkdown>
     </Prose>
   )

@@ -15,7 +15,7 @@ function messagesPayload() {
       id: 3,
       role: 'ASSISTANT',
       content: '流式回答内容',
-      citations: [{ docId: '103', location: '第3页', excerpt: '摘录', inScope: true }],
+      citations: [{ docId: '103', location: '第3页', excerpt: '摘录含 **重点词** 的 markdown 片段', inScope: true }],
       createdAt: '2026-09-09T08:01:05Z',
     },
   ]
@@ -101,7 +101,7 @@ describe('AiChatPage（T5 AI 助手工作台）', () => {
     expect(summary).toBeVisible()
     await userEvent.click(summary)
     expect(await screen.findByText('第3页')).toBeVisible()
-    expect(screen.getByText('摘录')).toBeVisible()
+    expect(await screen.findByText('重点词')).toBeVisible()
     expect(screen.getByRole('button', { name: '查看引用 1' })).toBeVisible()
   })
 
