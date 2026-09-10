@@ -5,6 +5,7 @@ import { App } from 'antd'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { authSession } from '../../auth/session'
 import * as governanceApi from '../api'
 import { GovernanceApiError } from '../types'
 import { GovernanceTaskDetailPage } from './GovernanceTaskDetailPage'
@@ -34,6 +35,7 @@ function isoDaysAgo(days: number): string {
 
 describe('GovernanceTaskDetailPage', () => {
   beforeEach(() => {
+    authSession.set({ userId: 'emp-chen', name: '陈工', department: '设备工程部', roles: ['CONTENT_ADMIN'] })
     vi.mocked(governanceApi.getGovernanceTask).mockResolvedValue({ id: 9, name: '字段治理', scope: '问题池选择', owner: '王工', assigneeId: 'owner-1', total: 1, completed: 0, dueDate: '2026-08-10', status: 'DRAFT', version: 2, editable: true })
     vi.mocked(governanceApi.getGovernanceIssues).mockResolvedValue([])
     vi.mocked(governanceApi.getGovernancePlans).mockResolvedValue([])
@@ -59,7 +61,7 @@ describe('GovernanceTaskDetailPage', () => {
 
     await user.click(await screen.findByRole('button', { name: '开启返工' }))
 
-    expect(governanceApi.openGovernanceRework).toHaveBeenCalledWith(9, { taskVersion: 3, reason: '业务确认退回', actorUserId: 'demo-user' })
+    expect(governanceApi.openGovernanceRework).toHaveBeenCalledWith(9, { taskVersion: 3, reason: '业务确认退回', actorUserId: 'emp-chen' })
   })
 
   it('does not offer closed-loop confirmation for a legacy progress task', async () => {

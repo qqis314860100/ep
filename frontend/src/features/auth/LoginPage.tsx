@@ -55,29 +55,6 @@ const Card = styled.div`
   box-shadow: 0 10px 30px rgba(16, 43, 61, 0.08);
 `
 
-const DemoGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-top: 6px;
-
-  @media (max-width: 420px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-`
-
-const DemoButton = styled(Button)`
-  font-size: 12px;
-  padding-inline: 4px;
-`
-
-const DEMO_ACCOUNTS = [
-  { userId: 'emp-admin', label: '管理员' },
-  { userId: 'emp-chen', label: '陈工' },
-  { userId: 'emp-li', label: '李工' },
-  { userId: 'emp-wang', label: '王工' },
-]
-
 interface LoginForm {
   userId: string
   password: string
@@ -108,16 +85,6 @@ export default function LoginPage() {
     }
   }
 
-  const quickLogin = async (userId: string) => {
-    setError(null)
-    try {
-      await login(userId, 'demo123')
-      navigate(from, { replace: true })
-    } catch {
-      setError('演示账号登录失败')
-    }
-  }
-
   return (
     <Shell>
       <Banner>
@@ -134,7 +101,7 @@ export default function LoginPage() {
         <Card>
           <Typography.Title level={4} style={{ margin: '0 0 4px' }}>登录</Typography.Title>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>使用员工工号与密码进入</Typography.Text>
-          <Form form={form} layout="vertical" initialValues={{ userId: 'emp-admin', password: 'demo123' }} onFinish={submit} style={{ marginTop: 18 }}>
+          <Form form={form} layout="vertical" onFinish={submit} style={{ marginTop: 18 }}>
             {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 14 }} />}
             <Form.Item name="userId" label="工号" rules={[{ required: true, message: '请输入工号' }]}>
               <Input prefix={<UserOutlined aria-hidden />} autoComplete="username" aria-label="工号" />
@@ -144,14 +111,6 @@ export default function LoginPage() {
             </Form.Item>
             <Button type="primary" htmlType="submit" block loading={submitting} style={{ marginTop: 4 }}>登 录</Button>
           </Form>
-          <Typography.Text type="secondary" style={{ display: 'block', marginTop: 18, fontSize: 12 }}>演示账号（密码 demo123）</Typography.Text>
-          <DemoGrid>
-            {DEMO_ACCOUNTS.map(account => (
-              <DemoButton key={account.userId} size="small" onClick={() => void quickLogin(account.userId)}>
-                {account.label}
-              </DemoButton>
-            ))}
-          </DemoGrid>
         </Card>
       </Panel>
     </Shell>

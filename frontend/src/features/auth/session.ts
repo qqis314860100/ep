@@ -34,11 +34,11 @@ export const authSession = {
   },
 }
 
-/** 当前真实操作人：登录会话优先；未登录回落 demo 语义（历史 e2e/只读页兼容）。 */
+/** 当前真实操作人：只来自登录会话；未登录时返回空身份，不伪造演示账号。 */
 export function currentActor(): { userId: string; roles: string } {
   const user = authSession.get()
   if (user) {
     return { userId: user.userId, roles: user.roles.join(',') }
   }
-  return { userId: 'demo-user', roles: 'CONTENT_ADMIN,SYSTEM_ADMIN' }
+  return { userId: '', roles: '' }
 }

@@ -9,6 +9,7 @@ import {
   publishDocument,
   uploadDocumentFile,
 } from '../../../services/documentService'
+import { authSession } from '../../auth/session'
 import DocumentCreatePage from '../DocumentCreatePage'
 
 vi.mock('../../../services/documentService', () => ({
@@ -73,6 +74,7 @@ function renderPage() {
 describe('DocumentCreatePage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    authSession.set({ userId: 'emp-chen', name: '陈工', department: '设备工程部', roles: ['CONTENT_ADMIN'] })
     vi.mocked(getDictionaryItems).mockResolvedValue([{
       id: 263,
       category: 'DOCUMENT_CATEGORY',

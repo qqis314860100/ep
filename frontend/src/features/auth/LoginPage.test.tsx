@@ -38,6 +38,7 @@ function renderLogin() {
 
 describe('LoginPage', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     authSession.set(null)
     localStorage.clear()
     vi.mocked(authApi.restoreSession).mockResolvedValue(null)
@@ -58,13 +59,14 @@ describe('LoginPage', () => {
     expect(await screen.findByText('工作台')).toBeVisible()
   })
 
-  it('offers demo accounts that log in directly', async () => {
-    const user = userEvent.setup()
+  it('does not prefill credentials or offer demo shortcuts', async () => {
     renderLogin()
 
-    await user.click(screen.getByRole('button', { name: /李\s*工/ }))
-
-    await waitFor(() => expect(authApi.login).toHaveBeenCalledWith('emp-li', 'demo123'))
+    expect(screen.getByLabelText('工号')).toHaveValue('')
+    expect(screen.getByLabelText('密码')).toHaveValue('')
+    expect(screen.queryByText(/演示账号/)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+    expect(authApi.login).not.toHaveBeenCalled()
   })
 
   it('shows an error message on wrong password', async () => {
@@ -72,7 +74,7 @@ describe('LoginPage', () => {
     vi.mocked(authApi.login).mockRejectedValue(new Error('账号或密码错误'))
     renderLogin()
 
-    await user.clear(screen.getByLabelText('密码'))
+    await user.type(screen.getByLabelText('工号'), 'emp-admin')
     await user.type(screen.getByLabelText('密码'), 'wrong-pass')
     await user.click(screen.getByRole('button', { name: '登 录' }))
 

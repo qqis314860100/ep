@@ -1,9 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { authSession } from '../auth/session'
 import { getGovernancePlans, getInventory, saveBatchResults } from './api'
 import type { BatchResultCommand } from './types'
 
 describe('governance api', () => {
+  afterEach(() => authSession.set(null))
+
   it('flattens authoritative plan projections for the task workspace', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify([{
       plan: {
@@ -30,6 +33,7 @@ describe('governance api', () => {
   })
 
   it('sends the current governance identity on every request', async () => {
+    authSession.set({ userId: 'emp-chen', name: '陈工', department: '设备工程部', roles: ['CONTENT_ADMIN'] })
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
       results: [],
     }), { status: 200 }))
@@ -38,8 +42,8 @@ describe('governance api', () => {
 
     expect(fetchSpy).toHaveBeenCalledWith('/api/v1/governance/results/batch', expect.objectContaining({
       headers: expect.objectContaining({
-        'X-User-Id': 'demo-user',
-        'X-User-Roles': 'CONTENT_ADMIN,SYSTEM_ADMIN',
+        'X-User-Id': 'emp-chen',
+        'X-User-Roles': 'CONTENT_ADMIN',
       }),
     }))
   })

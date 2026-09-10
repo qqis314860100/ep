@@ -35,6 +35,7 @@ import styled from 'styled-components'
 import { saveAssetDraft, saveAssetDraftsBatch, submitAsset, uploadAssetFile } from '../../services/assetService'
 import { getDictionaryItems } from '../../services/dictionaryService'
 import type { AssetDraftInput, AssetFile, AssetType } from '../../types/asset'
+import { useAuth } from '../auth/useAuth'
 
 const { Dragger } = Upload
 const emptyUploadFiles: UploadFile[] = []
@@ -380,6 +381,7 @@ function stageTag(stage: FileStage) {
 
 export function UploadPage() {
   const { message } = AntdApp.useApp()
+  const { user } = useAuth()
   const [form] = Form.useForm<UploadFormValues>()
   const fileList = Form.useWatch('files', form) ?? emptyUploadFiles
   const platform = Form.useWatch('platform', form)
@@ -473,8 +475,8 @@ export function UploadPage() {
       const uploaded = uploadedByUid[file.uid]
       return uploaded ? { ...uploaded, role: roles[file.uid] ?? uploaded.role, primary: index === 0 } : null
     }).filter((file): file is AssetFile => file !== null),
-    ownerName: '陈工',
-    ownerDepartment: '设备工程部',
+    ownerName: user?.name ?? '',
+    ownerDepartment: user?.department ?? '',
   })
 
   const uploadSelectedFiles = async (): Promise<AssetFile[]> => {
@@ -659,8 +661,8 @@ export function UploadPage() {
             platformVariant: values.platformVariant ?? '',
           }] : [],
           files,
-          ownerName: '陈工',
-          ownerDepartment: '设备工程部',
+          ownerName: user?.name ?? '',
+          ownerDepartment: user?.department ?? '',
         }
       })
       const result = await saveAssetDraftsBatch(inputs)
