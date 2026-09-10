@@ -7,6 +7,7 @@ import styled from 'styled-components'
 import { FilterGrid } from '../../../components/FilterGrid'
 import { getGovernanceEmployees, getGovernanceOperationsOverview, getGovernanceStandards } from '../api'
 import type { GovernanceAssetType, GovernanceOperationsFilter, GovernanceOperationsMetric } from '../types'
+import { EChart } from '../components/EChart'
 import {
   GovernanceMetric,
   GovernanceMetricGrid,
@@ -15,8 +16,11 @@ import {
   GovernancePanel,
   GovernancePanelSection,
 } from '../components/GovernanceLayout'
+import { railTheme } from '../components/railTheme'
 
 const FilterActions = styled.div`align-self:end;`
+
+const CHART_COLORS = [railTheme.brand, railTheme.blue, railTheme.amber, '#8a67b8', railTheme.red, railTheme.green]
 
 const assetTypeLabels: Record<GovernanceAssetType, string> = { THREE_DIMENSIONAL_MODEL: '三维模型', TWO_DIMENSIONAL_DRAWING: '二维图纸', MIXED_ASSET: '混合资产', OTHER: '其他资料' }
 const cadenceMeta: Record<string, { label: string; color: string }> = { ON_TRACK: { label: '正常', color: 'success' }, DUE: { label: '待处理', color: 'warning' }, PLANNED: { label: '计划中', color: 'processing' } }
@@ -43,6 +47,53 @@ export function GovernanceOperationsPage() {
     { title: '节奏', dataIndex: 'name' }, { title: '责任角色', dataIndex: 'ownerRole', width: 120 }, { title: '状态', dataIndex: 'status', width: 90, render: value => <Tag color={cadenceMeta[value]?.color}>{cadenceMeta[value]?.label ?? value}</Tag> }, { title: '下一节点', dataIndex: 'nextDueAt', width: 180 }, { title: '依据', dataIndex: 'evidence' },
   ]
   const submit = (values: GovernanceOperationsFilter) => setFilters(Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined && value !== '')))
+  // 开放问题分布：环形图（问题类型 → 数量）
+  const issueTypeOption = useMemo(() => ({
+    color: CHART_COLORS,
+    tooltip: { trigger: 'item', formatter: '{b}：{c} 个（{d}%）' },
+    legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, textStyle: { color: railTheme.text2, fontSize: 12 } },
+    series: [{
+      type: 'pie',
+      radius: ['52%', '74%'],
+      center: ['50%', '42%'],
+      itemStyle: { borderColor: '#fff', borderWidth: 2 },
+      label: { show: false },
+      labelLine: { show: false },
+      data: (overview.data?.issuesByType ?? []).map(item => ({ name: item.key, value: item.count })),
+    }],
+  }), [overview.data])
+
+  // 运营指标达成率：仅取可用且以 % 表示的指标做横向条形图
+  const rateMetrics = useMemo(() => metricOrder
+    .map(key => metrics.get(key))
+    .filter((metric): metric is GovernanceOperationsMetric => Boolean(metric && metric.unit === '%' && metric.available && metric.value !== null)), [metrics])
+  const rateOption = useMemo(() => ({
+    grid: { left: 8, right: 46, top: 10, bottom: 8, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: (value: number) => `${value}%` },
+    xAxis: {
+      type: 'value',
+      max: 100,
+      axisLabel: { formatter: '{value}%', color: railTheme.text3, fontSize: 11 },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: '#eef1ef' } },
+    },
+    yAxis: {
+      type: 'category',
+      inverse: true,
+      data: rateMetrics.map(metric => metric.label),
+      axisLabel: { color: railTheme.text2, fontSize: 12 },
+      axisLine: { show: false },
+      axisTick: { show: false },
+    },
+    series: [{
+      type: 'bar',
+      barWidth: 12,
+      itemStyle: { color: railTheme.brand, borderRadius: [0, 4, 4, 0] },
+      label: { show: true, position: 'right', formatter: '{c}%', color: railTheme.text2, fontSize: 11 },
+      data: rateMetrics.map(metric => Number(((metric.value ?? 0) * 100).toFixed(1))),
+    }],
+  }), [rateMetrics])
   return <GovernancePage>
     <GovernancePageHeader
       title="治理运营"
@@ -72,9 +123,23 @@ export function GovernanceOperationsPage() {
     </GovernanceMetricGrid>
     {overview.data && <Typography.Text type="secondary">生成时间：{new Date(overview.data.generatedAt).toLocaleString('zh-CN', { hour12: false })} · 指标来源均为平台治理事实</Typography.Text>}
     <Row gutter={[16, 16]}>
-      <Col xs={24} lg={9}><GovernancePanelSection title="开放问题分布" extra={<Tag>{overview.data?.openIssueCount ?? 0} 个开放问题</Tag>}><Table rowKey="key" size="small" pagination={false} locale={{ emptyText: <Empty description="暂无问题" /> }} columns={issueColumns} dataSource={overview.data?.issuesByType ?? []} /></GovernancePanelSection></Col>
-      <Col xs={24} lg={15}><GovernancePanelSection title="逾期任务" extra={<Tag color={overview.data?.overdueTaskCount ? 'warning' : 'success'}>{overview.data?.overdueTaskCount ?? 0}</Tag>}><Table rowKey="taskId" size="small" pagination={false} scroll={{ x: 560 }} locale={{ emptyText: <Empty description="暂无逾期任务" /> }} columns={riskColumns} dataSource={overview.data?.overdueTasks ?? []} /></GovernancePanelSection></Col>
+      <Col xs={24} lg={10}>
+        <GovernancePanelSection title="开放问题分布" extra={<Tag>{overview.data?.openIssueCount ?? 0} 个开放问题</Tag>}>
+          {(overview.data?.issuesByType.length ?? 0) === 0
+            ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无问题" style={{ margin: '32px 0' }} />
+            : <EChart ariaLabel="开放问题分布环形图" height={260} option={issueTypeOption} />}
+        </GovernancePanelSection>
+      </Col>
+      <Col xs={24} lg={14}>
+        <GovernancePanelSection title="运营指标达成" extra={<Typography.Text type="secondary">仅展示可用的比率指标</Typography.Text>}>
+          {rateMetrics.length === 0
+            ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无可展示的比率指标" style={{ margin: '32px 0' }} />
+            : <EChart ariaLabel="运营指标达成率条形图" height={260} option={rateOption} />}
+        </GovernancePanelSection>
+      </Col>
     </Row>
+    <GovernancePanelSection title="开放问题明细" extra={<Typography.Text type="secondary">按问题类型汇总</Typography.Text>}><Table rowKey="key" size="small" pagination={false} locale={{ emptyText: <Empty description="暂无问题" /> }} columns={issueColumns} dataSource={overview.data?.issuesByType ?? []} /></GovernancePanelSection>
+    <GovernancePanelSection title="逾期任务" extra={<Tag color={overview.data?.overdueTaskCount ? 'warning' : 'success'}>{overview.data?.overdueTaskCount ?? 0}</Tag>}><Table rowKey="taskId" size="small" pagination={false} scroll={{ x: 560 }} locale={{ emptyText: <Empty description="暂无逾期任务" /> }} columns={riskColumns} dataSource={overview.data?.overdueTasks ?? []} /></GovernancePanelSection>
     <GovernancePanelSection title="治理节奏" extra={<Typography.Text type="secondary">每日扫描、每周分派、每月复盘、季度评审</Typography.Text>}><Table rowKey="key" size="small" pagination={false} scroll={{ x: 760 }} columns={cadenceColumns} dataSource={overview.data?.cadences ?? []} /></GovernancePanelSection>
     {overview.data?.metrics.find(metric => metric.key === 'issueClosureCycle' && !metric.available) && <Alert type="info" showIcon message="平均问题关闭周期暂不可用" description={overview.data.metrics.find(metric => metric.key === 'issueClosureCycle')?.source} />}
   </GovernancePage>
