@@ -190,14 +190,36 @@ const NavSection = styled.div`
 `
 
 const NavLabel = styled.div<{ $collapsed: boolean }>`
-  height: ${({ $collapsed }) => ($collapsed ? '4px' : '24px')};
-  padding: ${({ $collapsed }) => ($collapsed ? '0' : '5px 10px 4px')};
+  height: ${({ $collapsed }) => ($collapsed ? '4px' : 'auto')};
+  padding: ${({ $collapsed }) => ($collapsed ? '0' : '0 4px 2px')};
   overflow: hidden;
+`
+
+const SectionToggle = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
   color: #97a29d;
   font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+
+  &:hover,
+  &:focus-visible {
+    color: #5f6d67;
+    background: #f4f7f5;
+    outline: none;
+  }
 `
 
 const NavItem = styled.button<{ $active: boolean; $collapsed: boolean }>`
@@ -361,6 +383,7 @@ export function AppShell({ children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem('workspace-nav-collapsed') === 'true')
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 720px)').matches)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const [closedSections, setClosedSections] = useState<Record<string, boolean>>({})
   const allItems = useMemo(() => [...primaryItems, ...managementItems], [])
   const currentModule = allItems.find((item) => item.active(location.pathname))?.label ?? '生产知识资产平台'
   const isUploadRoute = location.pathname === '/upload' || location.pathname === '/sys/file'
@@ -452,6 +475,27 @@ export function AppShell({ children }: AppShellProps) {
     )
   }
 
+  const toggleSection = (key: string) => {
+    setClosedSections(previous => ({ ...previous, [key]: !previous[key] }))
+  }
+
+  const renderSection = (key: string, label: string, items: NavigationItem[]) => {
+    const open = !closedSections[key]
+    return (
+      <NavSection key={key}>
+        <NavLabel $collapsed={navigationCollapsed}>
+          {!navigationCollapsed && (
+            <SectionToggle type="button" aria-expanded={open} onClick={() => toggleSection(key)}>
+              <span>{label}</span>
+              <GroupChevron $open={open} aria-hidden="true"><DownOutlined /></GroupChevron>
+            </SectionToggle>
+          )}
+        </NavLabel>
+        {open && items.map(renderItem)}
+      </NavSection>
+    )
+  }
+
   return (
     <Shell>
       <TopBar>
@@ -489,14 +533,8 @@ export function AppShell({ children }: AppShellProps) {
       </TopBar>
       <Body>
         <Navigation width={expandedWidth} collapsedWidth={collapsedWidth} collapsed={navigationCollapsed} trigger={null}>
-          <NavSection>
-            <NavLabel $collapsed={navigationCollapsed}>资产工作台</NavLabel>
-            {primaryItems.map(renderItem)}
-          </NavSection>
-          <NavSection>
-            <NavLabel $collapsed={navigationCollapsed}>管理与治理</NavLabel>
-            {managementItems.map(renderItem)}
-          </NavSection>
+          {renderSection('primary', '资产工作台', primaryItems)}
+          {renderSection('management', '管理与治理', managementItems)}
         </Navigation>
         <Main $fixed={isUploadRoute}>{children}</Main>
       </Body>
