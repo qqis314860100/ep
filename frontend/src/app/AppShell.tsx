@@ -2,6 +2,7 @@ import {
   BookOutlined,
   CloudUploadOutlined,
   DatabaseOutlined,
+  DownOutlined,
   FileSearchOutlined,
   FileTextOutlined,
   HeartOutlined,
@@ -202,7 +203,7 @@ const NavLabel = styled.div<{ $collapsed: boolean }>`
 const NavItem = styled.button<{ $active: boolean; $collapsed: boolean }>`
   position: relative;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
   width: 100%;
   min-height: 38px;
@@ -245,6 +246,50 @@ const NavItem = styled.button<{ $active: boolean; $collapsed: boolean }>`
   }
 `
 
+const GroupChevron = styled.span<{ $open: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8c9892;
+  font-size: 10px;
+  transition: transform 180ms ease;
+  transform: rotate(${({ $open }) => ($open ? '0deg' : '-90deg')});
+`
+
+const NavChildren = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 4px 14px;
+  padding-left: 8px;
+  border-left: 1px solid #e6ebe8;
+`
+
+const NavChild = styled.button<{ $active: boolean }>`
+  width: 100%;
+  min-height: 30px;
+  padding: 0 8px;
+  overflow: hidden;
+  color: ${({ $active }) => ($active ? '#245f54' : '#5c6a64')};
+  font-size: 12.5px;
+  font-weight: ${({ $active }) => ($active ? 600 : 400)};
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: ${({ $active }) => ($active ? '#eef4f1' : 'transparent')};
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease;
+
+  &:hover,
+  &:focus-visible {
+    color: #245f54;
+    background: ${({ $active }) => ($active ? '#eef4f1' : '#f4f7f5')};
+    outline: none;
+  }
+`
+
 const Main = styled(Content)<{ $fixed?: boolean }>`
   min-width: 0;
   padding: 14px 16px 28px;
@@ -259,12 +304,21 @@ interface AppShellProps {
   children: ReactNode
 }
 
+interface NavigationChild {
+  key: string
+  label: string
+  path: string
+  active: (pathname: string) => boolean
+}
+
 interface NavigationItem {
   key: string
   label: string
   path: string
   icon: ReactNode
   active: (pathname: string) => boolean
+  /** 二级菜单：有子项时父级点击为展开/收起（侧栏收起态仍直接跳转）。 */
+  children?: NavigationChild[]
 }
 
 const primaryItems: NavigationItem[] = [
@@ -279,7 +333,23 @@ const primaryItems: NavigationItem[] = [
 ]
 
 const managementItems: NavigationItem[] = [
-  { key: 'governance', label: '数据治理', path: '/sys/drawing', icon: <DatabaseOutlined />, active: (path) => path === '/governance' || path.startsWith('/sys/drawing') },
+  {
+    key: 'governance',
+    label: '数据治理',
+    path: '/sys/drawing',
+    icon: <DatabaseOutlined />,
+    active: (path) => path === '/governance' || path.startsWith('/sys/drawing'),
+    children: [
+      { key: 'governance-workbench', label: '治理工作台', path: '/sys/drawing', active: (path) => path === '/sys/drawing' || path === '/governance' || path.startsWith('/sys/drawing/tasks') },
+      { key: 'governance-inventory', label: '资产盘点', path: '/sys/drawing/inventory', active: (path) => path.startsWith('/sys/drawing/inventory') },
+      { key: 'governance-issues', label: '问题池', path: '/sys/drawing/issues', active: (path) => path.startsWith('/sys/drawing/issues') },
+      { key: 'governance-scans', label: '自动扫描', path: '/sys/drawing/scans', active: (path) => path.startsWith('/sys/drawing/scans') },
+      { key: 'governance-standards', label: '标准中心', path: '/sys/drawing/standards', active: (path) => path.startsWith('/sys/drawing/standards') },
+      { key: 'governance-mappings', label: '映射规则', path: '/sys/drawing/mappings', active: (path) => path.startsWith('/sys/drawing/mappings') },
+      { key: 'governance-operations', label: '治理运营', path: '/sys/drawing/operations', active: (path) => path.startsWith('/sys/drawing/operations') },
+      { key: 'governance-responsibility', label: '责任看板', path: '/sys/drawing/responsibility', active: (path) => path.startsWith('/sys/drawing/responsibility') },
+    ],
+  },
   { key: 'dictionaries', label: '基础数据', path: '/sys/dictionaries', icon: <BookOutlined />, active: (path) => path === '/dictionaries' || path === '/sys/dictionaries' },
   { key: 'settings', label: '系统管理', path: '/sys/settings', icon: <SettingOutlined />, active: (path) => path === '/settings' || path === '/sys/settings' },
 ]
@@ -290,6 +360,7 @@ export function AppShell({ children }: AppShellProps) {
   const { user, logout } = useAuth()
   const [collapsed, setCollapsed] = useState(() => window.localStorage.getItem('workspace-nav-collapsed') === 'true')
   const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 720px)').matches)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const allItems = useMemo(() => [...primaryItems, ...managementItems], [])
   const currentModule = allItems.find((item) => item.active(location.pathname))?.label ?? '生产知识资产平台'
   const isUploadRoute = location.pathname === '/upload' || location.pathname === '/sys/file'
@@ -314,21 +385,72 @@ export function AppShell({ children }: AppShellProps) {
     })
   }
 
-  const renderItem = (item: NavigationItem) => (
-    <Tooltip key={item.key} title={navigationCollapsed ? item.label : undefined} placement="right">
-      <NavItem
-        type="button"
-        $active={item.active(location.pathname)}
-        $collapsed={navigationCollapsed}
-        aria-label={item.label}
-        aria-current={item.active(location.pathname) ? 'page' : undefined}
-        onClick={() => navigate(item.path)}
-      >
-        {item.icon}
-        {!navigationCollapsed && <span>{item.label}</span>}
-      </NavItem>
-    </Tooltip>
-  )
+  const isGroupOpen = (item: NavigationItem) => !navigationCollapsed
+    && (openGroups[item.key] ?? item.active(location.pathname))
+
+  const toggleGroup = (item: NavigationItem) => {
+    setOpenGroups(previous => ({
+      ...previous,
+      [item.key]: !(previous[item.key] ?? item.active(location.pathname)),
+    }))
+  }
+
+  const renderItem = (item: NavigationItem) => {
+    const active = item.active(location.pathname)
+    const hasChildren = Boolean(item.children?.length) && !navigationCollapsed
+    if (!hasChildren) {
+      return (
+        <Tooltip key={item.key} title={navigationCollapsed ? item.label : undefined} placement="right">
+          <NavItem
+            type="button"
+            $active={active}
+            $collapsed={navigationCollapsed}
+            aria-label={item.label}
+            aria-current={active ? 'page' : undefined}
+            onClick={() => navigate(item.path)}
+          >
+            {item.icon}
+            {!navigationCollapsed && <span>{item.label}</span>}
+          </NavItem>
+        </Tooltip>
+      )
+    }
+    const open = isGroupOpen(item)
+    return (
+      <div key={item.key}>
+        <NavItem
+          type="button"
+          $active={active}
+          $collapsed={navigationCollapsed}
+          aria-label={item.label}
+          aria-expanded={open}
+          onClick={() => toggleGroup(item)}
+        >
+          {item.icon}
+          <span>{item.label}</span>
+          <GroupChevron $open={open} aria-hidden="true"><DownOutlined /></GroupChevron>
+        </NavItem>
+        {open && (
+          <NavChildren aria-label={`${item.label}子菜单`}>
+            {item.children!.map(child => {
+              const childActive = child.active(location.pathname)
+              return (
+                <NavChild
+                  key={child.key}
+                  type="button"
+                  $active={childActive}
+                  aria-current={childActive ? 'page' : undefined}
+                  onClick={() => navigate(child.path)}
+                >
+                  {child.label}
+                </NavChild>
+              )
+            })}
+          </NavChildren>
+        )}
+      </div>
+    )
+  }
 
   return (
     <Shell>
