@@ -211,6 +211,13 @@ print(f"  完成：{name}（{len(statements)} 条语句）")
 PY
 }
 
+# 仓库自有的本机迁移（仅 local profile 使用，不套用归档正本）。
+# V1_14：真实用户/角色/数据范围表，替代此前的硬编码内存演示账号。
+LOCAL_MIG_DIR="${SCRIPT_DIR}/migrations"
+LOCAL_MIGRATIONS=(
+  V1_14__system_user_schema.sql
+)
+
 applied_any=0
 for name in "${MIGRATIONS[@]}"; do
   file="${MIG_DIR}/${name}"
@@ -225,6 +232,26 @@ for name in "${MIGRATIONS[@]}"; do
   echo "应用：${name}"
   if ! apply_through_python "${name}" "${file}"; then
     echo "中止：${name} 应用失败；已应用的语句不会记录，可修正后重跑（重复列会被自动跳过）。" >&2
+    exit 1
+  fi
+  mysql "${DB_NAME}" -e "INSERT INTO schema_migration_applied (file_name) VALUES ('${name}');" >/dev/null
+  applied_any=1
+done
+
+# 本机自有迁移：与归档正本同样走幂等执行 + schema_migration_applied 台账。
+for name in "${LOCAL_MIGRATIONS[@]}"; do
+  file="${LOCAL_MIG_DIR}/${name}"
+  if [[ ! -f "${file}" ]]; then
+    echo "缺失迁移文件：${file}" >&2
+    exit 1
+  fi
+  if applied_file "${name}"; then
+    echo "跳过（已应用）：${name}"
+    continue
+  fi
+  echo "应用：${name}"
+  if ! apply_through_python "${name}" "${file}"; then
+    echo "中止：${name} 应用失败；可修正后重跑。" >&2
     exit 1
   fi
   mysql "${DB_NAME}" -e "INSERT INTO schema_migration_applied (file_name) VALUES ('${name}');" >/dev/null
