@@ -1,16 +1,17 @@
-import { FilterOutlined, PlusOutlined } from '@ant-design/icons'
+import { PlusOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, App, Button, Drawer, Form, Input, Select, Space, Table, Typography } from 'antd'
+import { Alert, App, Button, Drawer, Form, Input, Select, Table, Typography } from 'antd'
 import type { ColumnsType, TableRowSelection } from 'antd/es/table/interface'
 import { useState } from 'react'
 import styled from 'styled-components'
+import { FilterGrid } from '../../../components/FilterGrid'
 import { createGovernanceTask, getGovernanceEmployees, getGovernanceIssues } from '../api'
 import type { GovernanceField, GovernanceIssue, GovernanceIssueStatus } from '../types'
-import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
+import { GovernancePage, GovernancePageHeader, GovernancePanel } from '../components/GovernanceLayout'
 
-const Layout = styled.div`display:grid; grid-template-columns:220px minmax(0, 1fr); gap:20px; @media(max-width:800px){grid-template-columns:1fr;}`
-const Filters = styled.aside`border-right:1px solid #dfe5e2; padding-right:16px; @media(max-width:800px){border-right:0; padding-right:0;}`
-const Header = styled.div`display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:16px;`
+const SelectionHint = styled(Typography.Text)`
+  align-self: center;
+`
 
 type FormValues = { name: string; ownerUserId: string; dueDate: string }
 const fieldOptions = [{ value: 'DESCRIPTION', label: '功能说明' }, { value: 'SPECIALTIES', label: '专业类别' }, { value: 'OWNER', label: '责任人' }, { value: 'SCOPE', label: '适用范围' }]
@@ -41,17 +42,27 @@ export function GovernanceIssuePoolPage() {
     { title: '修改时间', dataIndex: 'updatedAt', width: 165, render: formatIssueTime },
   ]
   const rowSelection: TableRowSelection<GovernanceIssue> = { selectedRowKeys: selectedIds, preserveSelectedRowKeys: true, onChange: setSelectedIds, getCheckboxProps: issue => ({ 'aria-label': `选择问题 ${issue.id}`, disabled: issue.status !== 'OPEN' }) }
-  return <section>
-    <Header><div><GovernanceWorkspaceBack /><Typography.Title level={3} style={{ margin: 0 }}>字段问题池</Typography.Title><Typography.Text type="secondary">筛选问题并按问题集合创建治理任务</Typography.Text></div><Button type="primary" icon={<PlusOutlined aria-hidden />} disabled={!selectedIds.length} onClick={() => setDrawerOpen(true)}>创建治理任务</Button></Header>
-    <Layout><Filters><Typography.Text strong><FilterOutlined /> 筛选</Typography.Text><Space direction="vertical" style={{ width: '100%', marginTop: 12 }}>
-      <Select aria-label="目标字段" allowClear placeholder="全部字段" options={fieldOptions} value={field} onChange={setField} />
-      <Select aria-label="问题状态" allowClear placeholder="全部状态" options={statusOptions} value={status} onChange={setStatus} />
-      <Input aria-label="资产 ID" placeholder="输入资产 ID" inputMode="numeric" onChange={event => setAssetId(event.target.value ? Number(event.target.value) : undefined)} />
-      <Typography.Text type="secondary">已选择 {selectedIds.length} 项，翻页后保留</Typography.Text>
-    </Space></Filters><div>{issuesQuery.isError && <Alert type="error" showIcon message="问题池加载失败" />}<Table rowKey="id" size="small" loading={issuesQuery.isLoading} rowSelection={rowSelection} columns={columns} dataSource={issuesQuery.data ?? []} scroll={{ x: 1150 }} pagination={{ pageSize: 10, showSizeChanger: false }} /></div></Layout>
+  return <GovernancePage>
+    <GovernancePageHeader
+      title="字段问题池"
+      subtitle="筛选问题并按问题集合创建治理任务"
+      actions={<Button type="primary" icon={<PlusOutlined aria-hidden />} disabled={!selectedIds.length} onClick={() => setDrawerOpen(true)}>创建治理任务</Button>}
+    />
+    <GovernancePanel>
+      <FilterGrid>
+        <Select aria-label="目标字段" allowClear placeholder="全部字段" options={fieldOptions} value={field} onChange={setField} />
+        <Select aria-label="问题状态" allowClear placeholder="全部状态" options={statusOptions} value={status} onChange={setStatus} />
+        <Input aria-label="资产 ID" placeholder="输入资产 ID" inputMode="numeric" onChange={event => setAssetId(event.target.value ? Number(event.target.value) : undefined)} />
+        <SelectionHint type="secondary">已选择 {selectedIds.length} 项，翻页后保留</SelectionHint>
+      </FilterGrid>
+    </GovernancePanel>
+    {issuesQuery.isError && <Alert type="error" showIcon message="问题池加载失败" />}
+    <GovernancePanel>
+      <Table rowKey="id" size="small" loading={issuesQuery.isLoading} rowSelection={rowSelection} columns={columns} dataSource={issuesQuery.data ?? []} scroll={{ x: 1150 }} pagination={{ pageSize: 10, showSizeChanger: false }} />
+    </GovernancePanel>
     <Drawer title={`创建治理任务 · ${selectedIds.length} 个问题`} open={drawerOpen} onClose={() => setDrawerOpen(false)} width={420} extra={<Button type="primary" loading={createMutation.isPending} onClick={() => form.submit()}>确认创建</Button>}>
       {createMutation.error && <Alert type="error" showIcon message={createMutation.error.message} style={{ marginBottom: 16 }} />}
       <Form form={form} layout="vertical" onFinish={values => createMutation.mutate(values)}><Form.Item name="name" label="任务名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="ownerUserId" label="负责人" rules={[{ required: true }]}><Select options={(employeesQuery.data ?? []).map(item => ({ value: item.id, label: item.name }))} /></Form.Item><Form.Item name="dueDate" label="截止日期" rules={[{ required: true }]}><Input type="date" /></Form.Item></Form>
     </Drawer>
-  </section>
+  </GovernancePage>
 }

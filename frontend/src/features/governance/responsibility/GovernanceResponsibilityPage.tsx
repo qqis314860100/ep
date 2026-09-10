@@ -11,7 +11,7 @@ import type {
   GovernanceTask,
 } from '../types'
 import { dueDayDiff } from '../components/governanceRailModel'
-import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
+import { GovernancePageHeader } from '../components/GovernanceLayout'
 import { GovernanceStatusTag } from '../shared/GovernanceStatusTag'
 import { StatCards } from '../components/StatCards'
 import type { GovernanceStatCardData } from '../components/StatCards'
@@ -22,20 +22,6 @@ const Page = styled.div`
   flex-direction: column;
   gap: 18px;
   min-width: 0;
-`
-
-const Header = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-`
-
-const Toolbar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
 `
 
 const Section = styled.section`
@@ -226,13 +212,10 @@ export function GovernanceResponsibilityPage() {
 
   return (
     <Page>
-      <GovernanceWorkspaceBack />
-      <Header>
-        <div>
-          <Typography.Title level={3} style={{ margin: 0 }}>组织与责任看板</Typography.Title>
-          <Typography.Text type="secondary">部门视角看「谁名下多少待办/逾期」——责任到人，复盘有数</Typography.Text>
-        </div>
-        <Toolbar>
+      <GovernancePageHeader
+        title="组织与责任看板"
+        subtitle="部门视角看「谁名下多少待办/逾期」——责任到人，复盘有数"
+        actions={<>
           <Select
             aria-label="复盘月份"
             style={{ width: 180 }}
@@ -241,8 +224,8 @@ export function GovernanceResponsibilityPage() {
             options={monthOptions.map(key => ({ value: key, label: `${key} 复盘` }))}
           />
           <Button icon={<ReloadOutlined />} onClick={() => void boardQuery.refetch()}>刷新</Button>
-        </Toolbar>
-      </Header>
+        </>}
+      />
 
       {boardQuery.isError && (
         <Alert type="error" showIcon message="看板数据加载失败"

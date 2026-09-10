@@ -35,7 +35,7 @@ import {
   getGovernanceStandardImpactReviews,
   getGovernanceStandards,
 } from '../api'
-import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
+import { GovernancePageHeader } from '../components/GovernanceLayout'
 import type {
   CreateGovernanceStandardInput,
   GovernanceAssetType,
@@ -45,29 +45,19 @@ import type {
 } from '../types'
 
 const Workspace = styled.section`
-  min-width: 0;
-`
-
-const PageHeader = styled.header`
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 14px;
-
-  @media (max-width: 720px) {
-    align-items: stretch;
-    flex-direction: column;
-  }
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 28px;
 `
 
 const ContextBar = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(120px, 1fr)) minmax(240px, 2fr);
-  margin-bottom: 14px;
   background: #fff;
-  border: 1px solid #dfe5e2;
-  border-radius: 4px;
+  border: 1px solid #e6e9ef;
+  border-radius: 8px;
 
   > div {
     min-height: 72px;
@@ -303,11 +293,11 @@ export function GovernanceStandardsPage() {
   const impactedCount = standardsQuery.data?.filter(item => item.status === 'ENABLED').reduce((total, item) => total + item.affectedAssetCount, 0) ?? 0
 
   return <Workspace>
-    <GovernanceWorkspaceBack />
-    <PageHeader>
-      <div><Typography.Title level={3} style={{ margin: 0 }}>数据标准中心</Typography.Title><Typography.Text type="secondary">统一维护分类、字段、命名、文件角色和质量门槛的版本基线</Typography.Text></div>
-      <Space><Button aria-label="新建标准" icon={<PlusOutlined aria-hidden />} onClick={() => openDrawer('new')}>新建标准</Button><Button aria-label="新建版本" type="primary" icon={<FileProtectOutlined aria-hidden />} disabled={!selected} onClick={() => openDrawer('version')}>新建版本</Button></Space>
-    </PageHeader>
+    <GovernancePageHeader
+      title="数据标准中心"
+      subtitle="统一维护分类、字段、命名、文件角色和质量门槛的版本基线"
+      actions={<><Button aria-label="新建标准" icon={<PlusOutlined aria-hidden />} onClick={() => openDrawer('new')}>新建标准</Button><Button aria-label="新建版本" type="primary" icon={<FileProtectOutlined aria-hidden />} disabled={!selected} onClick={() => openDrawer('version')}>新建版本</Button></>}
+    />
 
     <ContextBar>
       <div><Statistic title="启用标准" value={enabledCount} suffix="个" /></div>
