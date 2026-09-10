@@ -164,19 +164,33 @@ const MetricCard = styled.div<{ $tone: 'default' | 'warn' | 'alert' | 'success' 
     font-size: 12px;
     font-weight: 400;
   }
+
+  .footnote {
+    min-height: 16px;
+    margin-top: 4px;
+    overflow: hidden;
+    color: ${railTheme.text3};
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 `
 
-/** 统一指标卡。 */
-export function GovernanceMetric({ label, value, unit, tone = 'default' }: {
+/** 全站统一指标卡：治理工作台/责任看板/盘点/运营/扫描共用同一视觉。 */
+export function GovernanceMetric({ label, value, unit, footnote, tone = 'default' }: {
   label: ReactNode
   value: ReactNode
   unit?: ReactNode
+  footnote?: ReactNode
   tone?: 'default' | 'warn' | 'alert' | 'success'
 }) {
   return (
     <MetricCard $tone={tone}>
       <div className="label" title={typeof label === 'string' ? label : undefined}>{label}</div>
       <div className="value">{value}{unit ? <span className="unit">{unit}</span> : null}</div>
+      {footnote !== undefined && footnote !== null && (
+        <div className="footnote" title={typeof footnote === 'string' ? footnote : undefined}>{footnote}</div>
+      )}
     </MetricCard>
   )
 }

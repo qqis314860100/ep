@@ -21,8 +21,7 @@ import styled from 'styled-components'
 import { authSession } from '../../auth/session'
 import { getGovernanceIssues, getGovernanceScanRuns, getGovernanceTasks, getInventory } from '../api'
 import type { GovernanceIssue, GovernanceTask, GovernanceTaskStatus } from '../types'
-import type { GovernanceStatCardData } from './StatCards'
-import { StatCards } from './StatCards'
+import { GovernanceMetric, GovernanceMetricGrid } from './GovernanceLayout'
 import {
   buildGovernanceRailModel,
   classifyGovernanceTaskStage,
@@ -424,11 +423,11 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
     }
   }, [inventoryQuery.data, issuesQuery.data, tasksQuery.data, scansQuery.data, isAdministrator, user])
 
-  const statCards: GovernanceStatCardData[] = [
+  const statCards = [
     { key: 'pending', label: '待整理资产', value: model.totals?.pendingCuration ?? null, unit: '条', footnote: `疑似重复 ${model.totals?.duplicateSuspects ?? 0} 条` },
-    { key: 'week', label: '7 天内到期', value: tasksQuery.isError ? null : model.dueSummary.dueWithin7Days, unit: '个', tone: model.dueSummary.dueWithin7Days > 0 ? 'warn' : 'default', footnote: `${model.dueSummary.dueWithin48Hours} 个将在 48 小时内到期` },
-    { key: 'overdue', label: '已逾期', value: tasksQuery.isError ? null : model.dueSummary.overdue, unit: '个', tone: 'alert', footnote: model.escalatedCount > 0 ? `${model.escalatedCount} 个已升级，请优先跟进` : '暂无升级任务' },
-    { key: 'standardized', label: '已标准化', value: model.totals?.standardized ?? null, unit: '条', tone: 'success', footnote: model.rates ? `适用范围覆盖率 ${Math.round(model.rates.scopeCoverage)}%` : '' },
+    { key: 'week', label: '7 天内到期', value: tasksQuery.isError ? null : model.dueSummary.dueWithin7Days, unit: '个', tone: model.dueSummary.dueWithin7Days > 0 ? 'warn' as const : 'default' as const, footnote: `${model.dueSummary.dueWithin48Hours} 个将在 48 小时内到期` },
+    { key: 'overdue', label: '已逾期', value: tasksQuery.isError ? null : model.dueSummary.overdue, unit: '个', tone: 'alert' as const, footnote: model.escalatedCount > 0 ? `${model.escalatedCount} 个已升级，请优先跟进` : '暂无升级任务' },
+    { key: 'standardized', label: '已标准化', value: model.totals?.standardized ?? null, unit: '条', tone: 'success' as const, footnote: model.rates ? `适用范围覆盖率 ${Math.round(model.rates.scopeCoverage)}%` : '' },
   ]
 
   const failedSources = [
@@ -481,7 +480,18 @@ export function GovernanceRailHome({ onOpenTask }: GovernanceRailHomeProps) {
         </HeaderActions>
       </Header>
 
-      <StatCards cards={statCards} />
+      <GovernanceMetricGrid>
+        {statCards.map(card => (
+          <GovernanceMetric
+            key={card.key}
+            label={card.label}
+            value={card.value === null ? '—' : card.value.toLocaleString('zh-CN')}
+            unit={card.value === null ? undefined : card.unit}
+            tone={card.tone}
+            footnote={card.value === null ? '数据暂不可用' : card.footnote}
+          />
+        ))}
+      </GovernanceMetricGrid>
 
       {failedSources.length > 0 && (
         <Alert

@@ -11,10 +11,8 @@ import type {
   GovernanceTask,
 } from '../types'
 import { dueDayDiff } from '../components/governanceRailModel'
-import { GovernancePageHeader } from '../components/GovernanceLayout'
+import { GovernanceMetric, GovernanceMetricGrid, GovernancePageHeader } from '../components/GovernanceLayout'
 import { GovernanceStatusTag } from '../shared/GovernanceStatusTag'
-import { StatCards } from '../components/StatCards'
-import type { GovernanceStatCardData } from '../components/StatCards'
 import { railTheme } from '../components/railTheme'
 
 const Page = styled.div`
@@ -177,7 +175,7 @@ export function GovernanceResponsibilityPage() {
     { title: '累计负责', dataIndex: 'totalAssigned', width: 96, align: 'center' },
   ]
 
-  const statCards: GovernanceStatCardData[] = [
+  const statCards = [
     {
       key: 'scan', label: `本月扫描（${board?.monthly.month ?? ''}）`, value: board?.monthly.scanRuns ?? null,
       unit: '次', tone: 'default',
@@ -235,7 +233,18 @@ export function GovernanceResponsibilityPage() {
 
       <Section>
         <SectionTitle>本月治理复盘 <span className="hint">月份可切换；活动量按月统计，存量项为当前快照</span></SectionTitle>
-        <StatCards cards={statCards} />
+        <GovernanceMetricGrid>
+          {statCards.map(card => (
+            <GovernanceMetric
+              key={card.key}
+              label={card.label}
+              value={card.value === null ? '—' : card.value.toLocaleString('zh-CN')}
+              unit={card.value === null ? undefined : card.unit}
+              tone={card.tone}
+              footnote={card.value === null ? '数据暂不可用' : card.footnote}
+            />
+          ))}
+        </GovernanceMetricGrid>
       </Section>
 
       <Section>
