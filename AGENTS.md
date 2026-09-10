@@ -89,7 +89,10 @@ PDF files at the repository root.
 - Use `rtk` for noisy Git, Maven, pnpm, build, test, diff, and log output. Use
   `rtk proxy` when an unfiltered failure is needed for diagnosis.
 - Locate code with `rg`, then read the smallest useful file range.
-- Preserve the current default in-memory backend profile. Never connect to or
+- The real database is the only data source. The backend defaults to the
+  `local` profile and talks to the configured MySQL/OceanBase instance; there
+  are no in-memory repositories or seeded mock data in `src/main`. In-memory
+  implementations live in `src/test` as test doubles only. Never connect to or
   mutate a production database during development or verification.
 - Do not change legacy primary keys or overwrite legacy source values.
 - Product and production filters must match within the same `AssetScope`; do

@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/*
+ * ⚠️ 尚未随「真实数据库唯一数据源」改造完成：
+ * 本脚本的场景数据仍假设旧的演示种子（治理任务/问题种子、emp-* 演示账号、
+ * 资产 101~105 的扩展行），这些种子已随应用表清理移除。启动方式、登录账号已改为
+ * 真实库口径，但阶段数据需要按真实业务记录重新基线后才能整条通过。
+ */
 /**
  * flow.mjs — 从 0 到 尾的全业务 E2E 全流程脚本（API 级，Node 18+ 无第三方依赖）
  *
@@ -141,11 +147,14 @@ function poll(fn, { timeoutMs = 15000, intervalMs = 500, label = '轮询' } = {}
 let sessionCookie = ''
 
 /**
- * 以种子账号登录并携带会话 Cookie（seed 用户密码均为 demo123）。
+ * 以真实库内账号登录并携带会话 Cookie。
+ *
+ * 账号来自真实表 sys_user（默认引导管理员 admin，见 docs/local-development.md），
+ * 可用 E2E_USER_ID / E2E_PASSWORD 覆盖；已不存在任何硬编码演示账号。
  * 用系统管理员（SYSTEM_ADMIN + CONTENT_ADMIN）驱动全流程，
  * 可覆盖需要治理/系统管理角色的所有端点；接口 body 中的 actorUserId 仍按原业务语义填写。
  */
-async function loginAs(userId = 'emp-admin', password = 'demo123') {
+async function loginAs(userId = process.env.E2E_USER_ID || 'admin', password = process.env.E2E_PASSWORD || 'Admin@2026!') {
   const response = await fetch(`${BACKEND}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -164,8 +173,8 @@ async function loginAs(userId = 'emp-admin', password = 'demo123') {
 /* 主流程                                                               */
 /* ------------------------------------------------------------------ */
 console.log(`\n=== E2E 全流程开始  backend=${BACKEND}${FRONTEND ? ` frontend=${FRONTEND}` : ''} ===\n`)
-await loginAs('emp-admin')
-console.log('  会话：emp-admin 已登录（S1 写操作需真实会话）')
+await loginAs()
+console.log(`  会话：${process.env.E2E_USER_ID || 'admin'} 已登录（S1 写操作需真实会话）`)
 
 /* ---- 阶段 0：健康检查 + 字典基线 ---- */
 console.log('【阶段 0】健康检查 + 字典基线')

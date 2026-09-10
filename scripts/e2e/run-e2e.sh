@@ -4,8 +4,8 @@
 #
 # 流程：
 #   1. 生成 mock 文件（PDF / X_T / TXT / PNG）
-#   2. 启动后端（dev profile，内存仓储，端口 8080），等待健康检查
-#   3. 启动前端（vite dev，端口 5173，VITE_USE_MOCKS=false 走真实 API）
+#   2. 启动后端（默认 local profile，直连 .env.local 配置的真实数据库），等待健康检查
+#   3. 启动前端（vite dev，端口 5173，走真实 API）
 #   4. 执行全流程脚本 flow.mjs（上传 → 资产 → 治理闭环 → 文档 → 关联 → 收藏评论 → 统一检索）
 #   5. 打印 PASS/FAIL 汇总并退出
 #
@@ -36,10 +36,16 @@ node "$E2E_DIR/mock-files.mjs"
 # ---------------------------------------------------------------------------
 # 启动后端
 # ---------------------------------------------------------------------------
-echo "==> [2/5] 启动后端 (dev profile, :$PORT_BACKEND)"
+echo "==> [2/5] 启动后端 (local profile / 真实数据库, :$PORT_BACKEND)"
+if [ -f "$ROOT/.env.local" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT/.env.local"
+  set +a
+fi
 (
   cd "$ROOT/backend"
-  mvn -q spring-boot:run -Dspring-boot.run.profiles=dev > "$BACKEND_LOG" 2>&1
+  SERVER_PORT="$PORT_BACKEND" mvn -q spring-boot:run > "$BACKEND_LOG" 2>&1
 ) &
 BACKEND_PID=$!
 
@@ -68,10 +74,10 @@ echo "    后端就绪：$(curl -sf "http://127.0.0.1:$PORT_BACKEND/actuator/hea
 # 启动前端（可选）
 # ---------------------------------------------------------------------------
 if [ "${SKIP_FRONTEND:-0}" != "1" ]; then
-  echo "==> [3/5] 启动前端 (vite dev, :$PORT_FRONTEND, VITE_USE_MOCKS=false)"
+  echo "==> [3/5] 启动前端 (vite dev, :$PORT_FRONTEND)"
   (
     cd "$ROOT/frontend"
-    VITE_USE_MOCKS=false VITE_API_BASE_URL= pnpm dev --host 127.0.0.1 --port "$PORT_FRONTEND" > "$FRONTEND_LOG" 2>&1
+    VITE_API_BASE_URL= pnpm dev --host 127.0.0.1 --port "$PORT_FRONTEND" > "$FRONTEND_LOG" 2>&1
   ) &
   FRONTEND_PID=$!
 

@@ -20,11 +20,14 @@ pnpm install
 pnpm dev
 ```
 
-后端：
+后端（真实数据库是唯一数据源，默认 `local` profile 直连 MySQL）：
 
 ```bash
 cd backend
+set -a && source ../.env.local && set +a
 JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home mvn spring-boot:run
 ```
 
-默认后端使用内存演示数据，不连接数据库。启用 OceanBase 前，应配置 `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USERNAME`、`DB_PASSWORD` 并激活 `oceanbase` profile。
+库结构补齐、凭据与引导管理员账号见 `docs/local-development.md`。生产部署形态用
+`SPRING_PROFILES_ACTIVE=oceanbase`，并配置 `DB_HOST`、`DB_PORT`、`DB_NAME`、
+`DB_USERNAME`、`DB_PASSWORD`。
