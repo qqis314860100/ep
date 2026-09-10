@@ -56,15 +56,35 @@ class SessionIdentityFilterTest {
     }
 
     @Test
-    void passesAnonymousRequestThroughUntouched() throws Exception {
+    void blanksClientClaimedIdentityForAnonymousRequests() throws Exception {
         var request = new MockHttpServletRequest("GET", "/api/v1/governance/tasks");
         request.addHeader("X-User-Id", "emp-wang");
+        request.addHeader("X-User-Roles", "SYSTEM_ADMIN");
+        request.addHeader("X-User-Name", "王工");
         var chain = new MockFilterChain();
 
         filter.doFilter(request, response(), chain);
 
         var wrapped = (HttpServletRequest) chain.getRequest();
-        assertThat(wrapped.getHeader("X-User-Id")).isEqualTo("emp-wang");
+        assertThat(wrapped.getHeader("X-User-Id")).isEmpty();
+        assertThat(wrapped.getHeader("X-User-Roles")).isEmpty();
+        assertThat(wrapped.getHeader("X-User-Name")).isEmpty();
+        assertThat(java.util.Collections.list(wrapped.getHeaderNames()))
+                .contains("X-User-Id", "X-User-Roles", "X-User-Name");
+    }
+
+    @Test
+    void overridesDisplayNameWithSessionUserName() throws Exception {
+        var request = new MockHttpServletRequest("GET", "/api/v1/governance/tasks");
+        request.addHeader("X-User-Name", "冒充者");
+        var session = request.getSession(true);
+        session.setAttribute("auth.userId", "emp-li");
+        var chain = new MockFilterChain();
+
+        filter.doFilter(request, response(), chain);
+
+        var wrapped = (HttpServletRequest) chain.getRequest();
+        assertThat(wrapped.getHeader("X-User-Name")).isEqualTo("李工");
     }
 
     @Test
@@ -104,7 +124,7 @@ class SessionIdentityFilterTest {
 
             var wrapped = (HttpServletRequest) chain.getRequest();
             assertThat(wrapped.getHeader("X-User-Id"))
-                    .as("%s 匿名读应原样放行", method).isEqualTo("emp-wang");
+                    .as("%s 匿名读不得携带客户端自报身份", method).isEmpty();
         }
     }
 

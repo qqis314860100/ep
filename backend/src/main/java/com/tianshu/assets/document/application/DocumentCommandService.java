@@ -24,10 +24,6 @@ public class DocumentCommandService {
     private final com.tianshu.assets.system.domain.OperationLogStore operationLogs;
     private final DocumentPublishedListener publishedListener;
 
-    public DocumentCommandService(DocumentRepository repository, FileStorage fileStorage) {
-        this(repository, fileStorage, new com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore());
-    }
-
     public DocumentCommandService(DocumentRepository repository, FileStorage fileStorage,
             com.tianshu.assets.system.domain.OperationLogStore operationLogs) {
         this(repository, fileStorage, operationLogs, null);

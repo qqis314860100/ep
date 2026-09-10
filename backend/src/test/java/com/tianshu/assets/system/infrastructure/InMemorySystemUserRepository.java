@@ -12,11 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Repository;
 
-@Repository
-@Profile({"dev", "local"})
 public class InMemorySystemUserRepository implements SystemUserRepository {
 
     private final List<SystemUser> users;

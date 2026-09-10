@@ -14,7 +14,6 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.StringJoiner;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -28,7 +27,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 @Order(1)
-@Profile({"dev", "local"})
 public class SessionIdentityFilter extends OncePerRequestFilter {
 
     private static final String UNAUTHENTICATED_JSON =
@@ -62,14 +60,12 @@ public class SessionIdentityFilter extends OncePerRequestFilter {
                 response.getWriter().write(UNAUTHENTICATED_JSON);
                 return;
             }
-            chain.doFilter(request, response);
+            // 匿名只读：不是「原样放行」，而是把客户端自报的身份头一律抹空，
+            // 否则调用方可以随手写 X-User-Id / X-User-Name 冒充他人。
+            chain.doFilter(new IdentityRequestWrapper(request, null), response);
             return;
         }
         var user = users.findByUserId(userId).orElse(null);
-        if (user == null) {
-            chain.doFilter(request, response);
-            return;
-        }
         chain.doFilter(new IdentityRequestWrapper(request, user), response);
     }
 
@@ -86,28 +82,34 @@ public class SessionIdentityFilter extends OncePerRequestFilter {
 
         private static final String USER_ID_HEADER = "X-User-Id";
         private static final String USER_ROLES_HEADER = "X-User-Roles";
+        private static final String USER_NAME_HEADER = "X-User-Name";
 
         private final String userId;
         private final String roles;
+        private final String userName;
 
+        /** user 为 null 表示匿名：三个身份头一律返回空串，客户端自报值失效。 */
         IdentityRequestWrapper(HttpServletRequest request, SystemUser user) {
             super(request);
-            this.userId = user.userId();
+            this.userId = user == null ? "" : user.userId();
             var joiner = new StringJoiner(",");
-            user.roles().forEach(role -> joiner.add(role.name()));
+            if (user != null) user.roles().forEach(role -> joiner.add(role.name()));
             this.roles = joiner.toString();
+            this.userName = user == null ? "" : user.name();
         }
 
         @Override
         public String getHeader(String name) {
             if (USER_ID_HEADER.equalsIgnoreCase(name)) return userId;
             if (USER_ROLES_HEADER.equalsIgnoreCase(name)) return roles;
+            if (USER_NAME_HEADER.equalsIgnoreCase(name)) return userName;
             return super.getHeader(name);
         }
 
         @Override
         public Enumeration<String> getHeaders(String name) {
-            if (USER_ID_HEADER.equalsIgnoreCase(name) || USER_ROLES_HEADER.equalsIgnoreCase(name)) {
+            if (USER_ID_HEADER.equalsIgnoreCase(name) || USER_ROLES_HEADER.equalsIgnoreCase(name)
+                    || USER_NAME_HEADER.equalsIgnoreCase(name)) {
                 return Collections.enumeration(List.of(getHeader(name)));
             }
             return super.getHeaders(name);
@@ -120,13 +122,15 @@ public class SessionIdentityFilter extends OncePerRequestFilter {
             var delegate = super.getHeaderNames();
             while (delegate != null && delegate.hasMoreElements()) {
                 var name = delegate.nextElement();
-                if (USER_ID_HEADER.equalsIgnoreCase(name) || USER_ROLES_HEADER.equalsIgnoreCase(name)) {
+                if (USER_ID_HEADER.equalsIgnoreCase(name) || USER_ROLES_HEADER.equalsIgnoreCase(name)
+                        || USER_NAME_HEADER.equalsIgnoreCase(name)) {
                     continue;
                 }
                 if (seen.add(name)) names.add(name);
             }
             if (seen.add(USER_ID_HEADER)) names.add(USER_ID_HEADER);
             if (seen.add(USER_ROLES_HEADER)) names.add(USER_ROLES_HEADER);
+            if (seen.add(USER_NAME_HEADER)) names.add(USER_NAME_HEADER);
             return Collections.enumeration(names);
         }
     }

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore;
 
 class DocumentControllerTest {
 
@@ -37,7 +38,7 @@ class DocumentControllerTest {
         storageKey = storage.store(new ByteArrayInputStream(bytes), bytes.length, "controller.pdf", "application/pdf");
         sha256 = storage.open(storageKey).orElseThrow().sha256();
         var repository = new InMemoryDocumentRepository(storage);
-        var commands = new DocumentCommandService(repository, storage);
+        var commands = new DocumentCommandService(repository, storage, new InMemoryOperationLogStore());
         var queries = new DocumentQueryService(repository, storage);
         mockMvc = standaloneSetup(new DocumentController(commands, queries))
                 .setControllerAdvice(new ApiExceptionHandler())
@@ -91,7 +92,7 @@ class DocumentControllerTest {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         var docxSha = storage.open(docxKey).orElseThrow().sha256();
         var repository = new InMemoryDocumentRepository(storage);
-        var commands = new DocumentCommandService(repository, storage);
+        var commands = new DocumentCommandService(repository, storage, new InMemoryOperationLogStore());
         var queries = new DocumentQueryService(repository, storage);
         var converter = new DocumentPreviewConverter() {
             @Override

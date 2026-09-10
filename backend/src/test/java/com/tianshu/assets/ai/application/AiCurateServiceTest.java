@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
 
 class AiCurateServiceTest {
 
@@ -46,7 +47,7 @@ class AiCurateServiceTest {
         capability = new FakeAiCapabilityClient();
         var users = new InMemorySystemUserRepository();
         var logs = new InMemoryOperationLogStore();
-        var suggestionService = new AiSuggestionService(suggestions, users, new AssetWriteService(assets), logs);
+        var suggestionService = new AiSuggestionService(suggestions, users, new AssetWriteService(assets, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore()), logs);
         curate = new AiCurateService(capability, suggestionService, assets, documents, users, "ep-docs");
         var dispatcher = new SpringGovernanceJobDispatcher(task -> task.run(), null);
         listener = new AiCurateListener(dispatcher, curate);

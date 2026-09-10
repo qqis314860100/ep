@@ -2,7 +2,8 @@ spring:
   application:
     name: simulation-asset-service
   profiles:
-    default: dev
+    # 真实数据库是唯一数据源：默认即 local（本机 MySQL）。切换生产部署形态用 SPRING_PROFILES_ACTIVE=oceanbase。
+    default: local
   servlet:
     multipart:
       max-file-size: 500MB
@@ -13,8 +14,9 @@ server:
   port: ${SERVER_PORT:8080}
 
 asset:
-  extension-schema-enabled: ${ASSET_EXTENSION_SCHEMA_ENABLED:false}
-  governance-schema-enabled: ${ASSET_GOVERNANCE_SCHEMA_ENABLED:false}
+  # 结构开关只用于「库结构是否就绪」的快速排查；不再有内存兜底实现，关掉即启动失败（fail fast）。
+  extension-schema-enabled: ${ASSET_EXTENSION_SCHEMA_ENABLED:true}
+  governance-schema-enabled: ${ASSET_GOVERNANCE_SCHEMA_ENABLED:true}
   governance-scan:
     enabled: ${ASSET_GOVERNANCE_SCAN_ENABLED:false}
     fixed-delay-ms: ${ASSET_GOVERNANCE_SCAN_FIXED_DELAY_MS:86400000}

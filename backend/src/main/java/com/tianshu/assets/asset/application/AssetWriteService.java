@@ -15,8 +15,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Collection;
-import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
-import com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,14 +44,6 @@ public class AssetWriteService {
     public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore,
             OperationLogStore operationLogs) {
         this(assetRepository, collaborationStore, operationLogs, null);
-    }
-
-    public AssetWriteService(AssetRepository assetRepository, AssetCollaborationStore collaborationStore) {
-        this(assetRepository, collaborationStore, new InMemoryOperationLogStore());
-    }
-
-    public AssetWriteService(AssetRepository assetRepository) {
-        this(assetRepository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
     }
 
     public Asset saveDraft(AssetDraft draft) {
@@ -398,8 +388,9 @@ public class AssetWriteService {
         }
     }
 
+    /** 身份只来自会话（SessionIdentityFilter 覆写 X-User-Id）；匿名的写请求已被过滤器 401 拦下。 */
     private String normalizeUser(String userId) {
-        return userId == null || userId.isBlank() ? "demo-user" : userId;
+        return userId == null ? "" : userId.trim();
     }
 
     private void validateCommon(AssetDraft draft) {

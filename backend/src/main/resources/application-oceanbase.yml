@@ -10,4 +10,5 @@ spring:
       connection-timeout: 5000
 
 asset:
-  governance-schema-enabled: ${ASSET_GOVERNANCE_SCHEMA_ENABLED:false}
+  extension-schema-enabled: ${ASSET_EXTENSION_SCHEMA_ENABLED:true}
+  governance-schema-enabled: ${ASSET_GOVERNANCE_SCHEMA_ENABLED:true}

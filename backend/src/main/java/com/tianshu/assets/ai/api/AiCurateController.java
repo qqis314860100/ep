@@ -25,7 +25,7 @@ public class AiCurateController {
     public AiSuggestionView regenerate(
             @PathVariable AiSuggestionTargetType targetType,
             @PathVariable @Min(1) long targetId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         return aiCurateService.regenerate(targetType, targetId, userId, roles);
     }

@@ -22,7 +22,7 @@ public class FavoriteController {
 
     @GetMapping
     public List<AssetResponse> list(
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return assetWriteService.favoriteAssetIds(userId).stream()
                 .map(assetQueryService::getOptional)
                 .flatMap(java.util.Optional::stream)

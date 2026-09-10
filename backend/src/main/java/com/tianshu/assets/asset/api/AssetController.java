@@ -8,7 +8,6 @@ import com.tianshu.assets.asset.domain.AssetScope;
 import com.tianshu.assets.asset.domain.AssetSearchCriteria;
 import com.tianshu.assets.asset.domain.AssetStatus;
 import com.tianshu.assets.common.file.FileStorage;
-import com.tianshu.assets.common.file.InMemoryFileStorage;
 import com.tianshu.assets.common.preview.DocumentPreviewConverter;
 import com.tianshu.assets.common.preview.NoopDocumentPreviewConverter;
 import com.tianshu.assets.asset.domain.AssetType;
@@ -79,10 +78,6 @@ public class AssetController {
 
     public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService, FileStorage assetFileStorage) {
         this(assetQueryService, assetWriteService, assetFileStorage, new NoopDocumentPreviewConverter(), DEFAULT_PACKAGE_MAX_SIZE_BYTES);
-    }
-
-    public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService) {
-        this(assetQueryService, assetWriteService, new InMemoryFileStorage(), new NoopDocumentPreviewConverter(), DEFAULT_PACKAGE_MAX_SIZE_BYTES);
     }
 
     public AssetController(AssetQueryService assetQueryService, AssetWriteService assetWriteService,
@@ -211,17 +206,35 @@ public class AssetController {
 
     @PostMapping("/drafts")
     @ResponseStatus(HttpStatus.CREATED)
-    public AssetResponse saveDraft(@RequestBody AssetWriteRequest request) {
-        return AssetResponse.from(assetWriteService.saveDraft(request.toDraft()));
+    public AssetResponse saveDraft(
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
+            @RequestBody AssetWriteRequest request) {
+        return AssetResponse.from(assetWriteService.saveDraft(withSessionOwner(request, userName).toDraft()));
     }
 
     @PostMapping("/batch-drafts")
     @ResponseStatus(HttpStatus.CREATED)
-    public BatchDraftResponse saveDraftsBatch(@Valid @RequestBody List<AssetWriteRequest> requests) {
-        var result = assetWriteService.saveDraftsBatch(requests.stream().map(AssetWriteRequest::toDraft).toList());
+    public BatchDraftResponse saveDraftsBatch(
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
+            @Valid @RequestBody List<AssetWriteRequest> requests) {
+        var result = assetWriteService.saveDraftsBatch(requests.stream()
+                .map(request -> withSessionOwner(request, userName).toDraft()).toList());
         return new BatchDraftResponse(
                 result.assets().stream().map(AssetResponse::from).toList(),
                 result.duplicateFiles().stream().map(info -> new DuplicateFileResponse(info.fileName(), info.contentSha256())).toList());
+    }
+
+    /**
+     * 上传者身份以服务端会话为准：客户端仍可传 ownerName/ownerDepartment（历史契约），
+     * 但只要会话身份存在即覆写，避免出现伪造的上传人。
+     */
+    private AssetWriteRequest withSessionOwner(AssetWriteRequest request, String userName) {
+        if (userName == null || userName.isBlank()) return request;
+        return new AssetWriteRequest(request.assetNumber(), request.name(), request.description(),
+                request.assetType(), request.specialties(), request.tags(), request.moduleTags(),
+                request.standardEquipmentModule(), request.linkedModuleAssetIds(),
+                request.equipmentInterconnectCode(), request.scopes(), request.files(),
+                userName, request.ownerDepartment());
     }
 
     public record DuplicateFileResponse(String fileName, String contentSha256) {}
@@ -236,8 +249,8 @@ public class AssetController {
     @PostMapping("/{id}/disable")
     public AssetResponse disable(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String userName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody DisableRequest request) {
         return AssetResponse.from(assetWriteService.disable(id, request.reason(), userId, userName, roles));
@@ -246,8 +259,8 @@ public class AssetController {
     @PostMapping("/{id}/confirm-number-conflict")
     public AssetResponse confirmNumberConflict(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String userName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @RequestBody(required = false) NumberConflictRequest request) {
         return AssetResponse.from(assetWriteService.confirmNumberConflict(id,
@@ -259,28 +272,28 @@ public class AssetController {
     @GetMapping("/{id}/favorite")
     public FavoriteResponse favorite(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return new FavoriteResponse(id, assetWriteService.isFavorite(id, userId));
     }
 
     @PostMapping("/{id}/favorite")
     public FavoriteResponse addFavorite(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return new FavoriteResponse(id, assetWriteService.setFavorite(id, userId, true));
     }
 
     @DeleteMapping("/{id}/favorite")
     public FavoriteResponse removeFavorite(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return new FavoriteResponse(id, assetWriteService.setFavorite(id, userId, false));
     }
 
     @GetMapping("/{id}/comments")
     public List<CommentResponse> comments(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         return assetWriteService.comments(id, userId, canModerateComments(roles)).stream().map(CommentResponse::from).toList();
     }
@@ -288,22 +301,25 @@ public class AssetController {
     @PostMapping(value = "/{id}/comments", consumes = MediaType.APPLICATION_JSON_VALUE)
     public CommentResponse addComment(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
             @RequestBody CommentRequest request) {
-        var comment = assetWriteService.addComment(id, userId, request.authorName(), request.content(), request.imageKeys());
+        // 评论人取自服务端会话身份（X-User-Id / X-User-Name 由 SessionIdentityFilter 覆写），
+        // 不再接受客户端自报的作者名。
+        var comment = assetWriteService.addComment(id, userId, userName, request.content(), request.imageKeys());
         return CommentResponse.from(assetWriteService.comment(id, comment.id(), userId));
     }
 
     @PostMapping(value = "/{id}/comments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CommentResponse addCommentWithImages(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
-            @RequestPart(name = "authorName", required = false) String authorName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
             @RequestPart(name = "content", required = false) String content,
             @RequestPart(name = "images", required = false) List<MultipartFile> images) throws IOException {
         assetQueryService.get(id);
         var imageKeys = storeCommentImages(images);
-        var comment = assetWriteService.addComment(id, userId, authorName, content, imageKeys);
+        var comment = assetWriteService.addComment(id, userId, userName, content, imageKeys);
         return CommentResponse.from(assetWriteService.comment(id, comment.id(), userId));
     }
 
@@ -328,7 +344,7 @@ public class AssetController {
     public void deleteComment(
             @PathVariable @Min(1) long assetId,
             @PathVariable @Min(1) long commentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         assetWriteService.deleteComment(assetId, commentId, userId, canModerateComments(roles));
     }
@@ -337,7 +353,7 @@ public class AssetController {
     public CommentLikeResponse likeComment(
             @PathVariable @Min(1) long assetId,
             @PathVariable @Min(1) long commentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         var result = assetWriteService.setCommentLike(assetId, commentId, userId, true);
         return new CommentLikeResponse(commentId, result.liked(), result.likeCount());
     }
@@ -346,7 +362,7 @@ public class AssetController {
     public CommentLikeResponse unlikeComment(
             @PathVariable @Min(1) long assetId,
             @PathVariable @Min(1) long commentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         var result = assetWriteService.setCommentLike(assetId, commentId, userId, false);
         return new CommentLikeResponse(commentId, result.liked(), result.likeCount());
     }
@@ -449,7 +465,7 @@ public class AssetController {
 
     private record ValidatedCommentImage(String filename, String contentType, byte[] content) {}
 
-    public record CommentRequest(String authorName, String content, List<String> imageKeys) {}
+    public record CommentRequest(String content, List<String> imageKeys) {}
 
     public record DisableRequest(@NotBlank(message = "停用原因不能为空") String reason) {}
 }

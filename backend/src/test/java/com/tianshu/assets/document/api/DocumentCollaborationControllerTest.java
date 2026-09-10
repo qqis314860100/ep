@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
+import com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore;
 
 class DocumentCollaborationControllerTest {
 
@@ -34,7 +35,7 @@ class DocumentCollaborationControllerTest {
         var storageKey = storage.store(new ByteArrayInputStream(bytes), bytes.length, "collab.pdf", "application/pdf");
         var sha256 = storage.open(storageKey).orElseThrow().sha256();
         var repository = new InMemoryDocumentRepository(storage);
-        var commands = new DocumentCommandService(repository, storage);
+        var commands = new DocumentCommandService(repository, storage, new InMemoryOperationLogStore());
         var queries = new DocumentQueryService(repository, storage);
         var collab = new DocumentCollaborationService(repository, new InMemoryDocumentCollaborationStore(), storage);
         mockMvc = standaloneSetup(new DocumentController(commands, queries),

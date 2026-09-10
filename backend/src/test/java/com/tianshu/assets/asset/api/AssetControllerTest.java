@@ -31,6 +31,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
 
 class AssetControllerTest {
 
@@ -42,8 +43,8 @@ class AssetControllerTest {
     void setUp() {
         repository = new InMemoryAssetRepository();
         var service = new AssetQueryService(repository);
-        var writeService = new AssetWriteService(repository);
-        mockMvc = standaloneSetup(new AssetController(service, writeService),
+        var writeService = new AssetWriteService(repository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
+        mockMvc = standaloneSetup(new AssetController(service, writeService, new InMemoryFileStorage()),
                 new FavoriteController(service, writeService),
                 new AssetRelationController(new AssetRelationService(repository, new InMemoryOperationLogStore())))
                 .setControllerAdvice(new ApiExceptionHandler())
@@ -377,7 +378,8 @@ class AssetControllerTest {
     void supportsCommentDeleteAndIdempotentLike() throws Exception {
         mockMvc.perform(post("/api/v1/assets/101/comments")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"authorName\":\"陈工\",\"content\":\"接口评论\"}"))
+                        .header("X-User-Id", "emp-chen").header("X-User-Name", "陈工")
+                        .content("{\"content\":\"接口评论\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.content").value("接口评论"))
@@ -400,7 +402,8 @@ class AssetControllerTest {
                 .andExpect(jsonPath("$[0].canDelete").value(false));
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .delete("/api/v1/assets/101/comments/1"))
+                        .delete("/api/v1/assets/101/comments/1")
+                        .header("X-User-Id", "emp-chen"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/assets/101/comments"))
                 .andExpect(status().isOk())
@@ -413,16 +416,15 @@ class AssetControllerTest {
                 (byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
                 0x00, 0x00, 0x00, 0x00
         };
-        var author = new MockMultipartFile(
-                "authorName", "", "text/plain;charset=UTF-8", "陈工".getBytes(StandardCharsets.UTF_8));
         var content = new MockMultipartFile(
                 "content", "", "text/plain;charset=UTF-8", "带图反馈".getBytes(StandardCharsets.UTF_8));
         var image = new MockMultipartFile("images", "feedback.png", "image/png", pngBytes);
 
         mockMvc.perform(multipart("/api/v1/assets/101/comments")
-                        .file(author)
                         .file(content)
-                        .file(image))
+                        .file(image)
+                        .header("X-User-Id", "emp-chen")
+                        .header("X-User-Name", "陈工"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").value("带图反馈"))
                 .andExpect(jsonPath("$.images.length()").value(1))
@@ -435,7 +437,7 @@ class AssetControllerTest {
         var key = storage.store(new ByteArrayInputStream("model-bytes".getBytes(StandardCharsets.UTF_8)),
                 11, "model.step", "application/octet-stream");
         var service = new AssetQueryService(repository);
-        var writeService = new AssetWriteService(repository);
+        var writeService = new AssetWriteService(repository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
         var mvc = standaloneSetup(new AssetController(service, writeService, storage),
                 new FavoriteController(service, writeService))
                 .setControllerAdvice(new ApiExceptionHandler())
@@ -479,7 +481,8 @@ class AssetControllerTest {
         mockMvc.perform(post("/api/v1/assets/101/comments")
                         .header("X-User-Id", "comment-author")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"authorName\":\"作者\",\"content\":\"待处理评论\"}"))
+                        .header("X-User-Id", "emp-chen").header("X-User-Name", "作者")
+                        .content("{\"content\":\"待处理评论\"}"))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/assets/101/comments")
@@ -501,7 +504,7 @@ class AssetControllerTest {
         var key = storage.store(new ByteArrayInputStream("docx-bytes".getBytes(StandardCharsets.UTF_8)), 10,
                 "notes.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         var service = new AssetQueryService(repository);
-        var writeService = new AssetWriteService(repository);
+        var writeService = new AssetWriteService(repository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
         var converter = new DocumentPreviewConverter() {
             @Override
             public boolean supports(String format) {
@@ -553,7 +556,7 @@ class AssetControllerTest {
         var key = storage.store(new ByteArrayInputStream("docx-bytes".getBytes(StandardCharsets.UTF_8)), 10,
                 "notes.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         var service = new AssetQueryService(repository);
-        var writeService = new AssetWriteService(repository);
+        var writeService = new AssetWriteService(repository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
         var converter = new DocumentPreviewConverter() {
             @Override
             public boolean supports(String format) {
@@ -649,7 +652,7 @@ class AssetControllerTest {
         var key = storage.store(new ByteArrayInputStream("0123456789".getBytes(StandardCharsets.UTF_8)), 10,
                 "model.step", "application/octet-stream");
         var service = new AssetQueryService(repository);
-        var writeService = new AssetWriteService(repository);
+        var writeService = new AssetWriteService(repository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
         var mvc = standaloneSetup(new AssetController(service, writeService, storage,
                 new NoopDocumentPreviewConverter(), 9), new FavoriteController(service, writeService))
                 .setControllerAdvice(new ApiExceptionHandler())

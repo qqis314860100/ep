@@ -26,11 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Repository;
 
-@Repository
-@Profile("dev")
 public class InMemoryDocumentRepository implements DocumentRepository {
 
     private static final byte[] DEMO_PDF = Base64.getMimeDecoder().decode("""

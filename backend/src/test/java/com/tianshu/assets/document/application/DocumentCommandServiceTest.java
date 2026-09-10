@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.tianshu.assets.system.infrastructure.InMemoryOperationLogStore;
 
 class DocumentCommandServiceTest {
 
@@ -26,7 +27,7 @@ class DocumentCommandServiceTest {
     void setUp() {
         storage = new InMemoryFileStorage();
         repository = new InMemoryDocumentRepository(storage);
-        commands = new DocumentCommandService(repository, storage);
+        commands = new DocumentCommandService(repository, storage, new InMemoryOperationLogStore());
     }
 
     @Test

@@ -10,11 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
 
-@Component
-@Profile("dev")
 public class InMemoryAssetCollaborationStore implements AssetCollaborationStore {
 
     private final Set<String> favorites = ConcurrentHashMap.newKeySet();
@@ -99,6 +95,6 @@ public class InMemoryAssetCollaborationStore implements AssetCollaborationStore 
     }
 
     private String normalizeUser(String userId) {
-        return userId == null || userId.isBlank() ? "demo-user" : userId;
+        return userId == null ? "" : userId.trim();
     }
 }

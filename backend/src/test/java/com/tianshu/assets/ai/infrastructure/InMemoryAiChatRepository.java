@@ -10,11 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Repository;
 
-@Repository
-@Profile("dev")
 public class InMemoryAiChatRepository implements AiChatRepository {
 
     private final Map<Long, AiChatSession> sessions = new ConcurrentHashMap<>();

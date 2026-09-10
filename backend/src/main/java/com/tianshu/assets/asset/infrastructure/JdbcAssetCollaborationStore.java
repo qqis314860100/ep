@@ -28,13 +28,13 @@ public class JdbcAssetCollaborationStore implements AssetCollaborationStore {
     @Override
     public boolean isFavorite(long assetId, String userId) {
         return jdbcClient.sql("SELECT COUNT(*) FROM sys_drawing_collect WHERE drawing_id = :assetId AND created_by = :userId")
-                .param("assetId", assetId).param("userId", userNumber(userId, userId)).query(Long.class).single() > 0;
+                .param("assetId", assetId).param("userId", readPersonId(userId)).query(Long.class).single() > 0;
     }
 
     @Override
     @Transactional
     public boolean setFavorite(long assetId, String userId, boolean favorite) {
-        var userNumber = userNumber(userId, userId);
+        var userNumber = requirePersonId(userId, userId);
         if (favorite) {
             jdbcClient.sql("""
                     INSERT IGNORE INTO sys_drawing_collect
@@ -52,12 +52,11 @@ public class JdbcAssetCollaborationStore implements AssetCollaborationStore {
     @Override
     public List<Long> favoriteAssetIds(String userId) {
         return jdbcClient.sql("SELECT drawing_id FROM sys_drawing_collect WHERE created_by = :userId ORDER BY creation_date DESC")
-                .param("userId", userNumber(userId, userId)).query(Long.class).list();
+                .param("userId", readPersonId(userId)).query(Long.class).list();
     }
 
     @Override
     public List<StoredComment> comments(long assetId, String userId) {
-        var userNumber = userNumber(userId, userId);
         return jdbcClient.sql("""
                 SELECT comment.id, comment.drawing_id, person.code AS author_id, comment.created_by_name,
                        comment.comment_content, comment.comment_img, comment.creation_date, comment.deleted_at,
@@ -68,7 +67,7 @@ public class JdbcAssetCollaborationStore implements AssetCollaborationStore {
                        ON user_like.comment_id = comment.id AND user_like.created_by = :userId
                 WHERE comment.drawing_id = :assetId
                 ORDER BY comment.creation_date DESC, comment.id DESC
-                """).param("userId", userNumber).param("assetId", assetId).query((rs, ignored) -> {
+                """).param("userId", readPersonId(userId)).param("assetId", assetId).query((rs, ignored) -> {
                     var authorId = rs.getString("author_id");
                     var createdAt = rs.getTimestamp("creation_date");
                     var comment = new AssetComment(rs.getLong("id"), rs.getLong("drawing_id"),
@@ -85,7 +84,7 @@ public class JdbcAssetCollaborationStore implements AssetCollaborationStore {
     @Transactional
     public AssetComment addComment(
             long assetId, String userId, String authorName, String content, List<String> imageKeys) {
-        var userNumber = userNumber(userId, authorName);
+        var userNumber = requirePersonId(userId, authorName);
         var imageJson = writeJson(imageKeys);
         jdbcClient.sql("""
                 INSERT INTO sys_drawing_comment
@@ -111,7 +110,7 @@ public class JdbcAssetCollaborationStore implements AssetCollaborationStore {
     @Override
     @Transactional
     public CommentLikeState setCommentLike(long assetId, long commentId, String userId, boolean liked) {
-        var userNumber = userNumber(userId, userId);
+        var userNumber = requirePersonId(userId, userId);
         if (liked) {
             jdbcClient.sql("""
                     INSERT IGNORE INTO sys_drawing_comment_like
@@ -133,12 +132,24 @@ public class JdbcAssetCollaborationStore implements AssetCollaborationStore {
 
     @Override
     public boolean isCommentImageLinked(long assetId, String storageKey) {
-        return comments(assetId, "demo-user").stream().anyMatch(stored -> !stored.comment().deleted()
+        return comments(assetId, "").stream().anyMatch(stored -> !stored.comment().deleted()
                 && stored.comment().imageKeys().contains(storageKey));
     }
 
-    private long userNumber(String userId, String displayName) {
+    /** 读路径：只按工号查人，不写库（匿名请求不应凭空造出人员行）。查不到返回 -1。 */
+    private long readPersonId(String userId) {
         var normalized = normalizeUser(userId);
+        if (normalized.isEmpty()) return -1L;
+        return jdbcClient.sql("SELECT id FROM temp_person WHERE code = :code")
+                .param("code", normalized).query(Long.class).optional().orElse(-1L);
+    }
+
+    /** 写路径：身份缺失直接失败；人员行不存在时补建，保证外键可追溯。 */
+    private long requirePersonId(String userId, String displayName) {
+        var normalized = normalizeUser(userId);
+        if (normalized.isEmpty()) {
+            throw new IllegalStateException("缺少登录身份，无法写入协作数据");
+        }
         var existing = jdbcClient.sql("SELECT id FROM temp_person WHERE code = :code")
                 .param("code", normalized).query(Long.class).optional();
         if (existing.isPresent()) return existing.get();
@@ -168,7 +179,7 @@ public class JdbcAssetCollaborationStore implements AssetCollaborationStore {
     }
 
     private String normalizeUser(String userId) {
-        return userId == null || userId.isBlank() ? "demo-user" : userId;
+        return userId == null ? "" : userId.trim();
     }
 
     private String nullable(String value) {

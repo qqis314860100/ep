@@ -23,6 +23,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
+import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
 
 class AiSuggestionControllerTest {
 
@@ -38,7 +39,7 @@ class AiSuggestionControllerTest {
     @BeforeEach
     void setUp() {
         assetRepository = new InMemoryAssetRepository();
-        var assetWrite = new AssetWriteService(assetRepository);
+        var assetWrite = new AssetWriteService(assetRepository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
         var suggestions = new InMemoryAiSuggestionRepository();
         var users = new InMemorySystemUserRepository();
         logs = new InMemoryOperationLogStore();
@@ -147,6 +148,7 @@ class AiSuggestionControllerTest {
                 .andExpect(jsonPath("$.meta.total").value(0));
 
         mockMvc.perform(post("/api/v1/ai/suggestions/{id}/confirm", suggestionId)
+                        .header("X-User-Id", "unknown-employee")
                         .header("X-User-Roles", ADMIN_ROLES))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("ai_suggestion_scope_forbidden"));

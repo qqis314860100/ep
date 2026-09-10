@@ -20,6 +20,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
 
 class AiSuggestionServiceTest {
 
@@ -34,7 +35,7 @@ class AiSuggestionServiceTest {
     @BeforeEach
     void setUp() {
         assetRepository = new InMemoryAssetRepository();
-        var assetWrite = new AssetWriteService(assetRepository);
+        var assetWrite = new AssetWriteService(assetRepository, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore());
         var suggestions = new InMemoryAiSuggestionRepository();
         var users = new InMemorySystemUserRepository();
         logs = new InMemoryOperationLogStore();

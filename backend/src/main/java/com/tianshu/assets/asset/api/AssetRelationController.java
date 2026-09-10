@@ -55,8 +55,8 @@ public class AssetRelationController {
     @ResponseStatus(HttpStatus.CREATED)
     public AssetRelation create(
             @PathVariable @Min(1) long assetId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String userName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
             @Valid @RequestBody CreateRelationRequest request) {
         return relations.create(assetId, request.targetAssetId(), request.relationType(),
                 request.description(), userId, userName);
@@ -66,8 +66,8 @@ public class AssetRelationController {
     public AssetRelation update(
             @PathVariable @Min(1) long assetId,
             @PathVariable @Min(1) long relationId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String userName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
             @Valid @RequestBody UpdateRelationRequest request) {
         return relations.update(relationId, request.sourceAssetId(), request.targetAssetId(),
                 request.relationType(), request.description(), request.version(), userId, userName);    }
@@ -77,7 +77,7 @@ public class AssetRelationController {
     public void remove(
             @PathVariable @Min(1) long assetId,
             @PathVariable @Min(1) long relationId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         relations.remove(relationId, userId);
     }
 

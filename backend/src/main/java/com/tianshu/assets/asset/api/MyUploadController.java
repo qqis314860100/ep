@@ -4,6 +4,7 @@ import com.tianshu.assets.asset.application.AssetQueryService;
 import com.tianshu.assets.asset.domain.AssetSearchCriteria;
 import com.tianshu.assets.asset.domain.AssetStatus;
 import jakarta.validation.constraints.Max;
+import java.util.List;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,10 +26,15 @@ public class MyUploadController {
 
     @GetMapping("/mine")
     public PageResponse<AssetResponse> mine(
-            @RequestHeader(name = "X-User-Name", defaultValue = "陈工") String ownerName,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String ownerName,
             @RequestParam(required = false) AssetStatus status,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(name = "per_page", defaultValue = "20") @Min(1) @Max(100) int perPage) {
+        // 「我的上传」以会话身份为准（X-User-Name 由 SessionIdentityFilter 从会话覆写）。
+        // 匿名请求没有身份就没有「我的」，直接返回空页，绝不退化成「全部资产」。
+        if (ownerName == null || ownerName.isBlank()) {
+            return new PageResponse<>(List.of(), PageResponse.Meta.of(0, page, perPage));
+        }
         var result = assetQueryService.search(new AssetSearchCriteria("", null, status, ownerName, "", "", "", "", null, page, perPage));
         return new PageResponse<>(result.items().stream().map(AssetResponse::from).toList(),
                 PageResponse.Meta.of(result.total(), result.page(), result.perPage()));

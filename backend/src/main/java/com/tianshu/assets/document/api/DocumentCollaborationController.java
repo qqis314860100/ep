@@ -36,33 +36,33 @@ public class DocumentCollaborationController {
     @GetMapping("/{documentId}/favorite")
     public FavoriteResponse favorite(
             @PathVariable @Min(1) long documentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return new FavoriteResponse(documentId, service.isFavorite(documentId, userId));
     }
 
     @PostMapping("/{documentId}/favorite")
     public FavoriteResponse addFavorite(
             @PathVariable @Min(1) long documentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return new FavoriteResponse(documentId, service.setFavorite(documentId, userId, true));
     }
 
     @DeleteMapping("/{documentId}/favorite")
     public FavoriteResponse removeFavorite(
             @PathVariable @Min(1) long documentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return new FavoriteResponse(documentId, service.setFavorite(documentId, userId, false));
     }
 
     @GetMapping("/my/favorites")
     public List<DocumentResponse> myFavorites(
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return service.myFavorites(userId).stream().map(DocumentResponse::from).toList();
     }
 
     @GetMapping("/mine")
     public List<DocumentResponse> mine(
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String maintainerId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String maintainerId,
             @RequestParam(required = false) String status) {
         return service.myDocuments(maintainerId, status).stream().map(DocumentResponse::from).toList();
     }
@@ -70,7 +70,7 @@ public class DocumentCollaborationController {
     @GetMapping("/{documentId}/comments")
     public List<CommentResponse> comments(
             @PathVariable @Min(1) long documentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return service.comments(documentId, userId).stream()
                 .map(stored -> CommentResponse.from(stored.comment(), stored.likedByCurrentUser()))
                 .toList();
@@ -80,8 +80,8 @@ public class DocumentCollaborationController {
     @ResponseStatus(HttpStatus.CREATED)
     public CommentResponse addComment(
             @PathVariable @Min(1) long documentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String userName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
             @RequestBody AddCommentRequest request) {
         return CommentResponse.from(service.addComment(documentId, request.versionId(), userId, userName,
                 request.content(), request.imageKeys() == null ? List.of() : request.imageKeys()), false);
@@ -91,7 +91,7 @@ public class DocumentCollaborationController {
     public LikeResponse like(
             @PathVariable @Min(1) long documentId,
             @PathVariable @Min(1) long commentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         var state = service.setCommentLike(documentId, commentId, userId, true);
         return new LikeResponse(state.liked(), state.likeCount());
     }
@@ -100,7 +100,7 @@ public class DocumentCollaborationController {
     public LikeResponse unlike(
             @PathVariable @Min(1) long documentId,
             @PathVariable @Min(1) long commentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         var state = service.setCommentLike(documentId, commentId, userId, false);
         return new LikeResponse(state.liked(), state.likeCount());
     }
@@ -110,7 +110,7 @@ public class DocumentCollaborationController {
     public void deleteComment(
             @PathVariable @Min(1) long documentId,
             @PathVariable @Min(1) long commentId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         service.deleteComment(documentId, commentId, userId, roles);
     }

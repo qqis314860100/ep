@@ -28,7 +28,7 @@ public class AiSuggestionController {
 
     @GetMapping
     public PageResponse<AiSuggestionView> list(
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestParam(name = "target_type", required = false) AiSuggestionTargetType targetType,
             @RequestParam(name = "target_id", required = false) Long targetId,
             @RequestParam(required = false) AiSuggestionStatus status,
@@ -41,8 +41,8 @@ public class AiSuggestionController {
     @PostMapping("/{id}/confirm")
     public AiSuggestionView confirm(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String userName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         return aiSuggestionService.confirm(id, userId, userName, roles);
     }
@@ -50,7 +50,7 @@ public class AiSuggestionController {
     @PostMapping("/{id}/reject")
     public AiSuggestionView reject(
             @PathVariable @Min(1) long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         return aiSuggestionService.reject(id, userId, roles);
     }

@@ -10,11 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
 
-@Component
-@Profile("dev")
 public class InMemoryFileStorage implements FileStorage {
 
     private static final long MAX_FILE_SIZE = 500L * 1024 * 1024;

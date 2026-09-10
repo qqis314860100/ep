@@ -60,7 +60,7 @@ public class GovernanceExecutionController {
     @GetMapping("/tasks/{taskId}/items")
     public List<ItemExecutionResponse> items(
             @PathVariable long taskId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         authorizeTask(taskId, userId, roles);
         return service.items(taskId).stream().map(this::itemExecutionResponse).toList();
@@ -69,7 +69,7 @@ public class GovernanceExecutionController {
     @PutMapping("/items/{itemId}/result-draft")
     public GovernanceResultResponse saveDraft(
             @PathVariable long itemId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody SaveResultDraftRequest request) {
         authorizeItem(itemId, userId, roles);
@@ -79,7 +79,7 @@ public class GovernanceExecutionController {
     @PostMapping("/items/{itemId}/submit")
     public GovernanceResultResponse submit(
             @PathVariable long itemId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody SubmitResultRequest request) {
         authorizeItem(itemId, userId, roles);
@@ -89,7 +89,7 @@ public class GovernanceExecutionController {
 
     @PostMapping("/results/batch")
     public BatchExecutionResult batchResults(
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody BatchResultsRequest request) {
         if (authorizationService != null) request.commands().stream().filter(java.util.Objects::nonNull)

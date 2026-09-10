@@ -43,7 +43,7 @@ public class GovernanceConfirmationController {
     @GetMapping("/tasks/{taskId}/confirmation-rounds/current")
     public ConfirmationView current(
             @PathVariable long taskId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         if (authorizationService != null) authorizationService.requireConfirmationTask(taskId, userId, roles);
         return service.current(taskId);
@@ -53,7 +53,7 @@ public class GovernanceConfirmationController {
     public ConfirmationView decide(
             @PathVariable long roundId,
             @PathVariable long itemId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody DecisionRequest request) {
         if (authorizationService != null) authorizationService.requireConfirmation(itemId, userId, roles);
@@ -64,7 +64,7 @@ public class GovernanceConfirmationController {
     public CompletionResult complete(
             @PathVariable long taskId,
             @PathVariable long roundId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody CompleteRequest request) {
         if (authorizationService != null) authorizationService.requireConfirmationTask(taskId, userId, roles);

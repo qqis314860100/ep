@@ -18,6 +18,7 @@ import com.tianshu.assets.system.infrastructure.InMemorySystemUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
+import com.tianshu.assets.asset.infrastructure.InMemoryAssetCollaborationStore;
 
 class AiCurateControllerTest {
 
@@ -30,7 +31,7 @@ class AiCurateControllerTest {
         var users = new InMemorySystemUserRepository();
         var logs = new InMemoryOperationLogStore();
         var suggestions = new InMemoryAiSuggestionRepository();
-        var suggestionService = new AiSuggestionService(suggestions, users, new AssetWriteService(assets), logs);
+        var suggestionService = new AiSuggestionService(suggestions, users, new AssetWriteService(assets, new InMemoryAssetCollaborationStore(), new InMemoryOperationLogStore()), logs);
         var curate = new AiCurateService(capability, suggestionService, assets,
                 new InMemoryDocumentRepository(), users, "ep-docs");
         mockMvc = standaloneSetup(new AiCurateController(curate))

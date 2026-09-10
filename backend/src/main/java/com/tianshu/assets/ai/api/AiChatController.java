@@ -46,7 +46,7 @@ public class AiChatController {
 
     @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chat(
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestBody(required = false) ChatStartRequest request) {
         var emitter = new SseEmitter(120_000L);
         executor.execute(() -> {
@@ -67,14 +67,14 @@ public class AiChatController {
 
     @GetMapping("/sessions")
     public List<SessionView> sessions(
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return aiChatService.listSessions(userId);
     }
 
     @PatchMapping("/sessions/{id}")
     public SessionView rename(
             @PathVariable long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestBody RenameRequest request) {
         return aiChatService.renameSession(id, userId, request.name());
     }
@@ -82,14 +82,14 @@ public class AiChatController {
     @DeleteMapping("/sessions/{id}")
     public void delete(
             @PathVariable long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         aiChatService.deleteSession(id, userId);
     }
 
     @GetMapping("/sessions/{id}/messages")
     public List<MessageView> messages(
             @PathVariable long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return aiChatService.messages(id, userId);
     }
 

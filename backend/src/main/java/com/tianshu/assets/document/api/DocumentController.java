@@ -86,8 +86,8 @@ public class DocumentController {
     @ResponseStatus(HttpStatus.CREATED)
     public DocumentVersionResponse createVersion(
             @PathVariable long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String publisherId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String publisherName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String publisherId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String publisherName,
             @Valid @RequestBody CreateVersionRequest request) {
         return DocumentVersionResponse.from(commandService.createVersionDraft(
                 new DocumentCommandService.CreateVersionDraftCommand(
@@ -99,8 +99,8 @@ public class DocumentController {
     public DocumentResponse publishVersion(
             @PathVariable long id,
             @PathVariable long versionId,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String publisherId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String publisherName) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String publisherId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String publisherName) {
         return DocumentResponse.from(commandService.publishVersion(id, versionId, publisherId, publisherName));
     }
 
@@ -113,16 +113,16 @@ public class DocumentController {
     @PostMapping("/{id}/publish")
     public DocumentResponse publish(
             @PathVariable long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String publisherId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String publisherName) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String publisherId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String publisherName) {
         return DocumentResponse.from(commandService.publish(id, publisherId, publisherName));
     }
 
     @PostMapping("/{id}/disable")
     public DocumentResponse disable(
             @PathVariable long id,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String operatorUserId,
-            @RequestHeader(name = "X-User-Name", defaultValue = "当前用户") String operatorName,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String operatorUserId,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String operatorName,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody DisableRequest request) {
         return DocumentResponse.from(commandService.disable(id, request.reason(), operatorUserId, operatorName, roles));

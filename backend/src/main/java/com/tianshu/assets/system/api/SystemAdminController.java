@@ -40,7 +40,7 @@ public class SystemAdminController {
     public SystemUserResponse updateRoles(
             @PathVariable @Positive long id,
             @Valid @RequestBody UpdateRolesRequest request,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String operator,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String operator,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         requireSystemAdmin(roles);
         return SystemUserResponse.from(service.updateRoles(id, request.roles(), operator, request.version()));
@@ -50,7 +50,7 @@ public class SystemAdminController {
     public SystemUserResponse updateScopes(
             @PathVariable @Positive long id,
             @Valid @RequestBody UpdateScopesRequest request,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String operator,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String operator,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
         requireSystemAdmin(roles);
         return SystemUserResponse.from(service.updateScopes(id, request.scopes(), operator, request.version()));

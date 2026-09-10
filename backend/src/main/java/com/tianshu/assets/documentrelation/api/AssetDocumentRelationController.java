@@ -47,20 +47,20 @@ public class AssetDocumentRelationController {
     @PostMapping("/asset-document-relations")
     @ResponseStatus(HttpStatus.CREATED)
     public RelationResponse create(@Valid @RequestBody CreateRequest request,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return RelationResponse.from(service.create(request.assetId(), request.documentId(), request.relationType(), userId));
     }
 
     @PatchMapping("/asset-document-relations/{id}")
     public RelationResponse changeType(@PathVariable long id, @Valid @RequestBody ChangeTypeRequest request,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         return RelationResponse.from(service.changeType(id, request.relationType(), userId, request.version()));
     }
 
     @DeleteMapping("/asset-document-relations/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void remove(@PathVariable long id, @Valid @RequestBody RemoveRequest request,
-            @RequestHeader(name = "X-User-Id", defaultValue = "demo-user") String userId) {
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
         service.remove(id, userId, request.version());
     }
 

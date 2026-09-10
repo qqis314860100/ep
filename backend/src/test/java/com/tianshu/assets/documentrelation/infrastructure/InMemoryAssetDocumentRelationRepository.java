@@ -9,11 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Repository;
 
-@Repository
-@Profile("dev")
 public class InMemoryAssetDocumentRelationRepository implements AssetDocumentRelationRepository {
 
     private final AtomicLong nextId = new AtomicLong(1);

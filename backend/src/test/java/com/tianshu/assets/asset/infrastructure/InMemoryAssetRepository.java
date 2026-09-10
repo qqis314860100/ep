@@ -18,11 +18,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Repository;
 
-@Repository
-@Profile("dev")
 public class InMemoryAssetRepository implements AssetRepository {
 
     private final List<Asset> assets = new ArrayList<>(List.of(
