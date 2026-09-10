@@ -1,4 +1,5 @@
 import { Alert, Empty, Typography } from 'antd'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import type { GovernanceEmployee, GovernancePlan } from '../types'
 import { GovernanceDependencyLayer, GANTT_DAY_WIDTH, GANTT_ROW_HEIGHT } from './GovernanceDependencyLayer'
@@ -183,11 +184,32 @@ export function GovernanceGanttView({ plans, employees, today = localToday() }: 
   const model = buildGanttModel(plans, today)
   const employeeById = new Map(employees.map(employee => [employee.id, employee.name]))
 
+  // 轨道宽度自适应容器：日期跨度较小时拉伸到铺满可用宽度，跨度大时保持最小日宽并横向滚动。
+  const [containerWidth, setContainerWidth] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const node = scrollRef.current
+    if (!node) {
+      setContainerWidth(0)
+      return
+    }
+    const update = () => setContainerWidth(node.clientWidth)
+    update()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(update)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [model.rows.length, model.range.totalDays])
+
   if (plans.length === 0) {
     return <Root><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未编排计划项" /></Root>
   }
 
-  const timelineWidth = model.range.totalDays * GANTT_DAY_WIDTH
+  const totalDays = Math.max(1, model.range.totalDays)
+  const dayWidth = containerWidth > 0
+    ? Math.max(GANTT_DAY_WIDTH, Math.floor(containerWidth / totalDays))
+    : GANTT_DAY_WIDTH
+  const timelineWidth = totalDays * dayWidth
 
   return <Root>
     {model.invalidPlans.length > 0 && <Notices>
@@ -213,12 +235,12 @@ export function GovernanceGanttView({ plans, employees, today = localToday() }: 
           </InfoRow>
         })}
       </InfoColumn>
-      <TimelineScroll>
+      <TimelineScroll ref={scrollRef}>
         <Timeline style={{ width: timelineWidth }}>
           <TimelineHeader>
-            {model.ticks.map(tick => <Tick key={tick.date} style={{ left: tick.offsetDays * GANTT_DAY_WIDTH }}>{tick.label}</Tick>)}
+            {model.ticks.map(tick => <Tick key={tick.date} style={{ left: tick.offsetDays * dayWidth }}>{tick.label}</Tick>)}
           </TimelineHeader>
-          <TimelineBody style={{ width: timelineWidth, height: model.rows.length * GANTT_ROW_HEIGHT }}>
+          <TimelineBody style={{ width: timelineWidth, height: model.rows.length * GANTT_ROW_HEIGHT, backgroundSize: `${dayWidth}px 100%` }}>
             {model.rows.map(row => {
               const ownerId = row.plan.responsibleUserId ?? row.plan.assigneeId
               const ownerName = ownerId ? employeeById.get(ownerId) ?? ownerId : '未分配'
@@ -229,15 +251,15 @@ export function GovernanceGanttView({ plans, employees, today = localToday() }: 
                   aria-label={label}
                   title={label}
                   $state={row.state}
-                  style={{ left: row.offsetDays * GANTT_DAY_WIDTH, width: Math.max(GANTT_DAY_WIDTH, row.durationDays * GANTT_DAY_WIDTH) }}
+                  style={{ left: row.offsetDays * dayWidth, width: Math.max(dayWidth, row.durationDays * dayWidth) }}
                 >
                   <Fill style={{ width: `${row.progressPercent}%` }} />
                   <BarText>{row.progressPercent}%</BarText>
                 </Bar>
               </TimelineRow>
             })}
-            <GovernanceDependencyLayer model={model} />
-            {model.todayOffset !== null && <TodayLine aria-hidden style={{ left: model.todayOffset * GANTT_DAY_WIDTH + GANTT_DAY_WIDTH / 2 }} />}
+            <GovernanceDependencyLayer model={model} dayWidth={dayWidth} />
+            {model.todayOffset !== null && <TodayLine aria-hidden style={{ left: model.todayOffset * dayWidth + dayWidth / 2 }} />}
           </TimelineBody>
         </Timeline>
       </TimelineScroll>

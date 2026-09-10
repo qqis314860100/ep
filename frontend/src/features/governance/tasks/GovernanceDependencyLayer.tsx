@@ -4,12 +4,12 @@ import { buildDependencyPath } from './governanceDependencyPath'
 export const GANTT_DAY_WIDTH = 36
 export const GANTT_ROW_HEIGHT = 56
 
-export function GovernanceDependencyLayer({ model }: { model: GanttModel }) {
+export function GovernanceDependencyLayer({ model, dayWidth = GANTT_DAY_WIDTH }: { model: GanttModel; dayWidth?: number }) {
   const rowById = new Map(model.rows.map((row, index) => [row.plan.id, { row, index }]))
 
   return <svg
     aria-hidden
-    width={model.range.totalDays * GANTT_DAY_WIDTH}
+    width={model.range.totalDays * dayWidth}
     height={model.rows.length * GANTT_ROW_HEIGHT}
     style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'visible' }}
   >
@@ -22,8 +22,8 @@ export function GovernanceDependencyLayer({ model }: { model: GanttModel }) {
       const from = rowById.get(connection.fromPlanId)
       const to = rowById.get(connection.toPlanId)
       if (!from || !to) return null
-      const x1 = (from.row.offsetDays + from.row.durationDays) * GANTT_DAY_WIDTH
-      const x2 = to.row.offsetDays * GANTT_DAY_WIDTH
+      const x1 = (from.row.offsetDays + from.row.durationDays) * dayWidth
+      const x2 = to.row.offsetDays * dayWidth
       const y1 = from.index * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2
       const y2 = to.index * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2
 

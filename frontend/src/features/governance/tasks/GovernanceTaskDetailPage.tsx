@@ -14,9 +14,44 @@ import { GovernanceMilestoneStrip } from './GovernanceMilestoneStrip'
 import { GovernancePlanEditor } from './GovernancePlanEditor'
 import { dueDayDiff } from '../components/governanceRailModel'
 import { GovernanceWorkspaceBack } from '../components/GovernanceWorkspaceBack'
+import { railTheme } from '../components/railTheme'
 
-const Header = styled.div`display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:16px;`
-const Section = styled.section`padding:18px 0; border-top:1px solid #dfe5e2; h4{margin-top:0;}`
+const Page = styled.div`
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+`
+
+const Header = styled.header`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+`
+
+const Title = styled.h1`
+  margin: 0;
+  color: ${railTheme.text};
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+`
+
+const Section = styled.section`
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid ${railTheme.line};
+  border-radius: 8px;
+`
+
+const SectionTitle = styled.h2`
+  margin: 0 0 12px;
+  color: ${railTheme.text};
+  font-size: 15px;
+  font-weight: 680;
+`
+
 const SnapshotGrid = styled.div`display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px 24px;`
 const SnapshotItem = styled.div`display:grid; gap:2px;`
 
@@ -58,8 +93,8 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
   const assigneeOptions = (employeesQuery.data ?? [])
     .filter(employee => employee.id !== task.assigneeId)
     .map(employee => ({ value: employee.id, label: employee.name }))
-  return <article>
-    <Header><div><GovernanceWorkspaceBack onBack={onBack} /><Typography.Title level={3} style={{ margin: 0 }}>{task.name}</Typography.Title><Space><GovernanceStatusTag status={task.status} /><Typography.Text type="secondary">任务 #{task.id}</Typography.Text></Space></div><Space>{legacy ? <Typography.Text type="secondary">历史任务只读</Typography.Text> : <>{!completed && <Button icon={<SwapOutlined aria-hidden />} onClick={() => { setNextOwnerUserId(undefined); setReassignOpen(true) }}>移交</Button>}{task.status === 'DRAFT' && <Button type="primary" icon={<PlayCircleOutlined aria-hidden />} loading={startMutation.isPending} onClick={() => startMutation.mutate()}>启动任务</Button>}{task.status === 'IN_PROGRESS' && <Button type="primary" icon={<EditOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/execute`)}>进入清洗</Button>}{task.status === 'REWORK_REQUIRED' && <Button type="primary" icon={<EditOutlined aria-hidden />} loading={reworkMutation.isPending} onClick={() => reworkMutation.mutate()}>开启返工</Button>}{task.status === 'PENDING_CONFIRMATION' && <Button type="primary" icon={<CheckCircleOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/confirm`)}>进入确认</Button>}{task.status === 'PENDING_ACCEPTANCE' && <Button type="primary" icon={<SafetyCertificateOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/accept`)}>进入验收</Button>}</>}</Space></Header>
+  return <Page>
+    <Header><div><GovernanceWorkspaceBack onBack={onBack} /><Title>{task.name}</Title><Space><GovernanceStatusTag status={task.status} /><Typography.Text type="secondary">任务 #{task.id}</Typography.Text></Space></div><Space>{legacy ? <Typography.Text type="secondary">历史任务只读</Typography.Text> : <>{!completed && <Button icon={<SwapOutlined aria-hidden />} onClick={() => { setNextOwnerUserId(undefined); setReassignOpen(true) }}>移交</Button>}{task.status === 'DRAFT' && <Button type="primary" icon={<PlayCircleOutlined aria-hidden />} loading={startMutation.isPending} onClick={() => startMutation.mutate()}>启动任务</Button>}{task.status === 'IN_PROGRESS' && <Button type="primary" icon={<EditOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/execute`)}>进入清洗</Button>}{task.status === 'REWORK_REQUIRED' && <Button type="primary" icon={<EditOutlined aria-hidden />} loading={reworkMutation.isPending} onClick={() => reworkMutation.mutate()}>开启返工</Button>}{task.status === 'PENDING_CONFIRMATION' && <Button type="primary" icon={<CheckCircleOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/confirm`)}>进入确认</Button>}{task.status === 'PENDING_ACCEPTANCE' && <Button type="primary" icon={<SafetyCertificateOutlined aria-hidden />} onClick={() => navigate(`/sys/drawing/tasks/${taskId}/accept`)}>进入验收</Button>}</>}</Space></Header>
     <Modal
       title="移交任务"
       open={reassignOpen}
@@ -103,9 +138,9 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
         ) : undefined}
       />
     )}
-    <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 4 }} items={[{ key: 'owner', label: '负责人', children: task.owner }, { key: 'due', label: '截止日期', children: task.dueDate }, { key: 'round', label: '治理轮次', children: task.currentRound ?? 0 }, { key: 'scope', label: '治理范围', children: task.scope }]} />
+    <Section><Descriptions size="small" column={{ xs: 1, sm: 2, lg: 4 }} items={[{ key: 'owner', label: '负责人', children: task.owner }, { key: 'due', label: '截止日期', children: task.dueDate }, { key: 'round', label: '治理轮次', children: task.currentRound ?? 0 }, { key: 'scope', label: '治理范围', children: task.scope }]} /></Section>
     <Section><GovernanceMilestoneStrip status={task.status} workflowVersion={task.workflowVersion} progress={task.progress} currentRound={task.currentRound} completed={task.completed} total={task.total} /></Section>
-    <Section><Typography.Title level={4}>计划依赖与责任</Typography.Title><GovernancePlanEditor
+    <Section><SectionTitle>计划依赖与责任</SectionTitle><GovernancePlanEditor
       taskId={taskId}
       plans={plansQuery.data ?? []}
       issues={issuesQuery.data ?? []}
@@ -115,8 +150,8 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
       loading={plansQuery.isLoading}
       error={plansQuery.error instanceof Error ? plansQuery.error.message : undefined}
     /></Section>
-    <Section><Typography.Title level={4}>阶段进度</Typography.Title><GovernanceProgressStrip progress={task.progress} legacyCompleted={task.completed} legacyTotal={task.total} /></Section>
-    <Section><Typography.Title level={4}>治理基线</Typography.Title>{scopeSnapshot && ruleSnapshot ? <>
+    <Section><SectionTitle>阶段进度</SectionTitle><GovernanceProgressStrip progress={task.progress} legacyCompleted={task.completed} legacyTotal={task.total} /></Section>
+    <Section><SectionTitle>治理基线</SectionTitle>{scopeSnapshot && ruleSnapshot ? <>
       <SnapshotGrid>
         <SnapshotItem><Typography.Text type="secondary">治理对象</Typography.Text><Typography.Text>{scopeSnapshot.itemCount} 项，涉及 {scopeSnapshot.assetIds.length} 份资产</Typography.Text></SnapshotItem>
         <SnapshotItem><Typography.Text type="secondary">关联问题</Typography.Text><Typography.Text>{scopeSnapshot.claimedIssueIds.length} 项</Typography.Text></SnapshotItem>
@@ -126,10 +161,10 @@ export function GovernanceTaskDetailPage({ taskId, onBack }: { taskId: number; o
       </SnapshotGrid>
       <Collapse ghost size="small" style={{ marginTop: 8 }} items={[{ key: 'technical', label: '查看技术快照', children: <Typography.Paragraph code style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{JSON.stringify({ scopeSnapshot, ruleSnapshot }, null, 2)}</Typography.Paragraph> }]} />
     </> : <Typography.Text type="secondary">{legacy ? '历史任务未保存结构化治理基线' : '任务启动后固化治理范围、数据标准和质量策略'}</Typography.Text>}</Section>
-    <Section><Typography.Title level={4}>关联治理问题</Typography.Title>{issuesQuery.isLoading
+    <Section><SectionTitle>关联治理问题</SectionTitle>{issuesQuery.isLoading
       ? <Typography.Text type="secondary">正在加载关联问题...</Typography.Text>
       : (issuesQuery.data?.length ?? 0) === 0
         ? <Typography.Text type="secondary">当前没有关联治理问题</Typography.Text>
         : <Table rowKey="id" size="small" columns={issueColumns} dataSource={issuesQuery.data} pagination={false} />}</Section>
-  </article>
+  </Page>
 }
