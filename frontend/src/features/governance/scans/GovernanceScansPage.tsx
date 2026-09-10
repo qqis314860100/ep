@@ -2,15 +2,20 @@ import { PlayCircleOutlined, ReloadOutlined, RedoOutlined } from '@ant-design/ic
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, App, Button, Descriptions, Empty, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import { useMemo } from 'react'
 import { getGovernanceScanRuns, retryGovernanceScan, triggerGovernanceScan } from '../api'
 import type { GovernanceScanRun, GovernanceScanRunStatus, GovernanceScanTriggerType } from '../types'
+import { EChart } from '../components/EChart'
 import {
   GovernanceMetric,
   GovernanceMetricGrid,
   GovernancePage,
   GovernancePageHeader,
   GovernancePanel,
+  GovernancePanelSection,
 } from '../components/GovernanceLayout'
+import { categoryBarOption } from '../components/governanceChartTheme'
+import { railTheme } from '../components/railTheme'
 
 const statusMeta: Record<GovernanceScanRunStatus, { label: string; color: string }> = { RUNNING: { label: '运行中', color: 'processing' }, SUCCEEDED: { label: '成功', color: 'success' }, FAILED: { label: '失败', color: 'error' } }
 const triggerLabels: Record<GovernanceScanTriggerType, string> = { MANUAL: '手动触发', SCHEDULED: '计划触发', RETRY: '失败重试' }
@@ -23,6 +28,17 @@ export function GovernanceScansPage() {
   const retry = useMutation({ mutationFn: (id: number) => retryGovernanceScan(id), onSuccess: async () => { await refresh(); void message.success('扫描已重试') }, onError: error => void message.error(error instanceof Error ? error.message : '重试失败') })
   const latest = query.data?.[0]
   const totals = query.data?.reduce((result, run) => ({ scanned: result.scanned + run.scannedAssetCount, created: result.created + run.createdIssueCount, reopened: result.reopened + run.reopenedIssueCount }), { scanned: 0, created: 0, reopened: 0 }) ?? { scanned: 0, created: 0, reopened: 0 }
+  // 最近 10 次运行按时间正序，堆叠展示每次产出（新建/重开/未变化）
+  const trendRuns = useMemo(() => [...(query.data ?? [])].slice(0, 10).reverse(), [query.data])
+  const trendOption = useMemo(() => categoryBarOption({
+    categories: trendRuns.map(run => run.startedAt.slice(5, 16).replace('T', ' ')),
+    series: [
+      { name: '新建问题', data: trendRuns.map(run => run.createdIssueCount), color: railTheme.brand },
+      { name: '重开问题', data: trendRuns.map(run => run.reopenedIssueCount), color: railTheme.amber },
+      { name: '未变化', data: trendRuns.map(run => run.unchangedIssueCount), color: '#b9c2bd' },
+    ],
+    unit: ' 个',
+  }), [trendRuns])
   const columns: ColumnsType<GovernanceScanRun> = [
     { title: '运行时间', dataIndex: 'startedAt', width: 180, render: (value, row) => <span>{time(value)}<br /><Typography.Text type="secondary">#{row.id}</Typography.Text></span> },
     { title: '触发方式', dataIndex: 'triggerType', width: 110, render: (value: GovernanceScanTriggerType) => triggerLabels[value] },
@@ -47,6 +63,11 @@ export function GovernanceScansPage() {
       <GovernanceMetric label="最近运行" value={latest ? time(latest.startedAt) : '尚未运行'} />
     </GovernanceMetricGrid>
     {latest?.status === 'FAILED' && <Alert type="error" showIcon message="最近一次扫描失败" description={latest.errorMessage || '请重试扫描'} />}
+    {trendRuns.length > 0 && (
+      <GovernancePanelSection title="扫描产出趋势" extra={<Typography.Text type="secondary">最近 {trendRuns.length} 次运行 · 每次发现的问题构成</Typography.Text>}>
+        <EChart ariaLabel="扫描产出趋势堆叠柱状图" height={260} option={trendOption} />
+      </GovernancePanelSection>
+    )}
     {latest && <GovernancePanel><Descriptions size="small" bordered column={{ xs: 1, sm: 2, md: 4 }} items={[{ key: 'standard', label: '运行状态', children: statusMeta[latest.status].label }, { key: 'finished', label: '结束时间', children: time(latest.finishedAt) }, { key: 'unchanged', label: '未变化问题', children: latest.unchangedIssueCount }, { key: 'retry', label: '来源运行', children: latest.retryOfRunId ? `#${latest.retryOfRunId}` : '无' }]} /></GovernancePanel>}
     <GovernancePanel>
       <Table rowKey="id" size="small" loading={query.isLoading} columns={columns} dataSource={query.data ?? []} scroll={{ x: 920 }} pagination={{ pageSize: 10, showSizeChanger: false }} locale={{ emptyText: <Empty description="尚未运行扫描" /> }} />

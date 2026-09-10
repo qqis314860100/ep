@@ -1,19 +1,23 @@
 import { PlusOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, App, Button, Drawer, Form, Input, Select, Table, Typography } from 'antd'
+import { Alert, App, Button, Col, Drawer, Form, Input, Row, Select, Table, Typography } from 'antd'
 import type { ColumnsType, TableRowSelection } from 'antd/es/table/interface'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { FilterGrid } from '../../../components/FilterGrid'
 import { createGovernanceTask, getGovernanceEmployees, getGovernanceIssues } from '../api'
 import type { GovernanceField, GovernanceIssue, GovernanceIssueStatus } from '../types'
-import { GovernancePage, GovernancePageHeader, GovernancePanel } from '../components/GovernanceLayout'
+import { EChart } from '../components/EChart'
+import { GovernancePage, GovernancePageHeader, GovernancePanel, GovernancePanelSection } from '../components/GovernanceLayout'
+import { categoryBarOption, countByValue, donutOption } from '../components/governanceChartTheme'
+import { railTheme } from '../components/railTheme'
 
 const SelectionHint = styled(Typography.Text)`
   align-self: center;
 `
 
 type FormValues = { name: string; ownerUserId: string; dueDate: string }
+const severityLabels: Record<string, string> = { HIGH: '高', MEDIUM: '中', LOW: '低' }
 const fieldOptions = [{ value: 'DESCRIPTION', label: '功能说明' }, { value: 'SPECIALTIES', label: '专业类别' }, { value: 'OWNER', label: '责任人' }, { value: 'SCOPE', label: '适用范围' }]
 const statusOptions = [{ value: 'OPEN', label: '待处理' }, { value: 'CLAIMED', label: '已认领' }, { value: 'RESOLVED', label: '已解决' }]
 const formatIssueTime = (value: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
@@ -41,6 +45,18 @@ export function GovernanceIssuePoolPage() {
     { title: '发现时间', dataIndex: 'createdAt', width: 165, render: formatIssueTime },
     { title: '修改时间', dataIndex: 'updatedAt', width: 165, render: formatIssueTime },
   ]
+  // 问题结构：让"问题池里都是什么"一眼可见（按当前筛选结果汇总）
+  const issues = useMemo(() => issuesQuery.data ?? [], [issuesQuery.data])
+  const typeOption = useMemo(() => donutOption({
+    data: countByValue(issues, issue => issue.issueType),
+    centerText: { value: String(issues.length), label: '问题总数' },
+  }), [issues])
+  const severityOption = useMemo(() => categoryBarOption({
+    categories: countByValue(issues, issue => issue.severity).map(item => severityLabels[item.name] ?? item.name),
+    series: [{ name: '问题数', data: countByValue(issues, issue => issue.severity).map(item => item.value), color: railTheme.amber }],
+    unit: ' 个',
+  }), [issues])
+
   const rowSelection: TableRowSelection<GovernanceIssue> = { selectedRowKeys: selectedIds, preserveSelectedRowKeys: true, onChange: setSelectedIds, getCheckboxProps: issue => ({ 'aria-label': `选择问题 ${issue.id}`, disabled: issue.status !== 'OPEN' }) }
   return <GovernancePage>
     <GovernancePageHeader
@@ -57,6 +73,20 @@ export function GovernanceIssuePoolPage() {
       </FilterGrid>
     </GovernancePanel>
     {issuesQuery.isError && <Alert type="error" showIcon message="问题池加载失败" />}
+    {issues.length > 0 && (
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
+          <GovernancePanelSection title="问题类型分布" extra={<Typography.Text type="secondary">按当前筛选结果</Typography.Text>}>
+            <EChart ariaLabel="问题类型分布环形图" height={250} option={typeOption} />
+          </GovernancePanelSection>
+        </Col>
+        <Col xs={24} lg={12}>
+          <GovernancePanelSection title="严重度分布" extra={<Typography.Text type="secondary">高 / 中 / 低</Typography.Text>}>
+            <EChart ariaLabel="问题严重度分布条形图" height={250} option={severityOption} />
+          </GovernancePanelSection>
+        </Col>
+      </Row>
+    )}
     <GovernancePanel>
       <Table rowKey="id" size="small" loading={issuesQuery.isLoading} rowSelection={rowSelection} columns={columns} dataSource={issuesQuery.data ?? []} scroll={{ x: 1150 }} pagination={{ pageSize: 10, showSizeChanger: false }} />
     </GovernancePanel>

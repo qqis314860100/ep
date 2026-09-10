@@ -1,6 +1,6 @@
 import { ReloadOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Button, Select, Table, Tag, Typography } from 'antd'
+import { Alert, Button, Empty, Select, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +11,9 @@ import type {
   GovernanceTask,
 } from '../types'
 import { dueDayDiff } from '../components/governanceRailModel'
+import { EChart } from '../components/EChart'
 import { GovernanceMetric, GovernanceMetricGrid, GovernancePageHeader } from '../components/GovernanceLayout'
+import { categoryBarOption } from '../components/governanceChartTheme'
 import { GovernanceStatusTag } from '../shared/GovernanceStatusTag'
 import { railTheme } from '../components/railTheme'
 
@@ -208,6 +210,20 @@ export function GovernanceResponsibilityPage() {
     },
   ]
 
+  // 责任负载分布：按人堆叠整改中/待确认/待验收/已逾期，直观看出谁压着最多活
+  const loadRows = (board?.employees ?? []).slice(0, 10)
+  const loadOption = useMemo(() => categoryBarOption({
+    categories: loadRows.map(row => row.name),
+    horizontal: true,
+    series: [
+      { name: '整改中', data: loadRows.map(row => row.executing), color: railTheme.brand },
+      { name: '待确认', data: loadRows.map(row => row.confirming), color: railTheme.blue },
+      { name: '待验收', data: loadRows.map(row => row.accepting), color: '#8a67b8' },
+      { name: '已逾期', data: loadRows.map(row => row.overdue), color: railTheme.red },
+    ],
+    unit: ' 项',
+  }), [loadRows])
+
   return (
     <Page>
       <GovernancePageHeader
@@ -245,6 +261,13 @@ export function GovernanceResponsibilityPage() {
             />
           ))}
         </GovernanceMetricGrid>
+      </Section>
+
+      <Section>
+        <SectionTitle>责任负载分布 <span className="hint">按人堆叠：整改中 / 待确认 / 待验收 / 已逾期（逾期与前三者重叠）</span></SectionTitle>
+        {loadRows.length === 0
+          ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无责任数据" />
+          : <EChart ariaLabel="责任人负载分布堆叠条形图" height={Math.max(220, loadRows.length * 34 + 70)} option={loadOption} />}
       </Section>
 
       <Section>

@@ -1,8 +1,8 @@
 import { FilterOutlined } from '@ant-design/icons'
-import { Alert, Button, Checkbox, Form, Input, Select, Space, Table, Tag } from 'antd'
+import { Alert, Button, Checkbox, Col, Form, Input, Row, Select, Space, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { getInventory } from '../api'
@@ -10,13 +10,17 @@ import type { InventoryFilters, InventoryView } from '../api'
 import { AssetStatusTag, AssetTypeTag } from '../../assets/AssetTags'
 import { assetTypeLabels } from '../../assets/assetPresentation'
 import { FilterGrid } from '../../../components/FilterGrid'
+import { EChart } from '../components/EChart'
 import {
   GovernanceMetric,
   GovernanceMetricGrid,
   GovernancePage,
   GovernancePageHeader,
   GovernancePanel,
+  GovernancePanelSection,
 } from '../components/GovernanceLayout'
+import { categoryBarOption, donutOption } from '../components/governanceChartTheme'
+import { railTheme } from '../components/railTheme'
 
 const MissingTag = styled(Tag)`
   font-size: 10px;
@@ -65,6 +69,35 @@ export function GovernanceInventoryPage() {
     setFilters(values)
   }
 
+  // 质量覆盖：四项覆盖率的横向对比；资产状态构成：待整理/已认领/已标准化 + 其它
+  const qualityOption = useMemo(() => categoryBarOption({
+    categories: ['必填完整率', '范围覆盖率', '负责人覆盖率', '文件可用率'],
+    horizontal: true,
+    max: 100,
+    unit: '%',
+    series: [{
+      name: '覆盖率',
+      color: railTheme.brand,
+      data: [view?.rates.completeness ?? 0, view?.rates.scopeCoverage ?? 0, view?.rates.ownerCoverage ?? 0, view?.rates.fileAvailability ?? 0],
+    }],
+  }), [view])
+  const statusOption = useMemo(() => {
+    const totals = view?.totals
+    const pending = totals?.pendingCuration ?? 0
+    const claimed = totals?.claimed ?? 0
+    const standardized = totals?.standardized ?? 0
+    const other = Math.max(0, (totals?.total ?? 0) - pending - claimed - standardized)
+    return donutOption({
+      data: [
+        { name: '待整理', value: pending },
+        { name: '已认领', value: claimed },
+        { name: '已标准化', value: standardized },
+        { name: '其它', value: other },
+      ],
+      centerText: { value: String(totals?.total ?? 0), label: '资产总量' },
+    })
+  }, [view])
+
   return (
     <GovernancePage>
       <GovernancePageHeader
@@ -85,6 +118,19 @@ export function GovernanceInventoryPage() {
         <GovernanceMetric label="负责人覆盖率" value={view?.rates.ownerCoverage ?? 0} unit="%" />
         <GovernanceMetric label="文件可用率" value={view?.rates.fileAvailability ?? 0} unit="%" />
       </GovernanceMetricGrid>
+
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
+          <GovernancePanelSection title="质量覆盖" extra={<Typography.Text type="secondary">按启用数据标准统计</Typography.Text>}>
+            <EChart ariaLabel="资产质量覆盖率条形图" height={220} option={qualityOption} />
+          </GovernancePanelSection>
+        </Col>
+        <Col xs={24} lg={12}>
+          <GovernancePanelSection title="资产状态构成" extra={<Typography.Text type="secondary">生命周期分布</Typography.Text>}>
+            <EChart ariaLabel="资产状态构成环形图" height={220} option={statusOption} />
+          </GovernancePanelSection>
+        </Col>
+      </Row>
 
       <GovernancePanel>
         <Form form={form} onFinish={submit} colon={false}>
