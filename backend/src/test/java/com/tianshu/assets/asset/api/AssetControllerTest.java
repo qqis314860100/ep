@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
@@ -324,6 +325,55 @@ class AssetControllerTest {
         mockMvc.perform(post("/api/v1/assets/106/submit"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PENDING_CURATION"));
+    }
+
+    @Test
+    void updatesAnExistingDraftBeforeSubmittingIt() throws Exception {
+        mockMvc.perform(post("/api/v1/assets/drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "assetNumber":"DM-DRAFT-UPDATE-001",
+                                  "name":"待补充草稿",
+                                  "description":"首次保存",
+                                  "assetType":"MIXED_ASSET",
+                                  "specialties":[],
+                                  "scopes":[],
+                                  "files":[]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(106));
+
+        var completedDraft = """
+                {
+                  "assetNumber":"DM-DRAFT-UPDATE-001",
+                  "name":"已补充草稿",
+                  "description":"提交前保存当前表单",
+                  "assetType":"MIXED_ASSET",
+                  "specialties":["机械"],
+                  "scopes":[{"platform":"乘用车","productLine":"H03","base":"宁德基地","productionLine":"A 拉线","processSection":"焊接段"}],
+                  "files":[{"id":0,"name":"model.step","format":"STEP","sizeBytes":120,"role":"三维源模型","previewable":false,"primary":true}]
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/assets/106/draft")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(completedDraft))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("已补充草稿"))
+                .andExpect(jsonPath("$.specialties[0]").value("机械"))
+                .andExpect(jsonPath("$.scopes[0].productLine").value("H03"))
+                .andExpect(jsonPath("$.files[0].name").value("model.step"));
+
+        mockMvc.perform(post("/api/v1/assets/106/submit"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_CURATION"));
+
+        mockMvc.perform(put("/api/v1/assets/106/draft")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(completedDraft))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test

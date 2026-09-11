@@ -25,5 +25,9 @@ public interface AssetRepository {
 
     Asset update(Asset asset);
 
+    default Asset updateDraft(Asset asset) {
+        return update(asset);
+    }
+
     boolean existsByAssetNumber(String assetNumber);
 }

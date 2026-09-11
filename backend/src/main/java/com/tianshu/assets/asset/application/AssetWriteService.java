@@ -76,6 +76,37 @@ public class AssetWriteService {
         return saved;
     }
 
+    public Asset updateDraft(long id, AssetDraft draft) {
+        validateCommon(draft);
+        var current = assetRepository.findById(id).orElseThrow(() -> new AssetNotFoundException(id));
+        if (current.status() != AssetStatus.DRAFT) {
+            throw new IllegalArgumentException("仅草稿状态的资料可以修改");
+        }
+        if (!current.assetNumber().equalsIgnoreCase(draft.assetNumber())
+                && assetRepository.existsByAssetNumber(draft.assetNumber())) {
+            throw new DuplicateAssetNumberException(draft.assetNumber());
+        }
+        return assetRepository.updateDraft(new Asset(
+                current.id(),
+                draft.assetNumber(),
+                draft.name(),
+                draft.description(),
+                draft.assetType(),
+                AssetStatus.DRAFT,
+                draft.specialties(),
+                draft.tags(),
+                draft.moduleTags(),
+                draft.standardEquipmentModule(),
+                draft.linkedModuleAssetIds(),
+                draft.equipmentInterconnectCode(),
+                draft.scopes(),
+                draft.files(),
+                draft.ownerName(),
+                draft.ownerDepartment(),
+                Instant.now(),
+                current.legacy()));
+    }
+
     public Asset submit(long id) {
         var asset = assetRepository.findById(id).orElseThrow(() -> new AssetNotFoundException(id));
         if (asset.status() != AssetStatus.DRAFT) {

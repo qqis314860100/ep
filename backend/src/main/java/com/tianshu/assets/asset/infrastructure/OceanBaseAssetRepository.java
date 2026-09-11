@@ -62,7 +62,18 @@ public class OceanBaseAssetRepository implements AssetRepository {
         var parameters = new LinkedHashMap<String, Object>();
 
         if (!criteria.query().isBlank()) {
-            where.add("(drawing_title LIKE :query OR drawing_content LIKE :query OR drawing_label LIKE :query)");
+            var queryPredicates = new ArrayList<String>();
+            queryPredicates.add("drawing_title LIKE :query");
+            queryPredicates.add("drawing_content LIKE :query");
+            queryPredicates.add("drawing_label LIKE :query");
+            if (extensionStore.enabled()) {
+                queryPredicates.add("EXISTS (SELECT 1 FROM asset_package_ext query_package "
+                        + "WHERE query_package.drawing_id = sys_drawing.id AND query_package.asset_number LIKE :query)");
+                queryPredicates.add("EXISTS (SELECT 1 FROM asset_file_ext query_file "
+                        + "WHERE query_file.drawing_id = sys_drawing.id AND query_file.file_status = 'AVAILABLE' "
+                        + "AND (query_file.original_name LIKE :query OR query_file.display_name LIKE :query))");
+            }
+            where.add("(" + String.join(" OR ", queryPredicates) + ")");
             parameters.put("query", "%" + criteria.query() + "%");
         }
         if (criteria.assetType() != null && !extensionStore.enabled()) {
@@ -355,6 +366,18 @@ public class OceanBaseAssetRepository implements AssetRepository {
     }
 
     @Override
+    @Transactional
+    public Asset updateDraft(Asset asset) {
+        update(asset);
+        jdbcClient.sql("DELETE FROM asset_scope_ext WHERE drawing_id = :id")
+                .param("id", asset.id()).update();
+        jdbcClient.sql("DELETE FROM asset_file_ext WHERE drawing_id = :id")
+                .param("id", asset.id()).update();
+        saveScopeAndFileData(asset.id(), asset);
+        return findById(asset.id()).orElseThrow(() -> new IllegalArgumentException("资产不存在：" + asset.id()));
+    }
+
+    @Override
     public boolean existsByAssetNumber(String assetNumber) {
         if (!extensionStore.enabled() || assetNumber == null || assetNumber.isBlank()) return false;
         return jdbcClient.sql("SELECT COUNT(*) FROM asset_package_ext WHERE asset_number = :assetNumber")
@@ -374,6 +397,10 @@ public class OceanBaseAssetRepository implements AssetRepository {
                 .param("linkedIds", json(asset.linkedModuleAssetIds()))
                 .param("equipmentCode", asset.equipmentInterconnectCode()).param("department", asset.ownerDepartment())
                 .update();
+        saveScopeAndFileData(drawingId, asset);
+    }
+
+    private void saveScopeAndFileData(long drawingId, Asset asset) {
         for (var scope : asset.scopes()) {
             jdbcClient.sql("""
                     INSERT INTO asset_scope_ext

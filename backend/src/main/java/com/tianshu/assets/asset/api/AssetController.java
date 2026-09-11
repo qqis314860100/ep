@@ -30,6 +30,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -240,6 +241,14 @@ public class AssetController {
     public record DuplicateFileResponse(String fileName, String contentSha256) {}
 
     public record BatchDraftResponse(List<AssetResponse> assets, List<DuplicateFileResponse> duplicateFiles) {}
+
+    @PutMapping("/{id}/draft")
+    public AssetResponse updateDraft(
+            @PathVariable @Min(1) long id,
+            @RequestHeader(name = "X-User-Name", defaultValue = "") String userName,
+            @RequestBody AssetWriteRequest request) {
+        return AssetResponse.from(assetWriteService.updateDraft(id, withSessionOwner(request, userName).toDraft()));
+    }
 
     @PostMapping("/{id}/submit")
     public AssetResponse submit(@PathVariable @Min(1) long id) {
