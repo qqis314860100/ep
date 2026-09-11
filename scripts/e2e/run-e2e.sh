@@ -3,7 +3,7 @@
 # run-e2e.sh — 从 0 启动后端 + 前端，跑完整业务全流程 E2E 测试
 #
 # 流程：
-#   1. 生成 mock 文件（PDF / X_T / TXT / PNG）
+#   1. 生成测试 fixture 文件（PDF / X_T / TXT / PNG）
 #   2. 启动后端（默认 local profile，直连 .env.local 配置的真实数据库），等待健康检查
 #   3. 启动前端（vite dev，端口 5173，走真实 API）
 #   4. 执行全流程脚本 flow.mjs（上传 → 资产 → 治理闭环 → 文档 → 关联 → 收藏评论 → 统一检索）
@@ -24,13 +24,14 @@ mkdir -p "$LOG_DIR"
 BACKEND_LOG="$LOG_DIR/backend.log"
 FRONTEND_LOG="$LOG_DIR/frontend.log"
 FLOW_LOG="$LOG_DIR/flow.log"
+RESULT_JSON="$LOG_DIR/e2e-result-latest.json"
 BACKEND_PID=""
 FRONTEND_PID=""
 
 PORT_BACKEND="${SERVER_PORT:-8080}"
 PORT_FRONTEND=5173
 
-echo "==> [1/5] 生成 mock 文件"
+echo "==> [1/5] 生成测试 fixture 文件"
 node "$E2E_DIR/mock-files.mjs"
 
 # ---------------------------------------------------------------------------
@@ -108,15 +109,15 @@ fi
 # ---------------------------------------------------------------------------
 echo "==> [4/5] 执行全流程脚本 flow.mjs"
 set +e
-node "$E2E_DIR/flow.mjs" --backend "http://127.0.0.1:$PORT_BACKEND" --frontend "http://127.0.0.1:$PORT_FRONTEND" 2>&1 | tee "$FLOW_LOG"
+node "$E2E_DIR/flow.mjs" --backend "http://127.0.0.1:$PORT_BACKEND" --frontend "http://127.0.0.1:$PORT_FRONTEND" --result-json "$RESULT_JSON" 2>&1 | tee "$FLOW_LOG"
 FLOW_EXIT=${PIPESTATUS[0]}
 set -e
 
 echo "==> [5/5] 汇总"
 if [ "$FLOW_EXIT" -eq 0 ]; then
-  echo "✅ E2E 全流程通过"
+  echo "✅ E2E 全流程通过（结构化结果：$RESULT_JSON）"
 else
-  echo "❌ E2E 全流程失败 (exit=$FLOW_EXIT)，完整日志见 $FLOW_LOG"
+  echo "❌ E2E 全流程失败 (exit=$FLOW_EXIT)，完整日志见 $FLOW_LOG；结构化结果：$RESULT_JSON"
 fi
 
 # ---------------------------------------------------------------------------

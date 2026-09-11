@@ -1,16 +1,10 @@
 #!/usr/bin/env node
-/*
- * ⚠️ 尚未随「真实数据库唯一数据源」改造完成：
- * 本脚本的场景数据仍假设旧的演示种子（治理任务/问题种子、emp-* 演示账号、
- * 资产 101~105 的扩展行），这些种子已随应用表清理移除。启动方式、登录账号已改为
- * 真实库口径，但阶段数据需要按真实业务记录重新基线后才能整条通过。
- */
 /**
  * flow.mjs — 从 0 到 尾的全业务 E2E 全流程脚本（API 级，Node 18+ 无第三方依赖）
  *
  * 覆盖（对应真实业务闭环）：
  *   阶段 0  健康检查 + 字典基线
- *   阶段 1  mock 文件上传（PDF / X_T / TXT / PNG → POST /uploads/files）
+ *   阶段 1  测试 fixture 文件上传（PDF / X_T / TXT / PNG → POST /uploads/files）
  *   阶段 2  资产生命周期（建草稿 → 提交 → 待整理）
  *   阶段 3  治理扫描（手动触发 → 运行成功 → 问题池）
  *   阶段 4  治理闭环（建任务 → 计划 → 启动 → 执行 → 业务确认 → 质量验收 → 正式应用 → 任务完成）
@@ -27,7 +21,7 @@
  *
  * 退出码：全部通过 = 0；任一断言失败 = 1（失败会继续跑完，最终汇总）。
  */
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -44,6 +38,11 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 const BACKEND = (args.get('backend') || 'http://127.0.0.1:8080').replace(/\/$/, '')
 const FRONTEND = args.get('frontend')
+const RUN_TOKEN = process.env.E2E_RUN_ID || new Date().toISOString().replace(/\D/g, '').slice(0, 14)
+const ASSET_NUMBER = `E2E-H03-${RUN_TOKEN}`
+const FIELD_ASSET_NUMBER = `E2E-FIELD-${RUN_TOKEN}`
+const RESULT_JSON = args.get('result-json') || process.env.E2E_RESULT_JSON
+  || join(__dirname, '.logs', `e2e-result-${RUN_TOKEN}.json`)
 
 /* ------------------------------------------------------------------ */
 /* 轻量测试框架                                                         */
@@ -51,17 +50,33 @@ const FRONTEND = args.get('frontend')
 let passed = 0
 let failed = 0
 const failures = []
+const cases = []
+let currentModule = '基础检查'
 
 async function step(name, fn) {
+  const result = {
+    id: `E2E-${String(cases.length + 1).padStart(3, '0')}`,
+    module: currentModule,
+    name,
+    type: name.includes('前端') ? '浏览器' : 'API',
+    startedAt: new Date().toISOString(),
+  }
   try {
     await fn()
     passed++
+    result.status = 'PASS'
+    result.actual = '接口返回与断言一致'
     console.log(`  ✅ ${name}`)
   } catch (error) {
     failed++
-    failures.push({ name, message: error.message })
-    console.log(`  ❌ ${name}\n      ↳ ${error.message}`)
+    const message = error instanceof Error ? error.message : String(error)
+    failures.push({ name, message })
+    result.status = 'FAIL'
+    result.actual = message
+    console.log(`  ❌ ${name}\n      ↳ ${message}`)
   }
+  result.finishedAt = new Date().toISOString()
+  cases.push(result)
 }
 
 function assert(condition, message) {
@@ -181,6 +196,7 @@ await loginAs()
 console.log(`  会话：${E2E_USER_ID} 已登录（S1 写操作需真实会话）`)
 
 /* ---- 阶段 0：健康检查 + 字典基线 ---- */
+currentModule = '基础检查'
 console.log('【阶段 0】健康检查 + 字典基线')
 const health = await api('/actuator/health')
 await step('后端健康检查 /actuator/health → UP', () => {
@@ -206,8 +222,43 @@ await step('字典项可用（SPECIALTY=机械 / ASSET_TYPE=MIXED_ASSET / DOC_CA
   assert(dictItems.json.some((item) => item.category === 'DOCUMENT_CATEGORY' && item.code === 'WORK_INSTRUCTION'), '缺少 DOCUMENT_CATEGORY=WORK_INSTRUCTION')
 })
 
-/* ---- 阶段 1：mock 文件上传 ---- */
-console.log('\n【阶段 1】mock 文件上传')
+let governanceStandard
+await step('确保 E2E 数据标准已通过真实 API 启用', async () => {
+  const code = 'E2E-FIELD-COMPLETENESS'
+  const standards = await api('/api/v1/governance/standards')
+  governanceStandard = standards.json.find((item) => item.standardCode === code && item.status === 'ENABLED')
+  if (governanceStandard) return
+
+  const versions = standards.json.filter((item) => item.standardCode === code)
+  const nextVersion = Math.max(0, ...versions.map((item) => item.standardVersion)) + 1
+  const created = await api('/api/v1/governance/standards', {
+    method: 'POST',
+    body: {
+      standardCode: code,
+      standardVersion: nextVersion,
+      name: 'E2E 资产字段完整性标准',
+      applicableAssetTypes: ['MIXED_ASSET'],
+      ownerUserId: E2E_USER_ID,
+      ownerName: '系统管理员',
+      changeSummary: '真实数据库 E2E 治理基线',
+      rules: [
+        { targetField: 'description', ruleType: 'REQUIRED', description: '功能说明必填', blocking: true, configurationJson: '{}' },
+        { targetField: 'specialties', ruleType: 'REQUIRED', description: '专业类别必填', blocking: true, configurationJson: '{}' },
+        { targetField: 'scope', ruleType: 'REQUIRED', description: '完整适用范围必填', blocking: true, configurationJson: '{}' },
+      ],
+    },
+  })
+  const enabled = await api(`/api/v1/governance/standards/${created.json.id}/enable`, {
+    method: 'POST',
+    body: { version: created.json.version },
+  })
+  governanceStandard = enabled.json.standard
+  assertEqual(governanceStandard.status, 'ENABLED', 'E2E 数据标准状态')
+})
+
+/* ---- 阶段 1：测试文件上传（文件内容来自本地 E2E fixture） ---- */
+currentModule = '文件上传'
+console.log('\n【阶段 1】测试文件上传（本地 fixture → 真实上传接口）')
 const assetFileNames = [
   '宁德-H03-电池包-三维源模型.x_t',
   '宁德-H03-电池包-总成图.pdf',
@@ -232,12 +283,13 @@ await step('上传文档文件 作业指导书-H03-电池包装配.pdf', async (
 })
 
 /* ---- 阶段 2：资产生命周期 ---- */
+currentModule = '资产生命周期'
 console.log('\n【阶段 2】资产生命周期（草稿 → 提交 → 待整理）')
 let assetA
 await step('创建资产草稿 POST /assets/drafts', async () => {
   const body = {
-    assetNumber: 'E2E-H03-9001',
-    name: 'E2E 电池包总成数模',
+    assetNumber: ASSET_NUMBER,
+    name: `E2E 电池包总成数模 ${RUN_TOKEN}`,
     description: '用于端到端自动化测试的电池包总成数模资产。',
     assetType: 'MIXED_ASSET',
     specialties: ['机械', '工装'],
@@ -252,7 +304,7 @@ await step('创建资产草稿 POST /assets/drafts', async () => {
       productLine: 'P02',
       base: '宁德基地',
       productionLine: 'A 拉线',
-      processSection: '焊接段',
+      processSection: '',
       platformFamily: '乘用车',
       platformVariant: '底部水冷',
     }],
@@ -265,7 +317,7 @@ await step('创建资产草稿 POST /assets/drafts', async () => {
   assetA = res.json
   assertEqual(assetA.status, 'DRAFT', '草稿状态应为 DRAFT')
   assertEqual(assetA.files.length, assetFiles.length, '草稿应含全部上传文件')
-  assertEqual(assetA.assetNumber, 'E2E-H03-9001', '资料编号回显')
+  assertEqual(assetA.assetNumber, ASSET_NUMBER, '资料编号回显')
 })
 
 await step('提交资产 POST /assets/{id}/submit → 待整理', async () => {
@@ -277,11 +329,49 @@ await step('提交资产 POST /assets/{id}/submit → 待整理', async () => {
 await step('查询资产详情 GET /assets/{id}', async () => {
   const res = await api(`/api/v1/assets/${assetA.id}`)
   assertEqual(res.status, 200, 'HTTP 状态')
-  assertEqual(res.json.name, 'E2E 电池包总成数模', '资产名称')
+  assertEqual(res.json.name, `E2E 电池包总成数模 ${RUN_TOKEN}`, '资产名称')
   assertEqual(res.json.scopes[0].base, '宁德基地', '适用范围命中')
 })
 
+let fieldAsset
+await step('创建字段治理草稿（缺说明与专业）', async () => {
+  const res = await api('/api/v1/assets/drafts', {
+    method: 'POST',
+    body: {
+      assetNumber: FIELD_ASSET_NUMBER,
+      name: `E2E 字段治理资产 ${RUN_TOKEN}`,
+      description: '',
+      assetType: 'MIXED_ASSET',
+      specialties: [],
+      tags: [],
+      moduleTags: [],
+      standardEquipmentModule: false,
+      linkedModuleAssetIds: [],
+      equipmentInterconnectCode: '',
+      scopes: [{
+        platform: '乘用车', productLine: 'H03', base: '宁德基地', productionLine: 'A 拉线',
+        processSection: '焊接段', platformFamily: '乘用车', platformVariant: '底部水冷',
+      }],
+      files: [assetFiles[0]].map((file) => ({ ...file, primary: true })),
+      ownerName: '系统管理员',
+      ownerDepartment: '信息化部',
+    },
+  })
+  assertEqual(res.status, 201, '创建字段治理草稿应返回 201')
+  fieldAsset = res.json
+  assertEqual(fieldAsset.status, 'DRAFT', '字段治理资产应保持草稿')
+})
+await step('为字段治理资产指派真实责任人 user1', async () => {
+  const res = await api(`/api/v1/governance/asset-responsibilities/${fieldAsset.id}`, {
+    method: 'PUT',
+    body: { responsibleUserId: 'user1', responsibilityScope: '测试部' },
+  })
+  assertEqual(res.status, 200, '责任人指派应返回 200')
+  assertEqual(res.json.responsibleUserId, 'user1', '字段治理责任人应为 user1')
+})
+
 /* ---- 阶段 3：治理扫描 ---- */
+currentModule = '治理扫描'
 console.log('\n【阶段 3】治理扫描（手动触发 → 问题池）')
 let scanRun
 await step('触发手动扫描 POST /governance/scans', async () => {
@@ -299,20 +389,23 @@ await step('扫描运行成功（轮询至 SUCCEEDED）', async () => {
 })
 
 /* ---- 阶段 4：治理闭环（正式流程） ---- */
+currentModule = '治理闭环'
 console.log('\n【阶段 4】治理闭环（任务 → 计划 → 启动 → 执行 → 确认 → 验收 → 正式应用）')
 let taskId
 let taskVersion = 0
-await step('问题池存在开放问题（种子 1001/1002）', async () => {
-  const res = await api('/api/v1/governance/issues?status=OPEN')
+let fieldIssueIds = []
+await step('问题池存在本次字段治理问题', async () => {
+  const res = await api(`/api/v1/governance/issues?assetId=${fieldAsset.id}&status=OPEN`)
   assertEqual(res.status, 200, 'HTTP 状态')
-  const ids = new Set(res.json.map((issue) => issue.id))
-  assert(ids.has(1001) && ids.has(1002), `问题池应含开放问题 1001/1002，实际含 [${[...ids].join(', ')}]`)
+  const fieldIssues = res.json.filter((issue) => ['DESCRIPTION', 'SPECIALTIES'].includes(issue.targetField))
+  fieldIssueIds = fieldIssues.map((issue) => issue.id)
+  assertEqual(fieldIssueIds.length, 2, '应产生 DESCRIPTION 与 SPECIALTIES 两个问题')
 })
 
 await step('创建治理任务 POST /governance/tasks', async () => {
   const res = await api('/api/v1/governance/tasks', {
     method: 'POST',
-    body: { name: 'E2E 字段治理闭环', issueIds: [1001, 1002], ownerUserId: 'emp-chen', ownerName: '陈工', dueDate: '2026-09-30' },
+    body: { name: `E2E 字段治理闭环 ${RUN_TOKEN}`, issueIds: fieldIssueIds, ownerUserId: 'user1', ownerName: '普通用户', dueDate: '2026-09-30' },
   })
   assertEqual(res.status, 201, '创建任务应返回 201')
   taskId = res.json.id
@@ -325,8 +418,8 @@ await step('新增计划项 POST /governance/tasks/{id}/plans', async () => {
     method: 'POST',
     body: {
       title: 'E2E 字段治理计划', plannedStart: '2026-09-01', plannedEnd: '2026-09-15',
-      assigneeId: 'emp-chen', responsibleUserId: 'emp-chen',
-      dependencyIds: [], issueIds: [1001, 1002],
+      assigneeId: 'user1', responsibleUserId: 'user1',
+      dependencyIds: [], issueIds: fieldIssueIds,
     },
   })
   assertEqual(res.status, 201, '创建计划应返回 201')
@@ -343,7 +436,7 @@ await step('启动任务 POST /governance/tasks/{id}/start（计划锁定）', a
   taskVersion = res.json.version
 })
 
-const GOV_HEADERS = { 'X-User-Id': 'emp-li', 'X-User-Roles': 'CONTENT_ADMIN,SYSTEM_ADMIN' }
+const GOV_HEADERS = {}
 let items = []
 await step('读取治理项 GET /governance/tasks/{id}/items', async () => {
   const res = await api(`/api/v1/governance/tasks/${taskId}/items`, { headers: GOV_HEADERS })
@@ -362,13 +455,13 @@ await step('执行治理：保存草稿 + 提交治理结果（DESCRIPTION / SPE
       : { specialtyItemIds: [MECHANICAL_ID] }
     const draftRes = await api(`/api/v1/governance/items/${item.item.id}/result-draft`, {
       method: 'PUT',
-      body: { itemVersion: item.item.version, assetVersion: item.item.assetVersion, proposedValue: proposed, actorUserId: 'emp-chen' },
+      body: { itemVersion: item.item.version, assetVersion: item.item.assetVersion, proposedValue: proposed, actorUserId: E2E_USER_ID },
       headers: GOV_HEADERS,
     })
     assertEqual(draftRes.status, 200, `保存 ${field} 治理结果草稿`)
     const submitRes = await api(`/api/v1/governance/items/${item.item.id}/submit`, {
       method: 'POST',
-      body: { resultVersionId: draftRes.json.id, resultVersion: draftRes.json.version, actorUserId: 'emp-chen' },
+      body: { resultVersionId: draftRes.json.id, resultVersion: draftRes.json.version, actorUserId: E2E_USER_ID },
       headers: GOV_HEADERS,
     })
     assertEqual(submitRes.status, 200, `提交 ${field} 治理结果`)
@@ -400,7 +493,7 @@ await step('逐项业务确认通过 PUT .../decision (APPROVED)', async () => {
   for (const item of res.json.items) {
     const decisionRes = await api(`/api/v1/governance/confirmation-rounds/${roundId}/items/${item.itemId}/decision`, {
       method: 'PUT',
-      body: { decision: 'APPROVED', comment: '', decisionVersion: 0, confirmerUserId: 'emp-li' },
+      body: { decision: 'APPROVED', comment: '', decisionVersion: 0, confirmerUserId: 'user1' },
       headers: GOV_HEADERS,
     })
     assertEqual(decisionRes.status, 200, `确认项 ${item.itemId} 审批通过`)
@@ -459,7 +552,7 @@ await step('正式应用作业执行成功（轮询至完成）', async () => {
   const job = await poll(async () => {
     const res = await api(`/api/v1/governance/jobs/${applicationJobId}`)
     const j = res.json
-    return j.processing === 0 && j.failed === 0 ? j : null
+    return j.succeeded === j.total && j.processing === 0 && j.failed === 0 ? j : null
   }, { label: '正式应用作业', timeoutMs: 20000 })
   assertEqual(job.succeeded, job.total, '成功项 = 总数')
   assert(job.succeeded >= 1, '至少 1 项正式应用成功')
@@ -472,29 +565,30 @@ await step('治理任务完成 GET /governance/tasks/{id} → COMPLETED', async 
   assertEqual(res.json.status, 'COMPLETED', '治理任务应已完成')
 })
 
-await step('治理问题已解决（1001/1002 → RESOLVED）', async () => {
-  const res = await api('/api/v1/governance/issues?status=RESOLVED')
+await step('本次字段治理问题已解决', async () => {
+  const res = await api(`/api/v1/governance/issues?assetId=${fieldAsset.id}&status=RESOLVED`)
   const ids = new Set(res.json.map((issue) => issue.id))
-  assert(ids.has(1001) && ids.has(1002), '问题 1001/1002 应已解决')
+  assert(fieldIssueIds.every((id) => ids.has(id)), '本次字段问题应全部解决')
 })
 
 /* ---- 阶段 4b：自有资产治理闭环（责任人指派 → 扫描 → 闭环） ---- */
+currentModule = '自有资产治理'
 console.log('\n【阶段 4b】自有资产治理闭环（责任人指派 → 扫描 → 闭环）')
 const RESP_ADMIN_HEADERS = { 'X-User-Roles': 'CONTENT_ADMIN,SYSTEM_ADMIN' }
 await step('指派资产责任人 PUT /governance/asset-responsibilities/{assetId}', async () => {
   const res = await api(`/api/v1/governance/asset-responsibilities/${assetA.id}`, {
     method: 'PUT',
-    body: { responsibleUserId: 'emp-chen', responsibilityScope: '设备工程部' },
+    body: { responsibleUserId: 'user2', responsibilityScope: '测试部' },
     headers: RESP_ADMIN_HEADERS,
   })
   assertEqual(res.status, 200, '指派应返回 200')
-  assertEqual(res.json.responsibleUserId, 'emp-chen', '责任人应为 emp-chen')
-  assertEqual(res.json.responsibilityScope, '设备工程部', '责任范围')
+  assertEqual(res.json.responsibleUserId, 'user2', '责任人应为 user2')
+  assertEqual(res.json.responsibilityScope, '测试部', '责任范围')
 })
 await step('读取资产责任人 GET /governance/asset-responsibilities/{assetId}', async () => {
   const res = await api(`/api/v1/governance/asset-responsibilities/${assetA.id}`, { headers: RESP_ADMIN_HEADERS })
   assertEqual(res.status, 200, '读取应返回 200')
-  assertEqual(res.json.responsibleUserId, 'emp-chen', '当前有效责任人')
+  assertEqual(res.json.responsibleUserId, 'user2', '当前有效责任人')
 })
 
 let ownIssueId = 0
@@ -510,7 +604,7 @@ let ownTaskVersion = 0
 await step('为自有资产创建治理任务 POST /governance/tasks', async () => {
   const res = await api('/api/v1/governance/tasks', {
     method: 'POST',
-    body: { name: 'E2E 自有资产范围治理', issueIds: [ownIssueId], ownerUserId: 'emp-chen', ownerName: '陈工', dueDate: '2026-09-30' },
+    body: { name: `E2E 自有资产范围治理 ${RUN_TOKEN}`, issueIds: [ownIssueId], ownerUserId: 'user2', ownerName: '上传用户', dueDate: '2026-09-30' },
   })
   assertEqual(res.status, 201, '创建任务应返回 201')
   ownTaskId = res.json.id
@@ -522,7 +616,7 @@ await step('自有资产任务新增计划 POST /governance/tasks/{id}/plans', a
     method: 'POST',
     body: {
       title: 'E2E 范围修正计划', plannedStart: '2026-09-01', plannedEnd: '2026-09-15',
-      assigneeId: 'emp-chen', responsibleUserId: 'emp-chen',
+      assigneeId: 'user2', responsibleUserId: 'user2',
       dependencyIds: [], issueIds: [ownIssueId],
     },
   })
@@ -537,8 +631,7 @@ await step('自有资产任务启动 POST /governance/tasks/{id}/start', async (
   ownTaskVersion = res.json.version
 })
 
-// 自有资产执行：责任人 emp-chen 亲自执行（X-User-Id=emp-chen），验证责任人指派生效
-const OWN_HEADERS = { 'X-User-Id': 'emp-chen', 'X-User-Roles': 'CONTENT_ADMIN' }
+const OWN_HEADERS = {}
 let ownItemId = 0
 let ownAssetVersion = 0
 await step('读取自有资产治理项 GET .../items', async () => {
@@ -550,17 +643,17 @@ await step('读取自有资产治理项 GET .../items', async () => {
 })
 await step('修正适用范围：保存草稿 + 提交', async () => {
   const proposed = {
-    scopes: [{ platformFamily: '乘用车', platformVariant: '大面水冷', productLine: 'H03', base: '宁德基地', productionLine: 'A 拉线', processSection: '焊接段' }],
+    scopes: [{ platformFamily: '乘用车', platformVariant: '底部水冷', productLine: 'H03', base: '宁德基地', productionLine: 'A 拉线', processSection: '焊接段' }],
   }
   const draftRes = await api(`/api/v1/governance/items/${ownItemId}/result-draft`, {
     method: 'PUT',
-    body: { itemVersion: 0, assetVersion: ownAssetVersion, proposedValue: proposed, actorUserId: 'emp-chen' },
+    body: { itemVersion: 0, assetVersion: ownAssetVersion, proposedValue: proposed, actorUserId: E2E_USER_ID },
     headers: OWN_HEADERS,
   })
   assertEqual(draftRes.status, 200, '保存范围治理结果草稿')
   const submitRes = await api(`/api/v1/governance/items/${ownItemId}/submit`, {
     method: 'POST',
-    body: { resultVersionId: draftRes.json.id, resultVersion: draftRes.json.version, actorUserId: 'emp-chen' },
+    body: { resultVersionId: draftRes.json.id, resultVersion: draftRes.json.version, actorUserId: E2E_USER_ID },
     headers: OWN_HEADERS,
   })
   assertEqual(submitRes.status, 200, '提交范围治理结果')
@@ -582,12 +675,12 @@ await step('自有资产读取确认轮次（以责任人为确认人）', async
   ownRoundVersion = res.json.round.version
   assert(res.json.items.length >= 1, '确认轮次应有确认项')
 })
-await step('自有资产逐项确认通过（责任人 emp-chen 审批）', async () => {
+await step('自有资产逐项确认通过', async () => {
   const res = await api(`/api/v1/governance/tasks/${ownTaskId}/confirmation-rounds/current`, { headers: OWN_HEADERS })
   for (const item of res.json.items) {
     const decisionRes = await api(`/api/v1/governance/confirmation-rounds/${ownRoundId}/items/${item.itemId}/decision`, {
       method: 'PUT',
-      body: { decision: 'APPROVED', comment: '', decisionVersion: 0, confirmerUserId: 'emp-chen' },
+      body: { decision: 'APPROVED', comment: '', decisionVersion: 0, confirmerUserId: 'user2' },
       headers: OWN_HEADERS,
     })
     assertEqual(decisionRes.status, 200, `确认项 ${item.itemId} 审批通过`)
@@ -633,7 +726,7 @@ await step('自有资产正式应用作业完成', async () => {
   const job = await poll(async () => {
     const res = await api(`/api/v1/governance/jobs/${ownJobId}`)
     const j = res.json
-    return j.processing === 0 && j.failed === 0 ? j : null
+    return j.succeeded === j.total && j.processing === 0 && j.failed === 0 ? j : null
   }, { label: '自有资产正式应用作业', timeoutMs: 20000 })
   assertEqual(job.succeeded, job.total, '成功项 = 总数')
   assert(job.succeeded >= 1, '至少 1 项正式应用成功')
@@ -650,6 +743,7 @@ await step('自有资产 SCOPE 问题已解决', async () => {
 })
 
 /* ---- 阶段 5：知识文档 ---- */
+currentModule = '知识文档'
 console.log('\n【阶段 5】知识文档（草稿 → 发布 → 检索）')
 let documentId
 await step('创建文档草稿 POST /documents/drafts', async () => {
@@ -689,6 +783,7 @@ await step('检索文档 GET /documents?q=', async () => {
 })
 
 /* ---- 阶段 6：资产文档关联 ---- */
+currentModule = '资产文档关联'
 console.log('\n【阶段 6】资产文档关联（双向）')
 let relationId = 0
 await step('建立关联 POST /asset-document-relations (APPLICABLE)', async () => {
@@ -714,6 +809,7 @@ await step('文档侧查询关联 GET /documents/{id}/asset-relations', async ()
 })
 
 /* ---- 阶段 7：收藏 / 评论 / 点赞 ---- */
+currentModule = '协作'
 console.log('\n【阶段 7】收藏 / 评论 / 点赞')
 const COLLAB_HEADERS = { 'X-User-Id': 'e2e-user' }
 await step('收藏资产 POST /assets/{id}/favorite', async () => {
@@ -751,6 +847,7 @@ await step('查询评论（含点赞状态）GET /assets/{id}/comments', async (
 })
 
 /* ---- 阶段 8：文件下载 / 预览 / 打包 ---- */
+currentModule = '文件访问'
 console.log('\n【阶段 8】文件下载 / 预览 / 打包下载')
 // 上传响应中的 file.id 恒为 0，资产落库后才分配真实文件 id，故从资产详情取
 const pdfFileId = assetA.files.find((file) => file.format === 'PDF')?.id
@@ -770,6 +867,7 @@ await step('打包下载 GET /assets/{id}/package → ZIP', async () => {
 })
 
 /* ---- 阶段 9：统一检索 ---- */
+currentModule = '统一检索'
 console.log('\n【阶段 9】统一检索（资产 + 文档同框命中）')
 await step('统一检索命中资产 GET /search?q=', async () => {
   const res = await api(`/api/v1/search?q=${encodeURIComponent('E2E 电池包总成数模')}`)
@@ -786,6 +884,7 @@ await step('统一检索命中文档 GET /search?q=', async () => {
 
 /* ---- 阶段 10：前端冒烟 ---- */
 if (FRONTEND) {
+  currentModule = '前端冒烟'
   console.log('\n【阶段 10】前端冒烟')
   await step(`前端首页可访问 GET ${FRONTEND}/`, async () => {
     const res = await fetch(FRONTEND)
@@ -798,10 +897,29 @@ if (FRONTEND) {
 /* ------------------------------------------------------------------ */
 /* 汇总                                                                 */
 /* ------------------------------------------------------------------ */
+const resultPayload = {
+  runId: RUN_TOKEN,
+  backend: BACKEND,
+  frontend: FRONTEND || null,
+  database: 'tianshu',
+  databaseHost: '127.0.0.1',
+  databasePort: 3306,
+  userId: E2E_USER_ID,
+  startedAt: cases[0]?.startedAt || new Date().toISOString(),
+  finishedAt: new Date().toISOString(),
+  passed,
+  failed,
+  total: cases.length,
+  cases,
+}
+mkdirSync(dirname(RESULT_JSON), { recursive: true })
+writeFileSync(RESULT_JSON, `${JSON.stringify(resultPayload, null, 2)}\n`, 'utf8')
+console.log(`结构化结果：${RESULT_JSON}`)
 console.log(`\n=== E2E 汇总：通过 ${passed} / 失败 ${failed} ===`)
 if (failed > 0) {
   console.log('\n失败明细：')
   failures.forEach((failure, index) => console.log(`  ${index + 1}. ${failure.name}\n      ↳ ${failure.message}`))
-  process.exit(1)
+  process.exitCode = 1
+} else {
+  console.log('全流程通过 ✅')
 }
-console.log('全流程通过 ✅')
