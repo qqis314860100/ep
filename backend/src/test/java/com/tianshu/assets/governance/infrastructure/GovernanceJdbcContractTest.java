@@ -71,4 +71,12 @@ class GovernanceJdbcContractTest {
         assertThat(sql.queryForObject("SELECT standard_description FROM asset_package_ext WHERE drawing_id=104",String.class)).isEqualTo("历史设备接口图及适用说明");
         assertThat(sql.queryForObject("SELECT drawing_content FROM sys_drawing WHERE id=104",String.class)).isEqualTo(original);
     }
+
+    @Test
+    void legacyAssetWithoutExtensionStartsAtVersionZero() {
+        var snapshot = assets.snapshot(999);
+
+        assertThat(snapshot.status().name()).isEqualTo("PENDING_CURATION");
+        assertThat(snapshot.version()).isZero();
+    }
 }

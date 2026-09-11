@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.governance.application.GovernanceTaskStateException;
+import com.tianshu.assets.governance.domain.GovernanceEmployee;
 import com.tianshu.assets.governance.task.application.GovernanceStorageException;
 import com.tianshu.assets.governance.task.application.GovernanceTaskStore;
 import com.tianshu.assets.governance.task.domain.GovernancePlan;
@@ -84,9 +85,33 @@ class JdbcGovernanceTaskStoreTest {
                     PRIMARY KEY (plan_id, issue_id)
                 )
                 """);
+        jdbcTemplate.execute("""
+                CREATE TABLE sys_user (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    code VARCHAR(100) NOT NULL,
+                    name VARCHAR(100) NOT NULL,
+                    department VARCHAR(200) NOT NULL,
+                    status INT NOT NULL DEFAULT 1
+                )
+                """);
         store = new JdbcGovernanceTaskStore(
                 JdbcClient.create(dataSource), new ObjectMapper(), true,
                 new DataSourceTransactionManager(dataSource));
+    }
+
+    @Test
+    void readsActiveGovernanceEmployeesFromSystemUsers() {
+        jdbcTemplate.update("INSERT INTO sys_user(code,name,department,status) VALUES (?,?,?,?)",
+                "user1", "普通用户", "测试部", 1);
+        jdbcTemplate.update("INSERT INTO sys_user(code,name,department,status) VALUES (?,?,?,?)",
+                "user2", "上传用户", "测试部", 1);
+        jdbcTemplate.update("INSERT INTO sys_user(code,name,department,status) VALUES (?,?,?,?)",
+                "disabled", "停用用户", "测试部", 0);
+
+        assertThat(store.findAllEmployees())
+                .containsExactly(
+                        new GovernanceEmployee("user1", "普通用户", "测试部", "SYSTEM_USER"),
+                        new GovernanceEmployee("user2", "上传用户", "测试部", "SYSTEM_USER"));
     }
 
     @Test

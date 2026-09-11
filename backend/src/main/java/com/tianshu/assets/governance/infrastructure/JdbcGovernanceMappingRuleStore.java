@@ -37,7 +37,7 @@ public class JdbcGovernanceMappingRuleStore extends JdbcGovernanceSupport implem
         jdbc.sql("INSERT INTO governance_mapping_rule(standard_id,standard_code,standard_version,rule_version,source_dimension,source_value,status,version,payload_json) VALUES(:standardId,:standardCode,:standardVersion,:ruleVersion,:dimension,:value,:status,0,:payload)")
                 .param("standardId", rule.standardId()).param("standardCode", rule.standardCode()).param("standardVersion", rule.standardVersion()).param("ruleVersion", rule.ruleVersion())
                 .param("dimension", rule.sourceDimension()).param("value", rule.sourceValue()).param("status", rule.status().name()).param("payload", encode(rule)).update(key, "id");
-        var created = copy(rule, key.getKeyAs(Long.class), rule.version());
+        var created = copy(rule, generatedId(key), rule.version());
         jdbc.sql("UPDATE governance_mapping_rule SET payload_json=:payload WHERE id=:id").param("payload", encode(created)).param("id", created.id()).update();
         return created;
     }

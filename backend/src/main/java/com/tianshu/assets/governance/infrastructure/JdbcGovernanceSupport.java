@@ -5,6 +5,7 @@ import com.tianshu.assets.governance.application.GovernanceConflictException;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
 
 abstract class JdbcGovernanceSupport {
     protected final JdbcClient jdbc;
@@ -42,5 +43,11 @@ abstract class JdbcGovernanceSupport {
 
     protected void requireUpdated(int count, Supplier<? extends RuntimeException> failure) {
         if (count != 1) throw failure.get();
+    }
+
+    protected long generatedId(GeneratedKeyHolder keyHolder) {
+        var key = keyHolder.getKey();
+        if (key == null) throw new IllegalStateException("新增治理记录未返回 ID");
+        return key.longValue();
     }
 }

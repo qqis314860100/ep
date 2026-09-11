@@ -9,6 +9,7 @@ import com.tianshu.assets.asset.domain.AssetSearchCriteria;
 import com.tianshu.assets.dictionary.application.DictionaryStore;
 import com.tianshu.assets.dictionary.domain.DictionaryStatus;
 import com.tianshu.assets.governance.application.GovernanceNotFoundException;
+import com.tianshu.assets.governance.acceptance.application.GovernanceAssetPort;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueStore;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.issue.domain.GovernanceIssue;
@@ -50,22 +51,26 @@ public class GovernanceScanService {
     private final DictionaryStore dictionaryStore;
     private final GovernanceEmployeeDirectory employeeDirectory;
     private final GovernanceRuleCatalog ruleCatalog;
+    private final GovernanceAssetPort assetPort;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
     @Autowired
     public GovernanceScanService(AssetRepository assetRepository, GovernanceIssueStore issueStore, GovernanceScanRunStore runStore,
             GovernanceDataStandardStore standardStore, GovernanceMappingRuleStore mappingStore, DictionaryStore dictionaryStore,
-            GovernanceEmployeeDirectory employeeDirectory, GovernanceRuleCatalog ruleCatalog, ObjectMapper objectMapper) {
-        this(assetRepository, issueStore, runStore, standardStore, mappingStore, dictionaryStore, employeeDirectory, ruleCatalog, objectMapper, Clock.systemUTC());
+            GovernanceEmployeeDirectory employeeDirectory, GovernanceRuleCatalog ruleCatalog, GovernanceAssetPort assetPort,
+            ObjectMapper objectMapper) {
+        this(assetRepository, issueStore, runStore, standardStore, mappingStore, dictionaryStore, employeeDirectory,
+                ruleCatalog, assetPort, objectMapper, Clock.systemUTC());
     }
 
     GovernanceScanService(AssetRepository assetRepository, GovernanceIssueStore issueStore, GovernanceScanRunStore runStore,
             GovernanceDataStandardStore standardStore, GovernanceMappingRuleStore mappingStore, DictionaryStore dictionaryStore,
-            GovernanceEmployeeDirectory employeeDirectory, GovernanceRuleCatalog ruleCatalog, ObjectMapper objectMapper, Clock clock) {
+            GovernanceEmployeeDirectory employeeDirectory, GovernanceRuleCatalog ruleCatalog, GovernanceAssetPort assetPort,
+            ObjectMapper objectMapper, Clock clock) {
         this.assetRepository = assetRepository; this.issueStore = issueStore; this.runStore = runStore; this.standardStore = standardStore;
         this.mappingStore = mappingStore; this.dictionaryStore = dictionaryStore; this.employeeDirectory = employeeDirectory;
-        this.ruleCatalog = ruleCatalog; this.objectMapper = objectMapper; this.clock = clock;
+        this.ruleCatalog = ruleCatalog; this.assetPort = assetPort; this.objectMapper = objectMapper; this.clock = clock;
     }
 
     public List<GovernanceScanRun> listRuns() { return runStore.findAll(); }
@@ -162,7 +167,7 @@ public class GovernanceScanService {
         var now = Instant.now(clock);
         return new GovernanceIssue(0, asset.id(), field, type, path, ruleCode, ruleVersion, json(original), assetVersion(asset), scopeFingerprint(asset), severity, blocking, GovernanceIssueStatus.OPEN, null, 0, now, now);
     }
-    private long assetVersion(Asset asset) { return asset.updatedAt() == null ? 0 : asset.updatedAt().toEpochMilli(); }
+    private long assetVersion(Asset asset) { return assetPort.snapshot(asset.id()).version(); }
     private String scopeFingerprint(Asset asset) { return digest(asset.scopes().stream().map(scope -> scope.platformFamily()+"|"+scope.platformVariant()+"|"+scope.productLine()+"|"+scope.base()+"|"+scope.productionLine()+"|"+scope.processSection()).collect(Collectors.joining(";"))); }
     private String digest(String value) { try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); } catch (Exception exception) { throw new IllegalStateException("扫描指纹生成失败", exception); } }
     private String json(Object value) { try { return objectMapper.writeValueAsString(value); } catch (JsonProcessingException exception) { return String.valueOf(value); } }

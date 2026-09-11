@@ -33,7 +33,7 @@ public class JdbcGovernanceWorkflowStore extends JdbcGovernanceSupport implement
         jdbc.sql("INSERT INTO governance_rule_snapshot (task_id, payload_json) VALUES (:taskId, :payload)")
                 .param("taskId", command.taskId()).param("payload", encode(command.ruleSnapshot()))
                 .update(ruleKey, "id");
-        long ruleId = ruleKey.getKeyAs(Long.class);
+        long ruleId = generatedId(ruleKey);
         var rule = command.ruleSnapshot().withId(ruleId);
         var snapshotKey = new GeneratedKeyHolder();
         jdbc.sql("INSERT INTO governance_scope_snapshot (task_id, created_by, frozen_at, item_count, payload_json) "
@@ -41,7 +41,7 @@ public class JdbcGovernanceWorkflowStore extends JdbcGovernanceSupport implement
                 .param("taskId", command.taskId()).param("createdBy", command.createdBy())
                 .param("frozenAt", command.frozenAt()).param("itemCount", command.scopeItems().size())
                 .update(snapshotKey, "id");
-        long snapshotId = snapshotKey.getKeyAs(Long.class);
+        long snapshotId = generatedId(snapshotKey);
         var scopeItems = command.scopeItems().stream().map(item -> new GovernanceScopeItem(
                 snapshotId, item.taskId(), item.planId(), item.issueId(), item.assetId(), item.targetField(),
                 item.targetPath(), item.originalFactJson(), item.assetVersion(), item.ruleVersion(),
@@ -64,7 +64,7 @@ public class JdbcGovernanceWorkflowStore extends JdbcGovernanceSupport implement
                     .param("taskId", requested.taskId()).param("issueId", requested.issueId())
                     .param("assetId", requested.assetId()).param("status", requested.status().name())
                     .param("round", requested.governanceRound()).update(key, "id");
-            long id = key.getKeyAs(Long.class);
+            long id = generatedId(key);
             var item = new GovernanceItem(id, requested.taskId(), requested.planId(), requested.issueId(),
                     requested.assetId(), requested.targetField(), requested.actionType(), requested.responsibleUserId(),
                     requested.status(), requested.assetVersion(), requested.governanceRound(), requested.scopeFingerprint(),

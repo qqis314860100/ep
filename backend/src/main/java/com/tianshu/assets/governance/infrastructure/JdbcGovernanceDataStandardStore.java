@@ -10,6 +10,7 @@ import com.tianshu.assets.governance.standard.domain.GovernanceStandardStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
@@ -25,10 +26,21 @@ import org.springframework.transaction.annotation.Transactional;
 public class JdbcGovernanceDataStandardStore extends JdbcGovernanceSupport
         implements GovernanceDataStandardStore {
 
+    private final JdbcGovernanceDictionaryVersionProvider dictionaryVersions;
+
+    @Autowired
+    public JdbcGovernanceDataStandardStore(
+            JdbcClient jdbc, ObjectMapper json,
+            @Value("${asset.database-writes-enabled:false}") boolean writable,
+            JdbcGovernanceDictionaryVersionProvider dictionaryVersions) {
+        super(jdbc, json, writable);
+        this.dictionaryVersions = dictionaryVersions;
+    }
+
     public JdbcGovernanceDataStandardStore(
             JdbcClient jdbc, ObjectMapper json,
             @Value("${asset.database-writes-enabled:false}") boolean writable) {
-        super(jdbc, json, writable);
+        this(jdbc, json, writable, new JdbcGovernanceDictionaryVersionProvider(jdbc));
     }
 
     @Override
@@ -69,7 +81,7 @@ public class JdbcGovernanceDataStandardStore extends JdbcGovernanceSupport
         } catch (DataIntegrityViolationException exception) {
             throw new GovernanceConflictException("同编码、同版本的数据标准已存在，不能覆盖");
         }
-        var created = copy(standard, key.getKeyAs(Long.class), GovernanceStandardStatus.DRAFT,
+        var created = copy(standard, generatedId(key), GovernanceStandardStatus.DRAFT,
                 null, 0, 0, standard.createdAt(), standard.updatedAt());
         jdbc.sql("UPDATE governance_data_standard SET standard_json=:payload WHERE id=:id")
                 .param("payload", encode(created)).param("id", created.id()).update();
@@ -100,10 +112,26 @@ public class JdbcGovernanceDataStandardStore extends JdbcGovernanceSupport
         requireUpdated(updated, () -> new GovernanceVersionConflictException("数据标准已被其他用户更新，请刷新后重试"));
         jdbc.sql("UPDATE governance_rule_catalog SET enabled=0 WHERE data_standard_id=:code AND enabled=1")
                 .param("code", current.standardCode()).update();
-        jdbc.sql("INSERT INTO governance_rule_catalog(data_standard_id,data_standard_version,field_rule_version,dictionary_versions_json,quality_policy_id,quality_policy_version,enabled) "
-                        + "SELECT :code,:standardVersion,field_rule_version,dictionary_versions_json,quality_policy_id,quality_policy_version,1 FROM governance_rule_catalog WHERE data_standard_id=:sourceCode ORDER BY id DESC LIMIT 1")
-                .param("code", current.standardCode()).param("standardVersion", current.standardVersion())
-                .param("sourceCode", current.standardCode()).update();
+        var policy = jdbc.sql("SELECT quality_policy_id,quality_policy_version FROM governance_rule_catalog "
+                        + "WHERE data_standard_id=:code ORDER BY id DESC LIMIT 1")
+                .param("code", current.standardCode())
+                .query((rs, rowNum) -> new RulePolicy(
+                        rs.getString("quality_policy_id"), rs.getLong("quality_policy_version")))
+                .optional()
+                .orElseThrow(() -> new GovernanceConflictException(
+                        "数据标准缺少质量策略配置，不能启用"));
+        jdbc.sql("INSERT INTO governance_rule_catalog "
+                        + "(data_standard_id,data_standard_version,field_rule_version,dictionary_versions_json,"
+                        + "quality_policy_id,quality_policy_version,enabled,version) "
+                        + "VALUES (:code,:standardVersion,:fieldRuleVersion,:dictionaryVersions,:qualityPolicyId,"
+                        + ":qualityPolicyVersion,1,0)")
+                .param("code", current.standardCode())
+                .param("standardVersion", current.standardVersion())
+                .param("fieldRuleVersion", current.standardVersion())
+                .param("dictionaryVersions", encode(dictionaryVersions.currentVersions()))
+                .param("qualityPolicyId", policy.id())
+                .param("qualityPolicyVersion", policy.version())
+                .update();
         return enabled;
     }
 
@@ -128,7 +156,7 @@ public class JdbcGovernanceDataStandardStore extends JdbcGovernanceSupport
                 .param("standardId", standardId).param("affectedCount", assetIds.size())
                 .param("assetIds", encode(assetIds))
                 .param("createdAt", createdAt).update(key, "id");
-        return new GovernanceStandardImpactReview(key.getKeyAs(Long.class), standardId, assetIds.size(), assetIds,
+        return new GovernanceStandardImpactReview(generatedId(key), standardId, assetIds.size(), assetIds,
                 GovernanceStandardImpactReview.Status.OPEN, createdAt);
     }
 
@@ -166,4 +194,6 @@ public class JdbcGovernanceDataStandardStore extends JdbcGovernanceSupport
             throw new IllegalStateException("标准影响资产清单数据损坏", exception);
         }
     }
+
+    private record RulePolicy(String id, long version) {}
 }

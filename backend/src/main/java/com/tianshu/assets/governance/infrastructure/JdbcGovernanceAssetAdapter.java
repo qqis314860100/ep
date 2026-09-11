@@ -40,7 +40,11 @@ public class JdbcGovernanceAssetAdapter implements GovernanceAssetPort {
                 .param("assetId", assetId)
                 .query((rs, ignored) -> new GovernanceAssetSnapshot(
                         assetId, AssetStatus.valueOf(rs.getString("status")), rs.getLong("version")))
-                .optional().orElseThrow(() -> new IllegalArgumentException("资产扩展记录不存在：" + assetId));
+                .optional()
+                // 旧 sys_drawing 资产没有扩展行时，真实资产版本从 0 开始。
+                // 这不是内存兜底：正式应用仍会要求扩展行存在并按版本更新，
+                // 因而历史资产只能被扫描记录，不能被悄悄写入旧表。
+                .orElseGet(() -> new GovernanceAssetSnapshot(assetId, AssetStatus.PENDING_CURATION, 0));
     }
 
     @Override

@@ -216,6 +216,7 @@ PY
 LOCAL_MIG_DIR="${SCRIPT_DIR}/migrations"
 LOCAL_MIGRATIONS=(
   V1_14__system_user_schema.sql
+  V1_15__governance_rule_catalog_baseline.sql
 )
 
 applied_any=0

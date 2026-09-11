@@ -216,8 +216,9 @@ public class JdbcGovernanceTaskStore implements GovernanceTaskStore, GovernanceE
         } catch (DataIntegrityViolationException exception) {
             throw new GovernanceTaskStateException("治理计划序号冲突，请刷新后重试");
         }
-        var id = keyHolder.getKeyAs(Long.class);
-        if (id == null) throw new IllegalStateException("新增治理计划未返回 ID");
+        var key = keyHolder.getKey();
+        if (key == null) throw new IllegalStateException("新增治理计划未返回 ID");
+        var id = key.longValue();
         insertPlanItems(id, plan.issueIds());
         return findPlans(plan.taskId()).stream().filter(item -> item.id() == id).findFirst().orElseThrow();
     }
@@ -260,10 +261,10 @@ public class JdbcGovernanceTaskStore implements GovernanceTaskStore, GovernanceE
     @Override
     public List<GovernanceEmployee> findAllEmployees() {
         return jdbcClient.sql("""
-                SELECT code, name FROM temp_person WHERE status = 1 AND code LIKE 'emp-%' ORDER BY id
+                SELECT code, name, department FROM sys_user WHERE status = 1 ORDER BY id
                 """)
                 .query((rs, ignored) -> new GovernanceEmployee(
-                        rs.getString("code"), rs.getString("name"), "本地员工目录", "OFFICE_DIRECTORY"))
+                        rs.getString("code"), rs.getString("name"), rs.getString("department"), "SYSTEM_USER"))
                 .list();
     }
 

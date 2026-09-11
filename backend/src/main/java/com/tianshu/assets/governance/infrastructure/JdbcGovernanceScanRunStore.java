@@ -31,7 +31,7 @@ public class JdbcGovernanceScanRunStore extends JdbcGovernanceSupport implements
     @Override public GovernanceScanRun start(GovernanceScanRun run) {
         requireWritable(); var key = new GeneratedKeyHolder();
         jdbc.sql("INSERT INTO governance_scan_run(trigger_type,status,version,payload_json) VALUES(:trigger,:status,0,:payload)").param("trigger", run.triggerType().name()).param("status", run.status().name()).param("payload", encode(run)).update(key, "id");
-        var created = copy(run, key.getKeyAs(Long.class), 0); jdbc.sql("UPDATE governance_scan_run SET payload_json=:payload WHERE id=:id").param("payload", encode(created)).param("id", created.id()).update(); return created;
+        var created = copy(run, generatedId(key), 0); jdbc.sql("UPDATE governance_scan_run SET payload_json=:payload WHERE id=:id").param("payload", encode(created)).param("id", created.id()).update(); return created;
     }
     @Override public GovernanceScanRun succeed(long id, long expectedVersion, Counts counts, Instant finishedAt) {
         return finish(id, expectedVersion, GovernanceScanRunStatus.SUCCEEDED, counts, "", finishedAt);

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
 import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
+import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAssetAdapter;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceDataStandardStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
@@ -24,17 +25,32 @@ import org.junit.jupiter.api.Test;
 
 class GovernanceScanServiceTest {
     private GovernanceIssueStore issueStore;
+    private InMemoryGovernanceAssetAdapter assetAdapter;
     private GovernanceScanService service;
 
     @BeforeEach
     void setUp() {
         issueStore = new InMemoryGovernanceIssueStore();
         var standards = new InMemoryGovernanceDataStandardStore();
+        assetAdapter = new InMemoryGovernanceAssetAdapter();
+        assetAdapter.seed(104, 37);
         service = new GovernanceScanService(
                 new InMemoryAssetRepository(), issueStore, new InMemoryGovernanceScanRunStore(), standards,
                 new InMemoryGovernanceMappingRuleStore(), new InMemoryDictionaryStore(),
                 new InMemoryGovernanceEmployeeDirectory(), new InMemoryGovernanceRuleCatalog(standards),
+                assetAdapter,
                 new ObjectMapper(), Clock.fixed(Instant.parse("2026-08-10T00:00:00Z"), ZoneOffset.UTC));
+    }
+
+    @Test
+    void scannedIssuesUseTheAssetPortVersionUsedByApplication() {
+        service.scan(GovernanceScanTriggerType.MANUAL, null);
+
+        assertThat(issueStore.find(null, null, null).stream()
+                .filter(issue -> issue.assetId() == 104)
+                .map(issue -> issue.assetVersion())
+                .distinct())
+                .containsExactly(37L);
     }
 
     @Test
@@ -80,6 +96,7 @@ class GovernanceScanServiceTest {
                 new InMemoryGovernanceScanRunStore(), standards,
                 new InMemoryGovernanceMappingRuleStore(), new InMemoryDictionaryStore(),
                 new InMemoryGovernanceEmployeeDirectory(), new InMemoryGovernanceRuleCatalog(standards),
+                new InMemoryGovernanceAssetAdapter(),
                 new ObjectMapper(), Clock.fixed(Instant.parse("2026-08-10T00:00:00Z"), ZoneOffset.UTC));
 
         var failed = recoveringService.scan(GovernanceScanTriggerType.MANUAL, null);
