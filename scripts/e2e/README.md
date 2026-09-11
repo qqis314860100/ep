@@ -29,7 +29,7 @@ bash scripts/e2e/run-e2e.sh
 |---|---|
 | `SKIP_FRONTEND=1` | 跳过前端启动（仅跑后端 API 闭环） |
 | `KEEP_SERVERS=1` | 结束后不关停服务，便于人工复核 |
-| `E2E_USER_ID` / `E2E_PASSWORD` | 登录账号，默认引导管理员 `admin` / `Admin@2026!`（见 `docs/local-development.md`） |
+| `E2E_USER_ID` / `E2E_PASSWORD` | 真实库登录账号；`E2E_USER_ID` 默认 `admin`，密码必须在根目录 `.env.local` 配置 |
 
 ## flow.mjs 覆盖的阶段
 

@@ -63,7 +63,7 @@ echo "    frontend OK"
 
 echo
 echo "=============================================================="
-echo " 真链路已就绪：登录 emp-admin / demo123"
+echo " 真链路已就绪：登录账号从 E2E_USER_ID / E2E_PASSWORD 读取"
 echo "   UI:    http://localhost:${PORT_FRONT}"
 echo "   后端:  http://127.0.0.1:${PORT_BACK}（默认真实能力客户端）"
 echo "   rag:   ${RAG_URL}"

@@ -154,7 +154,11 @@ let sessionCookie = ''
  * 用系统管理员（SYSTEM_ADMIN + CONTENT_ADMIN）驱动全流程，
  * 可覆盖需要治理/系统管理角色的所有端点；接口 body 中的 actorUserId 仍按原业务语义填写。
  */
-async function loginAs(userId = process.env.E2E_USER_ID || 'admin', password = process.env.E2E_PASSWORD || 'Admin@2026!') {
+const E2E_USER_ID = process.env.E2E_USER_ID || 'admin'
+const E2E_PASSWORD = process.env.E2E_PASSWORD
+
+async function loginAs(userId = E2E_USER_ID, password = E2E_PASSWORD) {
+  if (!password) throw new Error('缺少 E2E_PASSWORD，请在仓库根目录 .env.local 中配置真实测试账号密码')
   const response = await fetch(`${BACKEND}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -174,7 +178,7 @@ async function loginAs(userId = process.env.E2E_USER_ID || 'admin', password = p
 /* ------------------------------------------------------------------ */
 console.log(`\n=== E2E 全流程开始  backend=${BACKEND}${FRONTEND ? ` frontend=${FRONTEND}` : ''} ===\n`)
 await loginAs()
-console.log(`  会话：${process.env.E2E_USER_ID || 'admin'} 已登录（S1 写操作需真实会话）`)
+console.log(`  会话：${E2E_USER_ID} 已登录（S1 写操作需真实会话）`)
 
 /* ---- 阶段 0：健康检查 + 字典基线 ---- */
 console.log('【阶段 0】健康检查 + 字典基线')
@@ -332,7 +336,7 @@ await step('新增计划项 POST /governance/tasks/{id}/plans', async () => {
 await step('启动任务 POST /governance/tasks/{id}/start（计划锁定）', async () => {
   const res = await api(`/api/v1/governance/tasks/${taskId}/start`, {
     method: 'POST',
-    body: { version: taskVersion, actorUserId: 'emp-admin' },
+    body: { version: taskVersion, actorUserId: E2E_USER_ID },
   })
   assertEqual(res.status, 200, '启动应返回 200')
   assertEqual(res.json.status, 'IN_PROGRESS', '启动后应进行中')
@@ -526,7 +530,7 @@ await step('自有资产任务新增计划 POST /governance/tasks/{id}/plans', a
 })
 await step('自有资产任务启动 POST /governance/tasks/{id}/start', async () => {
   const res = await api(`/api/v1/governance/tasks/${ownTaskId}/start`, {
-    method: 'POST', body: { version: ownTaskVersion, actorUserId: 'emp-admin' },
+    method: 'POST', body: { version: ownTaskVersion, actorUserId: E2E_USER_ID },
   })
   assertEqual(res.status, 200, '启动应返回 200')
   assertEqual(res.json.status, 'IN_PROGRESS', '进行中')
