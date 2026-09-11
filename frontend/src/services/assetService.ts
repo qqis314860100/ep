@@ -172,6 +172,13 @@ export async function saveAssetDraft(input: AssetDraftInput): Promise<Asset> {
   })
 }
 
+export async function updateAssetDraft(id: number, input: AssetDraftInput): Promise<Asset> {
+  return request<Asset>(`/api/v1/assets/${id}/draft`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+}
+
 export async function uploadAssetFile(file: File): Promise<AssetFile> {
   const formData = new FormData()
   formData.append('file', file)

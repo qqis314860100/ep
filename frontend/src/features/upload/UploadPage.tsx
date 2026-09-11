@@ -32,7 +32,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled from 'styled-components'
-import { saveAssetDraft, saveAssetDraftsBatch, submitAsset, uploadAssetFile } from '../../services/assetService'
+import { saveAssetDraft, saveAssetDraftsBatch, submitAsset, updateAssetDraft, uploadAssetFile } from '../../services/assetService'
 import { getDictionaryItems } from '../../services/dictionaryService'
 import type { AssetDraftInput, AssetFile, AssetType } from '../../types/asset'
 import { useAuth } from '../auth/useAuth'
@@ -551,9 +551,10 @@ export function UploadPage() {
         void message.error('存在上传失败的文件，请单独重试后再提交')
         return
       }
+      const input = valuesToInput(values)
       const asset = draftId
-        ? { id: draftId }
-        : await saveAssetDraft(valuesToInput(values))
+        ? await updateAssetDraft(draftId, input)
+        : await saveAssetDraft(input)
       const submitted = await submitAsset(asset.id)
       setDraftId(submitted.id)
       message.success('已提交，资产进入待整理状态')
