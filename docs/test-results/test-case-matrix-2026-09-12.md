@@ -12,13 +12,14 @@
 | 实现核查 | 已实现 432 · 部分实现 38 · 存疑 16 · 未发现实现 5 |
 | **现有验证承载 = 无(测试盲区)** | **252**(占 51%) |
 | 实现核查 ≠ 已实现(功能缺口) | 59 |
-| 已核实缺陷 | 5 条(另 5 条待核实) |
+| 已核实/已确认缺陷 | 11 条(其中已修复 1 条) |
+| 待核实缺陷 | 2 条 |
 
 ## 二、已核实缺陷清单
 
 | 编号 | 优先级 | 缺陷 | 证据与影响 | 核实状态 |
 |---|---|---|---|---|
-| D-001 | P0 | 文档停用在真实库上必然失败 | DocumentCommandService.disable:81 要求当前为 PUBLISHED,而 JdbcDocumentRepository:133 的 UPDATE 带 WHERE status='DRAFT' → 匹配 0 行抛 document_state_conflict。DocumentControllerTest 用内存替身(无此守卫)故为绿。 | 已核实 |
+| D-001 | P0 | 文档停用在真实库上必然失败（已修复） | JdbcDocumentRepository 的两条 UPDATE 都带 status='DRAFT' 守卫(knowledge_document 与 document_version),而守卫比对的是库里存量行状态。因此 disable / applyAiCuratedMetadata / 发布指定版本 在真实库上匹配 0 行抛 document_state_conflict,即文档停用与 AI 编目应用不可用。测试全走内存替身故未发现。已于 e37ca49 删除两处守卫并补 H2 回归用例。 | 已修复 |
 | D-002 | P1 | 授权可被静默跳过,且权限测试无效 | 3 个 controller 各有不带授权服务的构造重载,配合 7 处 if(authorizationService!=null);GovernanceExecutionControllerTest:34 正用短构造器 → 测试在授权关闭下跑。生产因全参构造标 @Autowired 未受影响,但违反项目「不静默降级」原则。 | 已核实 |
 | D-003 | P1 | ApiExceptionHandler 缺 3 类异常分支 | MethodArgumentTypeMismatchException / HttpMessageNotReadableException / IllegalStateException 均未注册(grep=0)→ 这些情况返回非 ApiError 形状,前端拿不到 error.code。 | 已核实 |
 | D-004 | P2 | DocumentCollaborationController 的 11 个 @PathVariable @Min(1) 是死注解 | 类上无 @Validated,方法级校验不触发;现靠「查不到就 404」兜底。 | 已核实 |
@@ -26,8 +27,11 @@
 | D-006 | P1 | 治理配置侧 7 个 controller 无任何授权调用 | scan/issue/mapping/standard/inventory/operations/history 未接入 GovernanceAuthorizationService(主链的 执行/确认/验收/责任人 已接入)。 | 已核实(范围) |
 | D-007 | P1 | 文档点赞无评论存在性校验 | 可在 document_comment_like 留下指向不存在评论的孤儿行(该表无外键),并返回 200 + liked=true。 | 待核实 |
 | D-008 | P2 | 文档域与关联域未接只读总开关 | JdbcDocumentRepository 与 JdbcAssetDocumentRelationRepository 未接 asset.database-writes-enabled(dictionary/asset/system/governance 已接),只读部署下仍可写入。 | 待核实 |
-| D-009 | P2 | DocumentVersionStatus.HISTORICAL 无写入路径 | 旧版本发布后仍为 PUBLISHED,与 javadoc「原版本转为历史」不符。 | 待核实 |
-| D-010 | P2 | 同一语义两种错误码 / 404 语义缺失 | 多处资源不存在以 422 invalid_request 表达而非 404;移交的乐观锁冲突用 governance_state_conflict,执行/验收链用 governance_version_conflict。 | 待核实 |
+| D-009 | P2 | DocumentVersionStatus.HISTORICAL 无写入路径 | 枚举声明 1 处、全仓库使用 0 处。旧版本发布后仍为 PUBLISHED,与 javadoc「原版本转为历史」不符;「哪些是历史版本」只能靠 document.current_version_id 反推。 | 已核实 |
+| D-010 | P2 | 同一语义两种错误码 / 404 语义缺失 | 多处资源不存在以 422 invalid_request 表达而非 404;移交的乐观锁冲突用 governance_state_conflict,执行/验收链用 governance_version_conflict。 | 已核实 |
+| D-011 | P1 | 停用不可逆:资产与文档都没有恢复端点 | AssetStatus 只有 submit 与 disable 两条命令端点,DocumentStatus 只有 disable;找不到 /enable 或 /restore。一次误停用即永久退出业务、无法自救。业务已确认「停用应可逆」,本项按缺陷处理,待修复。 | 业务已确认 |
+| D-012 | P2 | 停用文档可被普通 GET 直读,与检索排除不对称 | DocumentQueryService.getPublished:32-33 显式放行 DISABLED,但 searchPublished 排除它。若意图是「保留可追溯」,应明确谁可读、从哪读;现状是任何登录用户 GET /documents/{id} 即可取到停用文档。 | 已核实 |
+| D-013 | P1 | 错误码口径横向不统一,前端无法统一处理 | 资源不存在:资产/文档走 404,关联域走 422 invalid_request。乐观锁冲突:治理移交用 governance_state_conflict,执行/验收链用 governance_version_conflict。越权:部分 403 *_forbidden,部分 422。与 AGENTS.md「错误码全局唯一」规则冲突。 | 已核实 |
 
 ## 三、测试盲区清单(现有验证承载 = 无)
 
