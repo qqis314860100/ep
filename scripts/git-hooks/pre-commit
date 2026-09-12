@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# 本地提交门禁（由 scripts/install-hooks.sh 安装到 .git/hooks/pre-commit）。
+#
+# 设计原则：只做「快」的检查，几秒内出结果。
+#   - 仓库结构白名单（scripts/check_repo_structure.sh）
+#   - 密钥扫描（有 gitleaks 用 gitleaks，否则用内置规则扫暂存新增行）
+#   - 暂存了 frontend/ 时跑 oxlint + tsc
+# 后端测试**故意不在这里跑**（mvn 太慢，提交会被拖成分钟级）：
+# 后端改动按 AGENTS.md 的验证阶梯在提交前自行跑相关测试类，提交时仅提示。
+#
+# 确需绕过：git commit --no-verify（绕过即视为放弃该次门禁，请在提交说明里体现）。
+set -u
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$ROOT" || exit 0
+
+fail=0
+bold=$'\033[1m'; red=$'\033[31m'; green=$'\033[32m'; dim=$'\033[2m'; reset=$'\033[0m'
+step() { printf '\n%s[pre-commit]%s %s\n' "$bold" "$reset" "$1"; }
+ok()   { printf '  %sPASS%s %s\n' "$green" "$reset" "$1"; }
+bad()  { printf '  %sFAIL%s %s\n' "$red" "$reset" "$1"; fail=1; }
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+[ -n "$staged" ] || { printf '%s[pre-commit]%s 无暂存改动，跳过\n' "$dim" "$reset"; exit 0; }
+
+# ---------------------------------------------------------------- 1. 仓库结构
+if [ -x scripts/check_repo_structure.sh ]; then
+  step '仓库结构白名单'
+  if out="$(scripts/check_repo_structure.sh 2>&1)"; then
+    ok 'root 干净'
+  else
+    printf '%s\n' "$out"
+    bad '结构检查未通过（新增文件放 docs/、scripts/、backend/ 或 frontend/）'
+  fi
+fi
+
+# ---------------------------------------------------------------- 2. 密钥扫描
+# 双层：内置规则（覆盖本仓库见过的形状）+ gitleaks（熵与规则库）。两者都只报位置，不回显内容。
+step '密钥扫描'
+secret_patterns='sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(api[_-]?key|secret|passwd|password|access[_-]?token|auth[_-]?token|client[_-]?secret)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']{16,}'
+secret_allowlist='changeme|change-me|placeholder|example|dummy|sample|your[_-]|<[a-z_-]+>|x{6,}|\*\*\*|…|\.\.\.|redacted|token-here|password-here|REPLACE'
+
+scan_builtin() {
+  local rc=0 f entry ln text
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in
+      *.lock|*pnpm-lock.yaml|*.min.js|backend/target/*|*/node_modules/*) continue ;;
+    esac
+    # 逐文件取「新增行」及其在新文件中的行号；内容只用于本地匹配，绝不回显
+    while IFS= read -r entry; do
+      [ -n "$entry" ] || continue
+      ln="${entry%%:*}"; text="${entry#*:}"
+      printf '%s' "$text" | grep -qi 'gitleaks:allow' && continue
+      printf '%s' "$text" | grep -qE "$secret_patterns" || continue
+      printf '%s' "$text" | grep -qiE "$secret_allowlist" && continue
+      printf '    %s:%s\n' "$f" "$ln"
+      rc=1
+    done < <(git diff --cached -U0 --no-color -- "$f" 2>/dev/null \
+             | awk '/^@@/ { split($3, a, ","); n = substr(a[1], 2) + 0; next }
+                    /^\+/ && substr($0, 1, 3) != "+++" { print n ":" substr($0, 2); n++ }')
+  done <<< "$staged"
+  return "$rc"
+}
+
+if scan_builtin; then
+  ok '内置规则未发现密钥'
+else
+  bad '内置规则发现疑似密钥（位置见上）；确为误报请在该行加 gitleaks:allow'
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+  gl_out="$(gitleaks git --staged --redact --no-banner 2>&1)"; gl_rc=$?
+  if [ "$gl_rc" -eq 0 ]; then
+    ok 'gitleaks 未发现密钥'
+  elif [ "$gl_rc" -eq 1 ]; then
+    printf '%s\n' "$gl_out" | grep -iE 'file:|line:|rule' | head -10
+    bad 'gitleaks 发现疑似密钥（内容已 redact）'
+  else
+    printf '%s\n' "$gl_out" | head -2
+    printf '  %sWARN%s gitleaks 调用异常，本次仅按内置规则判断\n' "$dim" "$reset"
+  fi
+else
+  printf '  %sNOTE%s 未安装 gitleaks，仅内置规则；brew install gitleaks 可提升检出率\n' "$dim" "$reset"
+fi
+
+# ---------------------------------------------------------------- 3. 前端门禁
+if printf '%s\n' "$staged" | grep -q '^frontend/'; then
+  step 'frontend lint + typecheck'
+  if ! command -v pnpm >/dev/null 2>&1; then
+    bad '未找到 pnpm（frontend 命令一律用 pnpm）'
+  else
+    if (cd frontend && pnpm lint >/dev/null 2>&1); then ok 'oxlint 通过'; else
+      (cd frontend && pnpm lint 2>&1 | tail -25) ; bad 'oxlint 未通过'
+    fi
+    if (cd frontend && pnpm typecheck >/dev/null 2>&1); then ok 'tsc 通过'; else
+      (cd frontend && pnpm typecheck 2>&1 | tail -25) ; bad 'typecheck 未通过'
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------- 4. 后端提醒
+if printf '%s\n' "$staged" | grep -qE '^backend/src/main/'; then
+  printf '\n%s[pre-commit]%s 提示：后端改动已暂存，提交前请按验证阶梯跑相关测试类\n' "$bold" "$reset"
+  printf '  %scd backend && rtk mvn -Dtest=<受影响的测试类> test%s\n' "$dim" "$reset"
+fi
+
+if [ "$fail" -ne 0 ]; then
+  printf '\n%s[pre-commit] 门禁未通过，提交已阻止。%s\n' "$red" "$reset"
+  printf '  修好再提交；确需绕过用 git commit --no-verify（并在提交说明里说明原因）。\n'
+  exit 1
+fi
+printf '\n%s[pre-commit] 全部通过%s\n' "$green" "$reset"
+exit 0
