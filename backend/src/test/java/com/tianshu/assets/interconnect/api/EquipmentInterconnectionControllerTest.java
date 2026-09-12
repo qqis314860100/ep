@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.tianshu.assets.interconnect.application.EquipmentInterconnectionService;
+import com.tianshu.assets.interconnect.infrastructure.JdbcEquipmentInterconnectionRepository;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,8 @@ class EquipmentInterconnectionControllerTest {
                 "/line-data/EQ-LY-B-012");
 
         mockMvc = standaloneSetup(new EquipmentInterconnectionController(
-                new EquipmentInterconnectionService(JdbcClient.create(dataSource)))).build();
+                new EquipmentInterconnectionService(
+                        new JdbcEquipmentInterconnectionRepository(JdbcClient.create(dataSource))))).build();
     }
 
     @Test

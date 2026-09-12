@@ -36,7 +36,7 @@ metadata:
 - **禁止 `BeanPropertyRowMapper`**：它对不上的列会静默忽略，字段改名后不报错。本仓库当前
   零使用，别引入。
 - 多参数查询目前用 `JdbcClient.params(Map)` 的命名参数。**值一律走参数绑定**，
-  只有静态 SQL 片段可以字符串拼接（参见 `interconnect/application/EquipmentInterconnectionService`
+  只有静态 SQL 片段可以字符串拼接（参见 `interconnect/infrastructure/JdbcEquipmentInterconnectionRepository`
   的 `String.join(" AND ", where)`——拼的是片段，不是值）。
 - 多表 JOIN 必须写列别名；`SELECT *` 禁止。
 
