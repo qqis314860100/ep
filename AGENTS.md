@@ -16,12 +16,28 @@ Work flows through the Matt Pocock skill set installed at `~/.dsh/skills`
 - `ask-matt` routes a situation to the fitting skill.
 - Sharpen the intent first with `grilling` / `grill-with-docs` / `wait-what`.
 - `to-spec` synthesizes a feature spec; `to-tickets` breaks it into vertical
-  tracer tickets, each with acceptance criteria and blocking edges.
+  tracer tickets, each with acceptance criteria and blocking edges. Each ticket
+  carries a `测试：` line listing its cases as normal / boundary / error; business
+  rules (state transitions, statistics, `AssetScope` filters) are confirmed by a
+  human, never by the model alone.
 - Implement test-first with `tdd` + `implement`; land each ticket as a small,
   independently verifiable commit.
 - Finish with `code-review`; use `diagnosing-bugs` for hard regressions,
   `research` for source-backed answers, and `resolving-merge-conflicts` for
   in-progress git conflicts.
+
+A new requirement runs through one sequence. `docs/development-flow.md` holds the
+full table (owner, artifact, exit criteria, per-phase commands) plus the
+shortcuts for hotfixes, bug diagnosis, research, and conflicts:
+
+1. Route and sharpen the intent (`ask-matt` / `grilling` / `wait-what`).
+2. `to-spec` publishes the spec into `docs/plans/<yyyy-mm-dd>-<slug>.md`.
+3. `to-tickets` cuts vertical tracer tickets with blocking edges.
+4. Agree the seams under test and list each case as normal / boundary / error.
+5. Implement test-first, one case at a time (`tdd` + `implement`).
+6. Run the smallest relevant verification (see Verification below).
+7. `code-review` both axes; refactor there, not inside the red-green loop.
+8. Commit per ticket (backend and frontend separately), then archive the spec.
 
 Artifact discipline (kept as governance): no issue tracker is configured, so
 `to-spec` / `to-tickets` publish into
@@ -71,6 +87,8 @@ Active documentation is kept minimal:
 | What | Where |
 | --- | --- |
 | Local development / DB runbook | `docs/local-development.md` |
+| New-requirement development flow | `docs/development-flow.md` |
+| Testing strategy and verification layers | `docs/testing-strategy.md` |
 | Feature specs and tickets (active) | `docs/plans/` |
 | Research findings (active) | `docs/research/` |
 | Retired doc-driven regime (frozen history) | `docs/archive/2026-09-07-doc-driven-development/` |
