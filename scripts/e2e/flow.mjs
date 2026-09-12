@@ -14,10 +14,17 @@
  *   阶段 7  收藏 + 评论 + 点赞
  *   阶段 8  文件下载 / 预览 / 打包下载
  *   阶段 9  统一检索（资产 + 文档同框命中）
- *   阶段 10 前端冒烟（可选，需 --frontend）
+ *   阶段 10 AI 索引链路（长文上传 → 入库 → 可检索；ai-rag 不可达时跳过并告警）
+ *   阶段 11 前端冒烟（可选，需 --frontend）
  *
  * 用法：
  *   node flow.mjs --backend http://127.0.0.1:8080 [--frontend http://127.0.0.1:5173]
+ *                    [--rag http://localhost:8000] [--allow-no-rag]
+ *
+ * 阶段 10（AI 索引链路）需要 ai-rag 的 rag 服务在跑（默认 http://localhost:8000，
+ * 服务密钥取 RAG_API_KEY / AI_CAPABILITY_API_KEY）。**ai-rag 不可达时该阶段默认判失败**
+ * —— 跳过会复现它要防的"上传内容没进索引却全绿"的静默失效。确需跳过请显式加
+ * --allow-no-rag（或设 E2E_ALLOW_NO_RAG=1）。
  *
  * 退出码：全部通过 = 0；任一断言失败 = 1（失败会继续跑完，最终汇总）。
  */
@@ -38,6 +45,11 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 const BACKEND = (args.get('backend') || 'http://127.0.0.1:8080').replace(/\/$/, '')
 const FRONTEND = args.get('frontend')
+// AI 能力服务（ai-rag）：阶段 10 直接查它的检索接口，以断言上传内容真的进了索引。
+// 与 ep 后端用的是同一个服务（ep 的 ai.capability.base-url），此处独立配置以便直连断言。
+const RAG = (args.get('rag') || process.env.AI_CAPABILITY_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
+const RAG_KEY = process.env.RAG_API_KEY || process.env.AI_CAPABILITY_API_KEY || ''
+const RAG_NAMESPACE = process.env.AI_CAPABILITY_NAMESPACE || 'ep-docs'
 const RUN_TOKEN = process.env.E2E_RUN_ID || new Date().toISOString().replace(/\D/g, '').slice(0, 14)
 const ASSET_NUMBER = `E2E-H03-${RUN_TOKEN}`
 const FIELD_ASSET_NUMBER = `E2E-FIELD-${RUN_TOKEN}`
@@ -882,16 +894,125 @@ await step('统一检索命中文档 GET /search?q=', async () => {
   assert(res.json.documents.data.some((doc) => doc.id === documentId), '文档结果应命中')
 })
 
-/* ---- 阶段 10：前端冒烟 ---- */
+/* ---- 阶段 10：AI 索引链路 ---- */
+// 目的：断言「上传 → 落库 → ai-rag 入库 → 可检索」真的走通。
+//
+// 为什么需要这一阶段：2026-09-12 实测发现，全流程 65 条全绿的同时，ai-rag 侧每一次
+// ingest 都返回 200 但 chunk_count=0、ep-docs 语料量毫无变化 —— 因为**没有任何断言
+// 看着这条链路**。一个"上传后搜索不到"的完全失效状态可以完美地通过整个 E2E。
+//
+// 两个要点：① 正文必须远超 ai-rag 的切分下限（MIN_CHUNK_SIZE=120 字符），否则切出 0 个块，
+// 入库"成功"却检索不到；② 用唯一锚点在 ai-rag 里检索回来，证明内容确实进了索引，
+// 而不只是接口被调用了。
+const AI_ANCHOR = 'AI_INDEX_ANCHOR_7f3c9d2b'
+const AI_FILE_NAME = 'AI索引链路验证-工艺说明.txt'
+
+const ragReachable = await (async () => {
+  try {
+    const r = await fetch(`${RAG}/rag/health`, { headers: RAG_KEY ? { 'X-Service-Key': RAG_KEY } : {} })
+    return r.status === 200
+  } catch {
+    return false
+  }
+})()
+
+const ALLOW_NO_RAG = args.has('allow-no-rag') || process.env.E2E_ALLOW_NO_RAG === '1'
+
+const ragProbe = await (async () => {
+  try {
+    const r = await fetch(`${RAG}/rag/health`, { headers: RAG_KEY ? { 'X-Service-Key': RAG_KEY } : {} })
+    return { reachable: true, status: r.status }
+  } catch {
+    return { reachable: false, status: 0 }
+  }
+})()
+
+if (!ragProbe.reachable || ragProbe.status !== 200) {
+  currentModule = 'AI 索引链路'
+  console.log('\n【阶段 10】AI 索引链路（长文上传 → 入库 → 可检索）')
+  if (ALLOW_NO_RAG) {
+    console.log(`  ⏭  已按 --allow-no-rag 显式跳过（ai-rag 不可用：${RAG}）—— 本次未验证 AI 索引链路`)
+  } else {
+    // 默认判失败而不是跳过：跳过会复现本阶段要防的那种"静默全绿"。
+    // 注意区分「连不上」与「连上了但没密钥」——后者是本次运行缺配置，不是服务故障。
+    await step('ai-rag 可达且鉴权通过（AI 索引链路的前提）', async () => {
+      const why = ragProbe.reachable
+        ? `ai-rag 可达但鉴权失败（HTTP ${ragProbe.status}，${RAG}）。本次运行没有拿到能力服务密钥：`
+          + `请把 RAG_API_KEY（或 AI_CAPABILITY_API_KEY）加入 .env.local，或运行前先 export。`
+          + `注意后端自己也用同一个密钥——缺它时 ep 侧编目会以 401 失败，而 E2E 仍会全绿。`
+        : `ai-rag 连接失败（${RAG}）—— 服务未启动或地址不对。`
+      assert(false, `${why} AI 索引链路未经验证。确需在没有 ai-rag 的环境运行，请加 --allow-no-rag 显式跳过。`)
+    })
+  }
+} else {
+  currentModule = 'AI 索引链路'
+  console.log('\n【阶段 10】AI 索引链路（上传长文 → 入库 → 可检索）')
+  let aiFile
+  let aiDocumentId
+
+  await step(`上传长文文档 ${AI_FILE_NAME}`, async () => {
+    aiFile = await uploadFile(AI_FILE_NAME)
+    assert(aiFile.sizeBytes > 200, `正文应足够长以切出检索块，实际仅 ${aiFile.sizeBytes} 字节`)
+  })
+
+  await step('创建长文文档草稿 POST /documents/drafts', async () => {
+    const res = await api('/api/v1/documents/drafts', {
+      method: 'POST',
+      body: {
+        documentNumber: '',
+        title: 'E2E AI 索引链路验证文档',
+        summary: '用于验证上传内容确实进入 AI 检索索引。',
+        categoryCode: 'WORK_INSTRUCTION',
+        maintainerId: 'demo-user',
+        maintainerName: '陈工',
+        maintainerDepartment: '设备工程部',
+        versionNumber: 'V1.0',
+        changeSummary: '首次发布',
+        files: [{ id: 0, name: aiFile.name, format: aiFile.format, sizeBytes: aiFile.sizeBytes,
+          previewable: aiFile.previewable, storageKey: aiFile.storageKey, contentSha256: aiFile.contentSha256 }],
+        scopeMode: 'GLOBAL',
+        scopes: [],
+      },
+    })
+    assertEqual(res.status, 201, '创建长文文档草稿应返回 201')
+    aiDocumentId = res.json.id
+    assert(aiDocumentId > 0, '应返回文档 id')
+  })
+
+  await step('发布长文文档（触发异步编目）POST /documents/{id}/publish', async () => {
+    const res = await api(`/api/v1/documents/${aiDocumentId}/publish`, { method: 'POST' })
+    assertEqual(res.status, 200, '发布应返回 200')
+    assertEqual(res.json.status, 'PUBLISHED', '发布后应 PUBLISHED')
+  })
+
+  await step('ai-rag 按唯一锚点可检索到该文档', async () => {
+    const expectedDocumentId = `${RAG_NAMESPACE}:KNOWLEDGE_DOC:${aiDocumentId}`
+    const items = await poll(async () => {
+      const r = await fetch(`${RAG}/rag/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(RAG_KEY ? { 'X-Service-Key': RAG_KEY } : {}) },
+        body: JSON.stringify({ query: AI_ANCHOR, top_k: 8, namespace: RAG_NAMESPACE, scopes: [] }),
+      })
+      if (r.status !== 200) return null
+      const body = await r.json()
+      const hits = body.items || body.results || body.chunks || []
+      return hits.some((x) => (x.document_id || x.doc_id || x.id) === expectedDocumentId) ? hits : null
+    }, { timeoutMs: 40000, intervalMs: 2000, label: '等待异步编目入库' })
+    assert(items && items.length > 0,
+      `锚点检索未命中 ${expectedDocumentId} —— 上传内容没有进入 AI 索引（这正是本阶段要防的静默失败）`)
+  })
+}
+
+/* ---- 阶段 11：前端冒烟 ---- */
 if (FRONTEND) {
   currentModule = '前端冒烟'
-  console.log('\n【阶段 10】前端冒烟')
+  console.log('\n【阶段 11】前端冒烟')
   await step(`前端首页可访问 GET ${FRONTEND}/`, async () => {
     const res = await fetch(FRONTEND)
     assertEqual(res.status, 200, '前端应返回 200')
   })
 } else {
-  console.log('\n【阶段 10】跳过前端冒烟（未传 --frontend）')
+  console.log('\n【阶段 11】跳过前端冒烟（未传 --frontend）')
 }
 
 /* ------------------------------------------------------------------ */

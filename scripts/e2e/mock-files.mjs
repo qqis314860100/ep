@@ -181,5 +181,23 @@ const docPdf = makePdf('H03 电池包装配作业指导书')
 writeFileSync(join(outDir, '作业指导书-H03-电池包装配.pdf'), docPdf)
 generated.push({ path: join(outDir, '作业指导书-H03-电池包装配.pdf'), name: '作业指导书-H03-电池包装配.pdf', role: '知识文档', sizeBytes: docPdf.length })
 
+// AI 索引链路用文件：正文必须远大于 ai-rag 的切分下限（MIN_CHUNK_SIZE=120 字符），
+// 否则会切出 0 个块——入库"成功"却检索不到（见 flow.mjs 阶段 11 的说明）。
+// 内含唯一锚点 AI_INDEX_ANCHOR，供检索断言精确定位本文档。
+const aiAnchor = 'AI_INDEX_ANCHOR_7f3c9d2b'
+const aiLongText = [
+  `AI 索引链路验证文档（锚点：${aiAnchor}）`,
+  '一、适用范围：本文件用于验证上传文档能否进入 ai-rag 的检索索引。',
+  '二、工艺要求：阳极氧化槽液温度控制在 20±2 摄氏度，pH 值维持 4.2 至 4.6。',
+  '三、装配步骤：定位工装后按 25 牛米力矩拧紧，随后进行气密性检测并记录泄漏率。',
+  '四、检验标准：外观无磕碰划伤，绝缘电阻不低于 500 兆欧，接地连续性小于 0.1 欧姆。',
+  '五、记录要求：每批次填写装配记录表并归档，异常情况须在四小时内上报工艺工程师。',
+  '六、检索验证：以锚点检索本文件时应能命中，说明切分、嵌入与索引链路均已走通。',
+].join('\n')
+const aiLongName = 'AI索引链路验证-工艺说明.txt'
+writeFileSync(join(outDir, aiLongName), Buffer.from(aiLongText, 'utf8'))
+generated.push({ path: join(outDir, aiLongName), name: aiLongName, role: '知识文档', sizeBytes: Buffer.byteLength(aiLongText, 'utf8') })
+
+
 console.log(`生成 ${generated.length} 个 mock 文件到 ${outDir}`)
 for (const g of generated) console.log(`  - ${g.name} (${g.sizeBytes} bytes, ${g.role})`)
