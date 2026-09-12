@@ -17,9 +17,7 @@ Work flows through the Matt Pocock skill set installed at `~/.dsh/skills`
 - Sharpen the intent first with `grilling` / `grill-with-docs` / `wait-what`.
 - `to-spec` synthesizes a feature spec; `to-tickets` breaks it into vertical
   tracer tickets, each with acceptance criteria and blocking edges. Each ticket
-  carries a `测试：` line listing its cases as normal / boundary / error; business
-  rules (state transitions, statistics, `AssetScope` filters) are confirmed by a
-  human, never by the model alone.
+  carries a `测试：` line listing its cases as normal / boundary / error.
 - Implement test-first with `tdd` + `implement`; land each ticket as a small,
   independently verifiable commit.
 - Finish with `code-review`; use `diagnosing-bugs` for hard regressions,
@@ -89,7 +87,6 @@ Active documentation is kept minimal:
 | Local development / DB runbook | `docs/local-development.md` |
 | New-requirement development flow | `docs/development-flow.md` |
 | Testing strategy and verification layers | `docs/testing-strategy.md` |
-| Vibe Coding checklist → repo mapping | `docs/vibe-coding-guardrails.md` |
 | Feature specs and tickets (active) | `docs/plans/` |
 | Research findings (active) | `docs/research/` |
 | Retired doc-driven regime (frozen history) | `docs/archive/2026-09-07-doc-driven-development/` |
@@ -122,30 +119,14 @@ PDF files at the repository root.
   browser artifacts, or build output.
 - Keep the repository root whitelisted (see Repository Structure); run
   `scripts/check_repo_structure.sh` before committing and fix every violation.
-- API error codes are declared only in
-  `backend/src/main/java/com/tianshu/assets/common/api/ErrorCode.java`; never
-  write a response code as a string literal. Uniqueness of `code()` is asserted
-  by `ErrorCodeTest`, so a duplicate fails `mvn test`.
-- The API error body has exactly one shape (`ApiError`) and the frontend has
-  exactly one mirror (`frontend/src/types/api.ts` → `ApiErrorBody`). Do not
-  redeclare it in a service or feature.
-- Schema changes under `scripts/db/migrations/` require a spec or a
-  `docs/plans/` record first. Destructive changes (dropping a column, changing a
-  column type, adding NOT NULL) additionally stop for explicit human
-  confirmation.
-- Adding a dependency to `pom.xml`, `package.json`, or the lockfiles requires a
-  stated reason in the spec or the commit body. Do not add a dependency to avoid
-  writing a small amount of code.
 - Every outbound call and external process declares a bounded timeout and a
-  defined failure path: follow `HttpAiCapabilityClient` (connect/request
-  timeouts, mapped errors, nothing raw escaping infrastructure) and
-  `LibreOfficeDocumentPreviewConverter` (`waitFor` timeout, then
-  `destroyForcibly`). State the retry policy (deliberate fail-fast counts) and
+  defined failure path — follow `HttpAiCapabilityClient` (connect/request
+  timeouts, mapped errors) and `LibreOfficeDocumentPreviewConverter` (`waitFor`
+  timeout, then `destroyForcibly`). State the retry policy (fail-fast counts) and
   give mutating calls an idempotency key as `GovernanceExecutionService` does.
 - Never log or return secrets, tokens, credentials, file contents, or full
-  request bodies. When adding logging use SLF4J with the operation and the actor.
-  There is no request/correlation id yet: add one centrally if a feature needs
-  it, never a per-module variant.
+  request bodies; log with SLF4J carrying the operation and the actor. No
+  request/correlation id exists yet — add one centrally, never per module.
 - No repo-wide or multi-module refactor without explicit human confirmation:
   publish the change list (files, renames, deletions, API changes) and get a yes
   before writing it. Refactors stay out of the red → green loop and out of
