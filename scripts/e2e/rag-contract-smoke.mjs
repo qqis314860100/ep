@@ -9,6 +9,9 @@
  * 默认**只读**：不发入库请求、不调 LLM。
  * 加 --with-llm 才跑 SSE 事件序一项（会真实调用 LLM，产生费用）。
  *
+ * 两层互补：/openapi.json 断言 ep 依赖的字段在**规范名**层面仍存在（抓删字段/改名，无需鉴权）；
+ * 运行时探测断言 ep 的 **camelCase 别名**仍被接受（别名不在 schema 里，只能运行时验）。
+ *
  * 用法：
  *   node scripts/e2e/rag-contract-smoke.mjs [--base http://localhost:8000] [--with-llm]
  *
@@ -121,6 +124,35 @@ await step('隔离兜底：未知 namespace 不静默回退到 battery 语料', 
   assert(bogus.status === 200, `未知 namespace 期望 200（空结果），实际 ${bogus.status}`)
   const ids = o => JSON.stringify((o?.items || o?.results || o?.chunks || []).map(x => x.document_id || x.doc_id || x.id))
   assert(ids(bogus.json) !== ids(battery.json), '未知 namespace 返回了 battery 的结果 —— 存在静默回退')
+})
+
+// 5. OpenAPI schema：ep 依赖的字段在规范名层面仍存在（抓字段删除/改名）
+//
+// 注意：OpenAPI 暴露的是 pydantic 的**规范 snake_case 名**（file_content_base64、
+// target_type…），而 ep 发的是 camelCase **别名**（fileContentBase64、targetType…），
+// 由 AliasChoices 在运行时接受。所以这里只能断言规范名——camelCase 的接受性由上面
+// 第 3 步的运行时探测覆盖。两层都要，缺一层就漏一类漂移。
+await step('schema：/openapi.json 中 ep 依赖的字段仍存在（规范名）', async () => {
+  const r = await fetch(`${BASE}/openapi.json`)          // FastAPI 自带路由，无需鉴权
+  assert(r.status === 200, `GET /openapi.json 期望 200，实际 ${r.status}`)
+  const schemas = (await r.json())?.components?.schemas || {}
+  assert(schemas.IngestRequest, 'schema 缺少 IngestRequest')
+  assert(schemas.ExtractionResult, 'schema 缺少 ExtractionResult')
+
+  // ep 的 DocumentRequest 字段 → schema 里的规范名
+  const ingest = Object.keys(schemas.IngestRequest.properties || {})
+  const wantIngest = { namespace: 'namespace', targetType: 'target_type', targetId: 'target_id',
+    title: 'title', scopes: 'scopes', fileContentBase64: 'file_content_base64', fileName: 'file_name' }
+  const missingIngest = Object.entries(wantIngest).filter(([, canonical]) => !ingest.includes(canonical))
+  assert(missingIngest.length === 0,
+    `IngestRequest 缺少 ep 依赖的字段：${missingIngest.map(([ep, c]) => `${ep}(${c})`).join('、')}`)
+
+  // ep 的 ExtractionResult 字段（无别名，名字直接对齐）
+  const extract = Object.keys(schemas.ExtractionResult.properties || {})
+  const wantExtract = ['name', 'description', 'assetTypeCode', 'tags', 'summary', 'categoryCode',
+    'scopeHints', 'evidence', 'confidence']
+  const missingExtract = wantExtract.filter(f => !extract.includes(f))
+  assert(missingExtract.length === 0, `ExtractionResult 缺少 ep 依赖的字段：${missingExtract.join('、')}`)
 })
 
 // 6. SSE 事件序（ep 模式）—— 会真实调用 LLM，需显式开启
