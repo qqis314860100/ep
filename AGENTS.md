@@ -119,6 +119,17 @@ MySQL 兼容模式的 OceanBase。
   API 变更）并拿到同意再动手。重构不进红绿循环，也不进特性工单。
 - 业务规则的测试用例（状态流转、统计口径、`AssetScope` 过滤、编号与结算规则）在实现
   前须由人类确认，模型给出的用例只是草稿。用实现本身的公式重算出来的期望值不算测试。
+- **`ai-rag/` 不是本仓库的代码。** 它是一个独立仓库（自带 `.git`、远端、分支、治理与
+  三服务架构 `web`/`api`/`rag`），只是作为同级工作区放在根下，ep 的 `.gitignore` 已忽略
+  它、结构白名单已放行它。**它可以被直接修改** —— 但改动必须遵循它自己的
+  `AGENTS.md` 与 `docs/EXECUTION_RULES.md`：用它的 `ruff.toml` 与测试、按它的提交规范
+  提交到它自己的仓，不要把 ep 的规矩套上去。
+- **注意一个不可见的坑**：ep 忽略 `ai-rag/`，所以在 ep 里 `git status` 看不到它的未提交
+  改动。动过 ai-rag 之后，必须单独 `git -C ai-rag status` 确认，否则会留下没人提交的修改。
+- **两仓之间的唯一接口是 HTTP 契约**，契约由 ep 定义（`AiCapabilityClient`）、ai-rag 适配
+  （`{base}/rag/chat/stream`、`/rag/documents/ingest`、`/rag/extract`；鉴权 `X-Service-Key`；
+  命名空间 `ep-docs`）。不共享代码、不共享数据库。改动契约的一方必须同时更新另一方，
+  因为这条线目前没有自动化契约测试守护。
 
 ## Git 提交
 
