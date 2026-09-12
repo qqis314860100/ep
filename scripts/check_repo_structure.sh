@@ -22,11 +22,11 @@ for entry in .* *; do
       continue
       ;;
     # Allowed directories
-    .claude|.git|backend|docs|frontend|scripts)
+    .agents|.claude|.git|backend|docs|frontend|scripts)
       continue
       ;;
     # Allowed dotfiles and root-level sources
-    .editorconfig|.env.example|.env.local|.gitignore|AGENTS.md|README.md)
+    .editorconfig|.env.example|.env.local|.gitignore|AGENTS.md|README.md|skills-lock.json)
       continue
       ;;
     # Known cache, tool, or artifact directories that must never appear at the root

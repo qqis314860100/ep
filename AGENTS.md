@@ -52,14 +52,15 @@ notes at the repository root. Research notes go under `docs/research/`.
 Keep the repository root clean and stable. The root is a whitelist; everything
 else lives in a named directory.
 
-Allowed at root: `AGENTS.md`, `README.md`, `.claude/`, `backend/`, `docs/`,
-`frontend/`, `scripts/`, and standard dotfiles (`.editorconfig`, `.env.example`,
-`.env.local`, `.gitignore`).
+Allowed at root: `AGENTS.md`, `README.md`, `.agents/`, `.claude/`, `backend/`,
+`docs/`, `frontend/`, `scripts/`, `skills-lock.json`, and standard dotfiles
+(`.editorconfig`, `.env.example`, `.env.local`, `.gitignore`).
 
-- Never create cache or tool directories at the root (`.pnpm-store`,
-  `.playwright-cli`, `.superpowers`, `.worktrees`, `output/`, `node_modules`,
-  `dist/`, `target/`). Generated artifacts belong under `/tmp` or
-  `scripts/e2e/.logs/`.
+- Never create cache or generated-artifact directories at the root
+  (`.pnpm-store`, `.playwright-cli`, `.superpowers`, `.worktrees`, `output/`,
+  `node_modules/`, `dist/`, `target/`). Project-local agent skills belong under
+  `.agents/skills/` and are pinned by `skills-lock.json`; other generated
+  artifacts belong under `/tmp` or `scripts/e2e/.logs/`.
 - Run `scripts/check_repo_structure.sh` before committing; it fails on any
   unexpected root entry.
 
