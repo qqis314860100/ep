@@ -40,3 +40,7 @@ scripts/e2e/.logs/
 # Python cache
 __pycache__/
 *.pyc
+
+# ai-rag：独立仓，作为同级工作区放在根下，但由它自己的仓库与治理托管。
+# ep 不跟踪它的任何内容（避免 gitlink/幽灵子模块，也避免 1.8G 进入 ep 索引）。
+ai-rag/

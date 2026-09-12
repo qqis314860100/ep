@@ -25,6 +25,11 @@ for entry in .* *; do
     .agents|.claude|.git|backend|docs|frontend|scripts)
       continue
       ;;
+    # ai-rag 是独立仓（自带 .git 与治理），作为同级工作区放在根下；ep 不跟踪它
+    # （.gitignore 已忽略），此处仅放行根目录白名单检查。
+    ai-rag)
+      continue
+      ;;
     # Allowed dotfiles and root-level sources
     .editorconfig|.env.example|.env.local|.gitignore|AGENTS.md|README.md|skills-lock.json)
       continue
