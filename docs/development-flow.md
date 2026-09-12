@@ -80,12 +80,29 @@
 
 **缺口（真实差距）**
 
-1. **没有 CI**。远端是 GitHub，但根白名单不允许 `.github`，所有门禁全靠人或 agent 手动执行，
-   「我本地过了」是唯一保障。补法二选一：
-   - 把 `.github` 加入 `scripts/check_repo_structure.sh` 白名单，建最小 workflow：结构检查 + `mvn test` + `pnpm lint`/`typecheck`；
-   - 或先用 `setup-pre-commit` 技能加本地 pre-commit，把结构检查 + lint 卡在提交前（零 CI 成本，立即有兜底）。
+1. **没有 CI**。远端是 GitHub，但根白名单不允许 `.github`，远端没有任何强制门禁。
+   本地已由 pre-commit 兜底（`bash scripts/install-hooks.sh`：结构白名单 + 密钥扫描 +
+   暂存 `frontend/` 时的 lint/typecheck），但它只在**本机**生效。补 CI 需两步：把 `.github`
+   加入 `scripts/check_repo_structure.sh` 白名单，建最小 workflow（结构检查 + `mvn test` +
+   `pnpm lint`/`typecheck`）。
 2. **没有强制的第二人评审**。所有提交直接落 `main`；`code-review` 是双轴并行子代理的**自评**，
    强度高于「AI 自检」，但不等于他人评审。多人协作时需要 PR 流程。
 3. 次要：tickets 无 tracker，`Status:` / 阻塞边靠人维护；单人 + agent 模式够用，多人并行会腐化。
 
 在缺口补齐之前，§1 阶段 6–8 的人工确认点不能省——它们就是当前的兜底。
+
+## 6. 通用清单对照（避坑）
+
+通用「Vibe Coding 最佳策略」类清单（面向绿地 MES / Agent 项目）有三处与本仓库冲突，
+照做会撞门禁：
+
+| 通用清单建议 | 本仓库的替代做法 |
+| --- | --- |
+| 根目录维护 `PROJECT_SPEC.md`，每次对话喂给 AI | 根目录 `*.md` 会被 `scripts/check_repo_structure.sh` 判违规，且「文档即唯一可信源」已于 2026-09-07 退役。用 `AGENTS.md`（自动加载）+ `docs/plans/<日期>-<slug>.md` 承载 spec 与 ticket |
+| 让 AI 生成 DDL，人评审主键 / 索引 / 分表 | legacy 兼容系统，schema 多为既成事实：不许改 legacy 主键、不许覆盖 legacy 源值，AI 只**核对**既有 schema；`scripts/db/migrations/` 改动先有 spec，破坏性变更等人工确认 |
+| 先铺完 ER/DDL → 领域层 → CRUD 的前置瀑布 | 与竖切 tracer ticket 相悖：`to-tickets` 出端到端可独立验收的竖切票（先例：`docs/plans/2026-09-09-ai-assistant-phase1-tickets/`） |
+
+清单里值得吸收的四条已写入 `AGENTS.md` Hard Rules：对外调用的超时与失败路径、
+日志与错误响应不含密钥、无人工确认不得大范围重构、业务规则用例人工核验。
+清单没覆盖但更致命的不变量（真库唯一数据源、`AssetScope` 同域、生命周期状态、
+legacy 主键、提交与结构纪律）同样在 Hard Rules 里。
