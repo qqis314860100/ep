@@ -3,10 +3,8 @@ package com.tianshu.assets.governance.api;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAcceptanceStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceConfirmationStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceDataStandardStore;
@@ -24,12 +22,13 @@ class GovernanceOperationsControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = standaloneSetup(new GovernanceOperationsController(new GovernanceOperationsService(
+        var service = new GovernanceOperationsService(
                 new InMemoryAssetRepository(), InMemoryGovernanceIssueStore.withFieldSeeds(),
                 InMemoryGovernanceTaskStore.withLegacySeed(), new InMemoryGovernanceConfirmationStore(),
                 new InMemoryGovernanceAcceptanceStore(), new InMemoryGovernanceScanRunStore(),
-                new InMemoryGovernanceEmployeeDirectory(), new InMemoryGovernanceDataStandardStore())))
-                .setControllerAdvice(new ApiExceptionHandler()).build();
+                new InMemoryGovernanceEmployeeDirectory(), new InMemoryGovernanceDataStandardStore());
+        mockMvc = GovernanceApiTestSupport.adminFor(
+                new GovernanceOperationsController(service, GovernanceApiTestSupport.authorization()));
     }
 
     @Test

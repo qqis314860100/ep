@@ -1,5 +1,6 @@
 package com.tianshu.assets.governance.api;
 
+import com.tianshu.assets.governance.application.GovernanceAuthorizationService;
 import com.tianshu.assets.governance.domain.GovernanceEmployee;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService.CreateGovernanceTaskCommand;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -42,42 +44,48 @@ public class GovernanceTaskController {
     private final GovernanceTaskApplicationService service;
     private final GovernanceIssueService issueService;
     private final GovernanceTaskStartService startService;
+    private final GovernanceAuthorizationService authorization;
 
     @Autowired
     public GovernanceTaskController(
             GovernanceTaskApplicationService service,
             GovernanceIssueService issueService,
-            GovernanceTaskStartService startService) {
+            GovernanceTaskStartService startService,
+            GovernanceAuthorizationService authorization) {
         this.service = service;
         this.issueService = issueService;
         this.startService = startService;
-    }
-
-    public GovernanceTaskController(
-            GovernanceTaskApplicationService service, GovernanceIssueService issueService) {
-        this(service, issueService, null);
+        this.authorization = authorization;
     }
 
     @GetMapping
     public List<GovernanceTaskResponse> list(
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestParam(required = false) GovernanceTaskStatus status,
             @RequestParam(required = false) String ownerUserId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dueBefore,
             @RequestParam(required = false) GovernanceField field,
             @RequestParam(required = false) String scopeFingerprint) {
+        authorization.requireAuthenticated(userId);
         return service.list(new TaskFilter(status, ownerUserId, dueBefore, field, scopeFingerprint))
                 .stream().map(GovernanceTaskResponse::from).toList();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public GovernanceTaskResponse create(@Valid @RequestBody CreateTaskRequest request) {
+    public GovernanceTaskResponse create(
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
+            @Valid @RequestBody CreateTaskRequest request) {
+        authorization.requireGovernanceAdmin(userId, roles);
         return GovernanceTaskResponse.from(issueService.createTask(new CreateGovernanceTaskCommand(
                 request.name(), request.issueIds(), request.ownerUserId(), request.ownerName(), request.dueDate())));
     }
 
     @GetMapping("/employees")
-    public List<GovernanceEmployee> employees() {
+    public List<GovernanceEmployee> employees(
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
+        authorization.requireAuthenticated(userId);
         return service.employees();
     }
 
@@ -85,18 +93,27 @@ public class GovernanceTaskController {
     @PostMapping("/{taskId}/reassign")
     public GovernanceTaskResponse reassign(
             @PathVariable @Min(1) long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody ReassignTaskRequest request) {
+        authorization.requireGovernanceAdmin(userId, roles);
         return GovernanceTaskResponse.from(service.reassign(
                 taskId, new ReassignTaskCommand(request.ownerUserId(), request.expectedVersion())));
     }
 
     @GetMapping("/{taskId}/plans")
-    public List<PlanProjection> plans(@PathVariable long taskId) {
+    public List<PlanProjection> plans(
+            @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
+        authorization.requireAuthenticated(userId);
         return service.plans(taskId);
     }
 
     @GetMapping("/{taskId}")
-    public GovernanceTaskResponse get(@PathVariable long taskId) {
+    public GovernanceTaskResponse get(
+            @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId) {
+        authorization.requireAuthenticated(userId);
         return GovernanceTaskResponse.from(service.detail(taskId));
     }
 
@@ -104,7 +121,10 @@ public class GovernanceTaskController {
     public GovernancePlan updatePlan(
             @PathVariable long taskId,
             @PathVariable long planId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody UpdatePlanRequest request) {
+        authorization.requireGovernanceAdmin(userId, roles);
         return service.rejectPlanMutation(taskId);
     }
 
@@ -112,7 +132,10 @@ public class GovernanceTaskController {
     @ResponseStatus(HttpStatus.CREATED)
     public GovernancePlan createPlan(
             @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody CreatePlanRequest request) {
+        authorization.requireGovernanceAdmin(userId, roles);
         service.requireClosedLoop(taskId);
         if (request.plannedQuantity() != null || request.completedQuantity() != null
                 || request.quantityUnit() != null) {
@@ -130,8 +153,10 @@ public class GovernanceTaskController {
     @PostMapping("/{taskId}/start")
     public GovernanceTaskResponse start(
             @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody StartTaskRequest request) {
-        if (startService == null) throw new IllegalStateException("治理启动服务未配置");
+        authorization.requireGovernanceAdmin(userId, roles);
         return GovernanceTaskResponse.from(
                 startService.start(taskId, request.version(), request.actorUserId()));
     }
@@ -139,14 +164,25 @@ public class GovernanceTaskController {
     @PatchMapping("/{taskId}/status")
     public GovernanceTaskResponse updateStatus(
             @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody UpdateTaskStatusRequest request) {
+        authorization.requireGovernanceAdmin(userId, roles);
         return GovernanceTaskResponse.from(service.rejectTaskMutation(taskId));
     }
 
+    /**
+     * 提交待确认：<b>责任人本人</b>（或内容管理员）的动作，不是管理员专属——
+     * 清洗页由责任人执行完治理项后提交（见前端 {@code GovernanceExecutionPage}），
+     * 故沿用 {@code requireExecutionTask} 而不是 {@code requireGovernanceAdmin}。
+     */
     @PostMapping("/{taskId}/submit-for-confirmation")
     public GovernanceTaskResponse submitForConfirmation(
             @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
+            @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody SubmitForConfirmationRequest request) {
+        authorization.requireExecutionTask(taskId, userId, roles);
         return GovernanceTaskResponse.from(service.submitForConfirmation(taskId, request.version()));
     }
 

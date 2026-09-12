@@ -44,7 +44,7 @@ class GovernanceResponsibilityControllerTest {
     @Test
     void assignsResponsibilityWithContentAdmin() throws Exception {
         mockMvc.perform(put("/api/v1/governance/asset-responsibilities/101")
-                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .header("X-User-Id", "admin").header("X-User-Roles", "CONTENT_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsibleUserId\":\"emp-chen\",\"responsibilityScope\":\"设备工程部\"}"))
                 .andExpect(status().isOk())
@@ -56,12 +56,12 @@ class GovernanceResponsibilityControllerTest {
     @Test
     void readsAssignedResponsibility() throws Exception {
         mockMvc.perform(put("/api/v1/governance/asset-responsibilities/101")
-                        .header("X-User-Roles", "SYSTEM_ADMIN")
+                        .header("X-User-Id", "admin").header("X-User-Roles", "SYSTEM_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsibleUserId\":\"emp-li\",\"responsibilityScope\":\"标准化小组\"}"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/governance/asset-responsibilities/101")
-                        .header("X-User-Roles", "CONTENT_ADMIN"))
+                        .header("X-User-Id", "admin").header("X-User-Roles", "CONTENT_ADMIN"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.responsibleUserId").value("emp-li"));
     }
@@ -69,7 +69,7 @@ class GovernanceResponsibilityControllerTest {
     @Test
     void rejectsAssignmentWithoutAdminRole() throws Exception {
         mockMvc.perform(put("/api/v1/governance/asset-responsibilities/101")
-                        .header("X-User-Roles", "UPLOADER")
+                        .header("X-User-Id", "admin").header("X-User-Roles", "UPLOADER")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsibleUserId\":\"emp-chen\",\"responsibilityScope\":\"设备工程部\"}"))
                 .andExpect(status().isForbidden())
@@ -79,7 +79,7 @@ class GovernanceResponsibilityControllerTest {
     @Test
     void rejectsAssignmentForUnknownEmployee() throws Exception {
         mockMvc.perform(put("/api/v1/governance/asset-responsibilities/101")
-                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .header("X-User-Id", "admin").header("X-User-Roles", "CONTENT_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsibleUserId\":\"ghost-user\",\"responsibilityScope\":\"设备工程部\"}"))
                 .andExpect(status().isUnprocessableEntity())
@@ -89,7 +89,7 @@ class GovernanceResponsibilityControllerTest {
     @Test
     void rejectsAssignmentForUnknownAsset() throws Exception {
         mockMvc.perform(put("/api/v1/governance/asset-responsibilities/9999")
-                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .header("X-User-Id", "admin").header("X-User-Roles", "CONTENT_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsibleUserId\":\"emp-chen\",\"responsibilityScope\":\"设备工程部\"}"))
                 .andExpect(status().isNotFound())
@@ -99,7 +99,7 @@ class GovernanceResponsibilityControllerTest {
     @Test
     void rejectsBlankResponsibleUser() throws Exception {
         mockMvc.perform(put("/api/v1/governance/asset-responsibilities/101")
-                        .header("X-User-Roles", "CONTENT_ADMIN")
+                        .header("X-User-Id", "admin").header("X-User-Roles", "CONTENT_ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"responsibleUserId\":\"\",\"responsibilityScope\":\"设备工程部\"}"))
                 .andExpect(status().isBadRequest());

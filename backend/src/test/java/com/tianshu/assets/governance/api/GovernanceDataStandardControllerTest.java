@@ -4,9 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceDataStandardStore;
 import com.tianshu.assets.governance.standard.application.GovernanceDataStandardService;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,8 +20,8 @@ class GovernanceDataStandardControllerTest {
     void setUp() {
         var service = new GovernanceDataStandardService(
                 new InMemoryGovernanceDataStandardStore(), types -> java.util.List.of(101L, 102L));
-        mockMvc = standaloneSetup(new GovernanceDataStandardController(service))
-                .setControllerAdvice(new ApiExceptionHandler()).build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceDataStandardController(
+                service, GovernanceApiTestSupport.authorization()));
     }
 
     @Test

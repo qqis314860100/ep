@@ -39,14 +39,6 @@ public class GovernanceExecutionController {
     private final ObjectMapper objectMapper;
     private final GovernanceAuthorizationService authorizationService;
 
-    public GovernanceExecutionController(GovernanceExecutionService service) {
-        this(service, new ObjectMapper(), null);
-    }
-
-    public GovernanceExecutionController(GovernanceExecutionService service, ObjectMapper objectMapper) {
-        this(service, objectMapper, null);
-    }
-
     @Autowired
     public GovernanceExecutionController(
             GovernanceExecutionService service,
@@ -92,7 +84,7 @@ public class GovernanceExecutionController {
             @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody BatchResultsRequest request) {
-        if (authorizationService != null) request.commands().stream().filter(java.util.Objects::nonNull)
+        request.commands().stream().filter(java.util.Objects::nonNull)
                 .forEach(command -> authorizationService.requireExecution(command.itemId(), userId, roles));
         return service.batchResults(
                 request.idempotencyKey(),
@@ -102,11 +94,11 @@ public class GovernanceExecutionController {
     }
 
     private void authorizeItem(long itemId, String userId, String roles) {
-        if (authorizationService != null) authorizationService.requireExecution(itemId, userId, roles);
+        authorizationService.requireExecution(itemId, userId, roles);
     }
 
     private void authorizeTask(long taskId, String userId, String roles) {
-        if (authorizationService != null) authorizationService.requireExecutionTask(taskId, userId, roles);
+        authorizationService.requireExecutionTask(taskId, userId, roles);
     }
 
     private GovernanceResultResponse resultResponse(GovernanceResultVersion result) {

@@ -4,10 +4,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.tianshu.assets.asset.domain.AssetScope;
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceDataStandardStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceMappingRuleStore;
@@ -30,8 +28,8 @@ class GovernanceMappingRuleControllerTest {
                 new com.tianshu.assets.governance.task.domain.GovernanceRuleSnapshot(0, "FIELD-COMPLETENESS", 1, 1, java.util.Map.of(), "QUALITY", 1), List.of(scope));
         var service = new GovernanceMappingRuleService(new InMemoryGovernanceMappingRuleStore(),
                 new InMemoryDictionaryStore(), standardStore, catalog);
-        mockMvc = standaloneSetup(new GovernanceMappingRuleController(service))
-                .setControllerAdvice(new ApiExceptionHandler()).build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceMappingRuleController(
+                service, GovernanceApiTestSupport.authorization()));
     }
 
     private String body(boolean ambiguous) {

@@ -60,11 +60,33 @@ public class GovernanceAuthorizationService {
         items.forEach(item -> requireConfirmation(item.id(), userId, roles));
     }
 
-    public void requireAcceptance(String roles) {
-        requireGovernanceAdmin(roles);
+    /**
+     * 治理域读操作闸门：只要求登录身份，不限角色、不做数据范围过滤。
+     *
+     * <p>为什么不是「管理员才能读」：治理台首页对非管理员同样开放，前端按角色只展示本人的任务
+     * （见 {@code GovernanceRailHome}），把读锁到管理员会把责任人的工作台关掉。数据范围过滤
+     * 仍归 S7；这里只关掉「匿名可读治理数据」。
+     *
+     * <p>fail-closed：{@code userId} 为空即拒绝。
+     */
+    public void requireAuthenticated(String userId) {
+        if (userId == null || userId.isBlank()) forbidden();
     }
 
-    public void requireGovernanceAdmin(String roles) {
+    public void requireAcceptance(String userId, String roles) {
+        requireGovernanceAdmin(userId, roles);
+    }
+
+    /**
+     * 治理配置侧写操作闸门：必须是登录用户，且具备治理管理员角色（内容管理员或系统管理员）。
+     *
+     * <p><b>fail-closed 是刻意的</b>：{@code SessionIdentityFilter} 只对真实 HTTP 请求生效，
+     * 单测走 {@code MockMvcBuilders.standaloneSetup} 时过滤器不参与。若这里只看角色，
+     * 「忘了传身份头」会静默变成放行——这正是 D-002 的成因（短构造器 + {@code != null} 判断
+     * 让授权整条链路可以被绕过而不报错）。
+     */
+    public void requireGovernanceAdmin(String userId, String roles) {
+        requireAuthenticated(userId);
         if (!hasRole(roles, CONTENT_ADMIN) && !hasRole(roles, SYSTEM_ADMIN)) forbidden();
     }
 

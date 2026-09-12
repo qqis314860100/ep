@@ -5,9 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.support.GovernanceTestFixture;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -24,10 +22,9 @@ class GovernanceAcceptanceControllerTest {
                 round.id(),
                 com.tianshu.assets.governance.acceptance.domain.GovernanceQualityMetric.OWNER_COVERAGE,
                 java.util.List.of(affectedItemId));
-        var mockMvc = standaloneSetup(new GovernanceAcceptanceController(
-                        fixture.acceptanceService(), fixture.qualityService(), fixture.reworkService()))
-                .setControllerAdvice(new ApiExceptionHandler())
-                .build();
+        var mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceAcceptanceController(
+                fixture.acceptanceService(), fixture.qualityService(), fixture.reworkService(),
+                GovernanceApiTestSupport.authorization(), null));
 
         mockMvc.perform(get("/api/v1/governance/tasks/{taskId}/acceptance-rounds/current", round.taskId()))
                 .andExpect(status().isOk())

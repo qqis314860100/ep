@@ -4,11 +4,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAssetAdapter;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceDataStandardStore;
@@ -31,7 +29,8 @@ class GovernanceScanControllerTest {
         var service = new GovernanceScanService(new InMemoryAssetRepository(), new InMemoryGovernanceIssueStore(), new InMemoryGovernanceScanRunStore(), standards,
                 new InMemoryGovernanceMappingRuleStore(), new InMemoryDictionaryStore(), new InMemoryGovernanceEmployeeDirectory(),
                 new InMemoryGovernanceRuleCatalog(standards), new InMemoryGovernanceAssetAdapter(), new ObjectMapper());
-        mockMvc = standaloneSetup(new GovernanceScanController(service)).setControllerAdvice(new ApiExceptionHandler()).build();
+        mockMvc = GovernanceApiTestSupport.adminFor(
+                new GovernanceScanController(service, GovernanceApiTestSupport.authorization()));
     }
 
     @Test

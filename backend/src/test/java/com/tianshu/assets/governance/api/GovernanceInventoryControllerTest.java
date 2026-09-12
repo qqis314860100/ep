@@ -3,10 +3,8 @@ package com.tianshu.assets.governance.api;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
 import com.tianshu.assets.governance.inventory.application.AssetInventoryService;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,9 +19,8 @@ class GovernanceInventoryControllerTest {
     void setUp() {
         var service = new AssetInventoryService(
                 new InMemoryAssetRepository(), InMemoryGovernanceIssueStore.withFieldSeeds());
-        mockMvc = standaloneSetup(new GovernanceInventoryController(service))
-                .setControllerAdvice(new ApiExceptionHandler())
-                .build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceInventoryController(
+                service, GovernanceApiTestSupport.authorization()));
     }
 
     @Test

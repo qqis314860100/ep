@@ -4,9 +4,7 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceAcceptanceStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceEmployeeDirectory;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
@@ -38,9 +36,8 @@ class GovernanceResponsibilityBoardControllerTest {
                 new InMemoryGovernanceIssueStore(),
                 new InMemoryGovernanceScanRunStore(),
                 new InMemoryGovernanceAcceptanceStore());
-        mockMvc = standaloneSetup(new GovernanceResponsibilityBoardController(service))
-                .setControllerAdvice(new ApiExceptionHandler())
-                .build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceResponsibilityBoardController(
+                service, GovernanceApiTestSupport.authorization()));
     }
 
     @Test

@@ -6,11 +6,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianshu.assets.asset.infrastructure.InMemoryAssetRepository;
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.dictionary.infrastructure.InMemoryDictionaryStore;
 import com.tianshu.assets.governance.confirmation.application.GovernanceConfirmationStore;
 import com.tianshu.assets.governance.execution.application.FieldSupplementActionHandler;
@@ -62,10 +60,9 @@ class GovernanceTaskControllerTest {
                         new ObjectMapper(), new InMemoryDictionaryStore(), employees), Clock.systemUTC());
         var startService = new GovernanceTaskStartService(
                 taskStore, issueStore, workflowStore, ruleCatalog);
-        mockMvc = standaloneSetup(new GovernanceTaskController(
-                        service, new GovernanceIssueService(issueStore, taskStore), startService))
-                .setControllerAdvice(new ApiExceptionHandler())
-                .build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceTaskController(
+                service, new GovernanceIssueService(issueStore, taskStore), startService,
+                GovernanceApiTestSupport.authorization()));
     }
 
     @Test
@@ -88,11 +85,10 @@ class GovernanceTaskControllerTest {
                 0, "GOV-LEGACY-NULL-DATE", "未排期历史任务", "历史导入", "LEGACY_IMPORT",
                 "emp-wang", "王工", "emp-wang", null, GovernanceTaskStatus.IN_PROGRESS, 0,
                 GovernanceWorkflowVersion.LEGACY_PROGRESS, null, null, 12, 3, 0));
-        mockMvc = standaloneSetup(new GovernanceTaskController(
-                        new GovernanceTaskApplicationService(store, new InMemoryGovernanceEmployeeDirectory()),
-                        new GovernanceIssueService(new InMemoryGovernanceIssueStore(), store)))
-                .setControllerAdvice(new ApiExceptionHandler())
-                .build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceTaskController(
+                new GovernanceTaskApplicationService(store, new InMemoryGovernanceEmployeeDirectory()),
+                new GovernanceIssueService(new InMemoryGovernanceIssueStore(), store), null,
+                GovernanceApiTestSupport.authorization()));
 
         mockMvc.perform(get("/api/v1/governance/tasks"))
                 .andExpect(status().isOk())

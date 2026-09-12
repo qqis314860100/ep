@@ -5,9 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.support.GovernanceTestFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,9 +28,8 @@ class GovernanceConfirmationControllerTest {
         var fixture = GovernanceTestFixture.fieldClosure();
         var round = fixture.pendingConfirmationWithTwoItems();
         var current = fixture.confirmationService().current(round.taskId());
-        mockMvc = standaloneSetup(new GovernanceConfirmationController(fixture.confirmationService()))
-                .setControllerAdvice(new ApiExceptionHandler())
-                .build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceConfirmationController(
+                fixture.confirmationService(), GovernanceApiTestSupport.authorization()));
         taskId = round.taskId();
         roundId = round.id();
         roundVersion = round.version();

@@ -1,5 +1,6 @@
 package com.tianshu.assets.governance.api;
 
+import com.tianshu.assets.governance.application.GovernanceAuthorizationService;
 import com.tianshu.assets.governance.inventory.application.AssetInventoryService;
 import com.tianshu.assets.governance.inventory.application.AssetInventoryService.InventoryView;
 import jakarta.validation.constraints.Max;
@@ -7,25 +8,30 @@ import jakarta.validation.constraints.Min;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 资产盘点（GOVERN-01）：总量/治理率/旧维度与缺字段筛选。 */
+/** 资产盘点（GOVERN-01）：总量/治理率/旧维度与缺字段筛选。读操作，登录即可。 */
 @RestController
 @Validated
 @RequestMapping("/api/v1/governance/inventory")
 public class GovernanceInventoryController {
 
     private final AssetInventoryService service;
+    private final GovernanceAuthorizationService authorization;
 
     @Autowired
-    public GovernanceInventoryController(AssetInventoryService service) {
+    public GovernanceInventoryController(
+            AssetInventoryService service, GovernanceAuthorizationService authorization) {
         this.service = service;
+        this.authorization = authorization;
     }
 
     @GetMapping
     public InventoryView inventory(
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestParam(name = "legacy_platform", defaultValue = "") String legacyPlatform,
             @RequestParam(name = "legacy_line", defaultValue = "") String legacyLine,
             @RequestParam(name = "legacy_category", defaultValue = "") String legacyCategory,
@@ -38,6 +44,7 @@ public class GovernanceInventoryController {
             @RequestParam(name = "missing_file", defaultValue = "false") boolean missingFile,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(name = "per_page", defaultValue = "20") @Min(1) @Max(100) int perPage) {
+        authorization.requireAuthenticated(userId);
         return service.inventory(legacyPlatform, legacyLine, legacyCategory, owner, format,
                 missingBase, missingLine, missingDescription, missingOwner, missingFile, page, perPage);
     }

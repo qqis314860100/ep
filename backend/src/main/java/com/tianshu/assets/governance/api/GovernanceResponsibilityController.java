@@ -39,9 +39,10 @@ public class GovernanceResponsibilityController {
     @PutMapping("/{assetId}")
     public AssetResponsibilityResponse assign(
             @PathVariable @Min(1) long assetId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody AssignRequest request) {
-        authorizationService.requireGovernanceAdmin(roles);
+        authorizationService.requireGovernanceAdmin(userId, roles);
         return AssetResponsibilityResponse.from(service.assign(
                 assetId, request.responsibleUserId(), request.responsibilityScope()));
     }
@@ -49,8 +50,9 @@ public class GovernanceResponsibilityController {
     @GetMapping("/{assetId}")
     public AssetResponsibilityResponse current(
             @PathVariable @Min(1) long assetId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
-        authorizationService.requireGovernanceAdmin(roles);
+        authorizationService.requireGovernanceAdmin(userId, roles);
         return AssetResponsibilityResponse.from(service.current(assetId));
     }
 

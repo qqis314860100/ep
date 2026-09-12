@@ -28,10 +28,6 @@ public class GovernanceConfirmationController {
     private final GovernanceConfirmationService service;
     private final GovernanceAuthorizationService authorizationService;
 
-    public GovernanceConfirmationController(GovernanceConfirmationService service) {
-        this(service, null);
-    }
-
     @Autowired
     public GovernanceConfirmationController(
             GovernanceConfirmationService service,
@@ -45,7 +41,7 @@ public class GovernanceConfirmationController {
             @PathVariable long taskId,
             @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
-        if (authorizationService != null) authorizationService.requireConfirmationTask(taskId, userId, roles);
+        authorizationService.requireConfirmationTask(taskId, userId, roles);
         return service.current(taskId);
     }
 
@@ -56,7 +52,7 @@ public class GovernanceConfirmationController {
             @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody DecisionRequest request) {
-        if (authorizationService != null) authorizationService.requireConfirmation(itemId, userId, roles);
+        authorizationService.requireConfirmation(itemId, userId, roles);
         return service.decide(roundId, itemId, request.toCommand());
     }
 
@@ -67,7 +63,7 @@ public class GovernanceConfirmationController {
             @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody CompleteRequest request) {
-        if (authorizationService != null) authorizationService.requireConfirmationTask(taskId, userId, roles);
+        authorizationService.requireConfirmationTask(taskId, userId, roles);
         return service.complete(taskId, roundId, request.roundVersion());
     }
 

@@ -33,13 +33,6 @@ public class GovernanceAcceptanceController {
     private final GovernanceAuthorizationService authorizationService;
     private final GovernanceAcceptancePreparationService preparationService;
 
-    public GovernanceAcceptanceController(
-            GovernanceAcceptanceService acceptanceService,
-            GovernanceQualityService qualityService,
-            GovernanceReworkService reworkService) {
-        this(acceptanceService, qualityService, reworkService, null, null);
-    }
-
     @Autowired
     public GovernanceAcceptanceController(
             GovernanceAcceptanceService acceptanceService,
@@ -57,8 +50,9 @@ public class GovernanceAcceptanceController {
     @GetMapping("/tasks/{taskId}/acceptance-rounds/current")
     public GovernanceAcceptanceRound current(
             @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles) {
-        authorizeAcceptance(roles);
+        authorizeAcceptance(userId, roles);
         return preparationService == null
                 ? acceptanceService.current(taskId)
                 : preparationService.currentOrOpen(taskId);
@@ -68,9 +62,10 @@ public class GovernanceAcceptanceController {
     public GovernanceAcceptanceSample saveSample(
             @PathVariable long roundId,
             @PathVariable long itemId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody SampleRequest request) {
-        authorizeAcceptance(roles);
+        authorizeAcceptance(userId, roles);
         return qualityService.saveSample(
                 roundId, itemId, request.passed(), request.issueDescription(),
                 request.reviewerUserId(), request.sampleVersion());
@@ -80,9 +75,10 @@ public class GovernanceAcceptanceController {
     public GovernanceAcceptanceService.CompletionResult complete(
             @PathVariable long taskId,
             @PathVariable long roundId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody CompleteRequest request) {
-        authorizeAcceptance(roles);
+        authorizeAcceptance(userId, roles);
         return acceptanceService.complete(
                 taskId, roundId, request.roundVersion(), request.operatorUserId());
     }
@@ -90,9 +86,10 @@ public class GovernanceAcceptanceController {
     @PostMapping("/tasks/{taskId}/rework")
     public GovernanceTask openRework(
             @PathVariable long taskId,
+            @RequestHeader(name = "X-User-Id", defaultValue = "") String userId,
             @RequestHeader(name = "X-User-Roles", defaultValue = "") String roles,
             @Valid @RequestBody ReworkRequest request) {
-        authorizeAcceptance(roles);
+        authorizeAcceptance(userId, roles);
         return reworkService.open(
                 taskId, request.taskVersion(), request.reason(), request.actorUserId());
     }
@@ -118,7 +115,7 @@ public class GovernanceAcceptanceController {
             @NotBlank String reason,
             @NotBlank String actorUserId) {}
 
-    private void authorizeAcceptance(String roles) {
-        if (authorizationService != null) authorizationService.requireAcceptance(roles);
+    private void authorizeAcceptance(String userId, String roles) {
+        authorizationService.requireAcceptance(userId, roles);
     }
 }

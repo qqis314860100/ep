@@ -5,10 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.execution.application.GovernanceExecutionService;
 import com.tianshu.assets.governance.issue.domain.GovernanceField;
 import com.tianshu.assets.governance.support.GovernanceTestFixture;
@@ -31,9 +29,9 @@ class GovernanceExecutionControllerTest {
         var fixture = GovernanceTestFixture.batchFieldClosure();
         var started = fixture.validStartedTask();
         var service = fixture.executionService();
-        mockMvc = standaloneSetup(new GovernanceExecutionController(service))
-                .setControllerAdvice(new ApiExceptionHandler())
-                .build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceExecutionController(
+                service, new ObjectMapper(),
+                GovernanceApiTestSupport.authorization(fixture.executionStore())));
         taskId = started.id();
         var item = service.items(taskId).stream()
                 .map(GovernanceExecutionService.ItemExecutionContext::item)

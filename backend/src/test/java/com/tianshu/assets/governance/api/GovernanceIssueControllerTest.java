@@ -3,9 +3,7 @@ package com.tianshu.assets.governance.api;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup;
 
-import com.tianshu.assets.common.api.ApiExceptionHandler;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceIssueStore;
 import com.tianshu.assets.governance.infrastructure.InMemoryGovernanceTaskStore;
 import com.tianshu.assets.governance.issue.application.GovernanceIssueService;
@@ -21,9 +19,8 @@ class GovernanceIssueControllerTest {
     void setUp() {
         var service = new GovernanceIssueService(
                 InMemoryGovernanceIssueStore.withFieldSeeds(), new InMemoryGovernanceTaskStore());
-        mockMvc = standaloneSetup(new GovernanceIssueController(service))
-                .setControllerAdvice(new ApiExceptionHandler())
-                .build();
+        mockMvc = GovernanceApiTestSupport.adminFor(new GovernanceIssueController(
+                service, GovernanceApiTestSupport.authorization()));
     }
 
     @Test
