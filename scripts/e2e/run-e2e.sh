@@ -115,9 +115,9 @@ set -e
 
 echo "==> [5/5] 汇总"
 if [ "$FLOW_EXIT" -eq 0 ]; then
-  echo "✅ E2E 全流程通过（结构化结果：$RESULT_JSON）"
+  echo "✅ E2E 全流程通过（结构化结果：${RESULT_JSON}）"
 else
-  echo "❌ E2E 全流程失败 (exit=$FLOW_EXIT)，完整日志见 $FLOW_LOG；结构化结果：$RESULT_JSON"
+  echo "❌ E2E 全流程失败 (exit=$FLOW_EXIT)，完整日志见 ${FLOW_LOG}；结构化结果：$RESULT_JSON"
 fi
 
 # ---------------------------------------------------------------------------
