@@ -16,6 +16,7 @@
  *   阶段 9  统一检索（资产 + 文档同框命中）
  *   阶段 10 AI 索引链路（长文上传 → 入库 → 可检索；ai-rag 不可达时跳过并告警）
  *   阶段 11 前端冒烟（可选，需 --frontend）
+ *   阶段 12 治理授权闸门（匿名读写治理数据必须被拒；D-006 回归）
  *
  * 用法：
  *   node flow.mjs --backend http://127.0.0.1:8080 [--frontend http://127.0.0.1:5173]
@@ -125,6 +126,28 @@ async function api(path, { method = 'GET', body, headers = {}, form } = {}) {
     throw new Error(`${method} ${path} → ${response.status}: ${message}`)
   }
   return { status: response.status, ok: response.ok, json, text, headers: response.headers }
+}
+
+/**
+ * 探测型请求：可显式选择是否携带会话，且**不因 4xx 抛错**——4xx 正是授权用例要断言的结果。
+ *
+ * <p>与 api() 的分工：api() 恒带会话、非 2xx 即抛；probe() 用于「验证某身份被拒绝」。
+ * 不这样做就只能用 try/catch 包住 api()，把正常断言写成异常路径。
+ */
+async function probe(path, { method = 'GET', body, session = false } = {}) {
+  const init = { method, headers: { Accept: 'application/json' } }
+  if (body !== undefined) {
+    init.headers['Content-Type'] = 'application/json'
+    init.body = JSON.stringify(body)
+  }
+  if (session && sessionCookie) init.headers.Cookie = sessionCookie
+  const response = await fetch(`${BACKEND}${path}`, init)
+  const text = await response.text()
+  let json = null
+  if (text) {
+    try { json = JSON.parse(text) } catch { /* 非 JSON 响应 */ }
+  }
+  return { status: response.status, json, text }
 }
 
 const CONTENT_TYPES = {
@@ -1013,6 +1036,110 @@ if (FRONTEND) {
   })
 } else {
   console.log('\n【阶段 11】跳过前端冒烟（未传 --frontend）')
+}
+
+/* ---- 阶段 12：治理授权闸门（D-006 / D-002 回归） ---- */
+currentModule = '治理授权闸门'
+console.log('\n【阶段 12】治理授权闸门（匿名不得读写治理数据）')
+
+// 治理读端点：登录即可（治理台首页对普通员工开放，前端按角色只展示本人任务），但不允许匿名。
+const GOVERNANCE_READS = [
+  '/api/v1/governance/tasks',
+  '/api/v1/governance/tasks/employees',
+  '/api/v1/governance/issues',
+  '/api/v1/governance/inventory?page=1&per_page=1',
+  '/api/v1/governance/scans',
+  '/api/v1/governance/standards',
+  '/api/v1/governance/mappings',
+  '/api/v1/governance/operations/overview',
+  '/api/v1/governance/responsibility/board',
+  '/api/v1/governance/tasks/1/history',
+  '/api/v1/governance/tasks/1/report',
+]
+
+// 治理配置侧写端点：治理管理员专属。
+// D-006 的原始缺口：这些此前**任何登录用户**都能调用（含触发全量扫描、启停数据标准、改派任务）。
+const GOVERNANCE_WRITES = [
+  ['POST', '/api/v1/governance/scans', undefined],
+  ['POST', '/api/v1/governance/scans/1/retry', undefined],
+  ['POST', '/api/v1/governance/mappings', {}],
+  ['POST', '/api/v1/governance/mappings/1/versions', {}],
+  ['POST', '/api/v1/governance/mappings/1/confirm', {}],
+  ['POST', '/api/v1/governance/mappings/1/disable', {}],
+  ['POST', '/api/v1/governance/standards', {}],
+  ['POST', '/api/v1/governance/standards/1/versions', {}],
+  ['POST', '/api/v1/governance/standards/1/enable', { version: 0 }],
+  ['POST', '/api/v1/governance/standards/1/disable', { version: 0 }],
+  ['POST', '/api/v1/governance/tasks', {}],
+  ['POST', '/api/v1/governance/tasks/1/reassign', {}],
+  ['POST', '/api/v1/governance/tasks/1/plans', {}],
+  ['POST', '/api/v1/governance/tasks/1/start', {}],
+  ['PATCH', '/api/v1/governance/tasks/1/status', {}],
+  ['POST', '/api/v1/governance/jobs/1/retry', undefined],
+  ['PUT', '/api/v1/governance/asset-responsibilities/1', {}],
+]
+
+function describeLeaks(leaks) {
+  return leaks.length === 0 ? '' : `\n      ${leaks.join('\n      ')}`
+}
+
+await step(`匿名读治理数据被拒（${GOVERNANCE_READS.length} 个端点全部 403 governance_forbidden）`, async () => {
+  const leaks = []
+  for (const path of GOVERNANCE_READS) {
+    const res = await probe(path)
+    if (res.status !== 403 || res.json?.error?.code !== 'governance_forbidden') {
+      leaks.push(`${path} → ${res.status} ${res.json?.error?.code ?? res.text.slice(0, 60)}`)
+    }
+  }
+  assertEqual(leaks.length, 0, `以下治理读端点在匿名下未返回 403：${describeLeaks(leaks)}`)
+})
+
+await step(`匿名写治理配置被拒（${GOVERNANCE_WRITES.length} 个端点全部 401 auth_failed）`, async () => {
+  const leaks = []
+  for (const [method, path, body] of GOVERNANCE_WRITES) {
+    const res = await probe(path, { method, body })
+    if (res.status !== 401 || res.json?.error?.code !== 'auth_failed') {
+      leaks.push(`${method} ${path} → ${res.status} ${res.json?.error?.code ?? res.text.slice(0, 60)}`)
+    }
+  }
+  assertEqual(leaks.length, 0, `以下治理写端点在匿名下未返回 401：${describeLeaks(leaks)}`)
+})
+
+await step('管理员会话读写治理数据不受影响（闸门没有误伤正常权限）', async () => {
+  const tasks = await api('/api/v1/governance/tasks')
+  assertEqual(tasks.status, 200, '管理员读治理任务')
+  const scans = await api('/api/v1/governance/scans')
+  assertEqual(scans.status, 200, '管理员读扫描轮次')
+  const board = await api('/api/v1/governance/responsibility/board')
+  assertEqual(board.status, 200, '管理员读责任看板')
+})
+
+// 「登录但非管理员 → 403」这一形态需要真实非管理员账号才能端到端验证。
+// 本机库目前只有引导管理员 admin，故默认跳过；未配置时**不拿「匿名被拒」冒充「角色被拒」**。
+// 该形态由后端 GovernanceAuthorizationServiceTest 与各 controller 的授权用例覆盖。
+const STAFF_USER_ID = process.env.E2E_STAFF_USER_ID
+const STAFF_PASSWORD = process.env.E2E_STAFF_PASSWORD
+if (STAFF_USER_ID && STAFF_PASSWORD) {
+  await step(`已登录的非管理员 ${STAFF_USER_ID} 写治理配置被拒（403 governance_forbidden）`, async () => {
+    const adminCookie = sessionCookie
+    try {
+      await loginAs(STAFF_USER_ID, STAFF_PASSWORD)
+      const leaks = []
+      for (const [method, path, body] of GOVERNANCE_WRITES) {
+        const res = await probe(path, { method, body, session: true })
+        if (res.status !== 403 || res.json?.error?.code !== 'governance_forbidden') {
+          leaks.push(`${method} ${path} → ${res.status} ${res.json?.error?.code ?? res.text.slice(0, 60)}`)
+        }
+      }
+      assertEqual(leaks.length, 0,
+        `以下治理写端点对普通员工未返回 403（D-006 的核心断言）：${describeLeaks(leaks)}`)
+    } finally {
+      sessionCookie = adminCookie
+    }
+  })
+} else {
+  console.log('      跳过「非管理员被拒」端到端验证：未配置 E2E_STAFF_USER_ID / E2E_STAFF_PASSWORD；'
+    + '该形态由后端测试覆盖')
 }
 
 /* ------------------------------------------------------------------ */
