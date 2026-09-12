@@ -125,4 +125,21 @@ describe('UploadPage', () => {
     expect(vi.mocked(updateAssetDraft).mock.invocationCallOrder[0])
       .toBeLessThan(vi.mocked(submitAsset).mock.invocationCallOrder[0])
   }, 15_000)
+
+  it('allows selecting a single JPEG while keeping a separate folder picker', async () => {
+    const user = userEvent.setup()
+    const view = renderPage()
+    const fileInputs = view.container.querySelectorAll<HTMLInputElement>('input[type="file"]')
+
+    expect(fileInputs).toHaveLength(2)
+    expect(fileInputs[0]).not.toHaveAttribute('webkitdirectory')
+    expect(fileInputs[0].accept).toContain('.jpeg')
+    expect(fileInputs[1]).toHaveAttribute('webkitdirectory')
+
+    await user.upload(fileInputs[0], new File(['jpeg'], 'images1.jpeg', { type: 'image/jpeg' }))
+    expect(screen.getByText('images1.jpeg')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '保存草稿' }))
+    await waitFor(() => expect(uploadAssetFile).toHaveBeenCalledWith(expect.objectContaining({ name: 'images1.jpeg' })))
+  })
 })

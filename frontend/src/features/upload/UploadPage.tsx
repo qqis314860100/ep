@@ -1,6 +1,7 @@
 import {
   CheckCircleOutlined,
   CloudUploadOutlined,
+  FolderOpenOutlined,
   InboxOutlined,
   LinkOutlined,
   LoadingOutlined,
@@ -296,6 +297,22 @@ const Dropzone = styled(Dragger)`
   }
 `
 
+const UploadSourceRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+
+  .ant-typography {
+    font-size: 11px;
+  }
+`
+
+const FolderUpload = styled(Upload)`
+  flex: 0 0 auto;
+`
+
 const QueueSummary = styled.div`
   display: flex;
   flex: 0 0 auto;
@@ -368,6 +385,12 @@ function normalizeFiles(event: { fileList: UploadFile[] } | UploadFile[]) {
   return Array.isArray(event) ? event : event?.fileList ?? []
 }
 
+function mergeUploadFiles(current: UploadFile[], incoming: UploadFile[]) {
+  const files = new Map(current.map((file) => [file.uid, file]))
+  incoming.forEach((file) => files.set(file.uid, file))
+  return [...files.values()]
+}
+
 function stageTag(stage: FileStage) {
   const props: Record<FileStage, { color: string; icon: React.ReactNode }> = {
     待上传: { color: 'default', icon: <CloudUploadOutlined /> },
@@ -430,7 +453,7 @@ export function UploadPage() {
   )
 
   const handleFilesChange = (info: UploadChangeParam<UploadFile>) => {
-    const nextFiles: UploadFile[] = info.fileList
+    const nextFiles = mergeUploadFiles(form.getFieldValue('files') ?? [], info.fileList)
     setRoles((current) => Object.fromEntries(nextFiles.map((file) => [file.uid, current[file.uid] ?? defaultRole(file.name)])))
     setGroups((current) => Object.fromEntries(nextFiles.map((file, index) => [file.uid, current[file.uid] ?? `资产组 ${Math.floor(index / 2) + 1}`])))
     setFileStages((current) => Object.fromEntries(nextFiles.map((file) => [file.uid, current[file.uid] ?? '待上传'])))
@@ -438,11 +461,23 @@ export function UploadPage() {
 
   const uploadProps: UploadProps = {
     multiple: true,
-    directory: true,
     beforeUpload: () => false,
     onChange: handleFilesChange,
     showUploadList: false,
     accept: '.x_t,.step,.stp,.iges,.igs,.dwg,.dxf,.pdf,.png,.jpg,.jpeg,.tiff,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.zip,.rar',
+  }
+
+  const folderUploadProps: UploadProps = {
+    multiple: true,
+    directory: true,
+    beforeUpload: () => false,
+    showUploadList: false,
+    accept: uploadProps.accept,
+    onChange: (info) => {
+      const nextFiles = mergeUploadFiles(form.getFieldValue('files') ?? [], info.fileList)
+      form.setFieldValue('files', nextFiles)
+      handleFilesChange({ ...info, fileList: nextFiles })
+    },
   }
 
   const valuesToInput = (values: UploadFormValues): AssetDraftInput => ({
@@ -842,15 +877,21 @@ export function UploadPage() {
           <Form.Item
             name="files"
             valuePropName="fileList"
-            getValueFromEvent={normalizeFiles}
+            getValueFromEvent={(event) => mergeUploadFiles(form.getFieldValue('files') ?? [], normalizeFiles(event))}
             rules={[{ required: true, type: 'array', min: 1, message: '请至少选择一个资产文件' }]}
           >
             <Dropzone {...uploadProps}>
               <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-              <p className="ant-upload-text">拖拽文件或文件夹到此处</p>
+              <p className="ant-upload-text">点击或拖拽文件到此处</p>
               <p className="ant-upload-hint">X_T / STEP / PDF / DWG / 图片 / 说明附件</p>
             </Dropzone>
           </Form.Item>
+          <UploadSourceRow>
+            <Typography.Text type="secondary">支持单个/多个文件；需要批量导入时可选择文件夹。</Typography.Text>
+            <FolderUpload {...folderUploadProps}>
+              <Button size="small" icon={<FolderOpenOutlined />}>选择文件夹</Button>
+            </FolderUpload>
+          </UploadSourceRow>
           <Alert
             type={formatSummary.unknownCount > 0 ? 'warning' : 'info'}
             showIcon
