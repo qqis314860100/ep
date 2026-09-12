@@ -1,213 +1,172 @@
-# Project Agent Guide
+# 项目 Agent 指南
 
-## What This Is
+## 项目是什么
 
-This repository contains the simulation asset management system. The frontend is
-React 18, TypeScript, Vite, Ant Design, and styled-components. The backend is
-Java 21, Spring Boot, Spring JDBC, and OceanBase in MySQL-compatible mode.
+本仓库是模拟资产管理系统的代码库。前端为 React 18、TypeScript、Vite、Ant Design
+与 styled-components；后端为 Java 21、Spring Boot、Spring JDBC，数据库为
+MySQL 兼容模式的 OceanBase。
 
-## How Work Is Driven
+## 工作如何驱动
 
-Development intent starts from the conversation, not from maintained
-requirement/design documents (those lines are retired; see Document Locations).
-Work flows through the Matt Pocock skill set installed at `~/.dsh/skills`
-(MIT; attribution in `LICENSE.mattpocock` there):
+开发意图从对话开始，而不是来自长期维护的需求/设计文档（那条线已退役，见文档位置）。
+工作经由安装在 `~/.dsh/skills` 的 Matt Pocock 技能集流转（MIT；署名见该目录下的
+`LICENSE.mattpocock`）：
 
-- `ask-matt` routes a situation to the fitting skill.
-- Sharpen the intent first with `grilling` / `grill-with-docs` / `wait-what`.
-- `to-spec` synthesizes a feature spec; `to-tickets` breaks it into vertical
-  tracer tickets, each with acceptance criteria and blocking edges. Each ticket
-  carries a `测试：` line listing its cases as normal / boundary / error.
-- Implement test-first with `tdd` + `implement`; land each ticket as a small,
-  independently verifiable commit.
-- Finish with `code-review`; use `diagnosing-bugs` for hard regressions,
-  `research` for source-backed answers, and `resolving-merge-conflicts` for
-  in-progress git conflicts.
+- `ask-matt` 把当前处境路由到合适的技能。
+- 先用 `grilling` / `grill-with-docs` / `wait-what` 把意图磨清楚。
+- `to-spec` 综合出特性规格；`to-tickets` 拆成纵向的 tracer 工单，每张含验收标准与
+  阻塞边。每张工单带一行 `测试：`，按 正常 / 边界 / 异常 列出用例。
+- 用 `tdd` + `implement` 测试先行实现；每张工单落成一个小而可独立验证的提交。
+- 收尾用 `code-review`；难定位的回归用 `diagnosing-bugs`，需要来源支撑的答案用
+  `research`，进行中的 git 冲突用 `resolving-merge-conflicts`。
 
-A new requirement runs through one sequence. `docs/development-flow.md` holds the
-full table (owner, artifact, exit criteria, per-phase commands) plus the
-shortcuts for hotfixes, bug diagnosis, research, and conflicts:
+一个新需求沿一条固定序列走。`docs/development-flow.md` 保存完整表格（负责人、产物、
+退出标准、各阶段命令）以及热修、缺陷诊断、调研、冲突的快捷路径：
 
-1. Route and sharpen the intent (`ask-matt` / `grilling` / `wait-what`).
-2. `to-spec` publishes the spec into `docs/plans/<yyyy-mm-dd>-<slug>.md`.
-3. `to-tickets` cuts vertical tracer tickets with blocking edges.
-4. Agree the seams under test and list each case as normal / boundary / error.
-5. Implement test-first, one case at a time (`tdd` + `implement`).
-6. Run the smallest relevant verification (see Verification below).
-7. `code-review` both axes; refactor there, not inside the red-green loop.
-8. Commit per ticket (backend and frontend separately), then archive the spec.
+1. 路由并磨清意图（`ask-matt` / `grilling` / `wait-what`）。
+2. `to-spec` 把规格发布到 `docs/plans/<yyyy-mm-dd>-<slug>.md`。
+3. `to-tickets` 切出带阻塞边的纵向 tracer 工单。
+4. 对齐待测的接缝，并按 正常 / 边界 / 异常 列出用例。
+5. 测试先行实现，一次一条用例（`tdd` + `implement`）。
+6. 跑最小相关验证（见下方「验证」）。
+7. `code-review` 双轴评审；重构放在这里，不要塞进红绿循环。
+8. 按工单提交（前后端分开），然后归档规格。
 
-Artifact discipline (kept as governance): no issue tracker is configured, so
-`to-spec` / `to-tickets` publish into
-`docs/plans/<yyyy-mm-dd>-<slug>.md` (one file per feature, tickets embedded or
-split beside it). Never create `.scratch/`, ticket dumps, or one-off progress
-notes at the repository root. Research notes go under `docs/research/`.
+产物纪律（作为治理保留）：未配置 issue tracker，因此 `to-spec` / `to-tickets` 发布到
+`docs/plans/<yyyy-mm-dd>-<slug>.md`（一个特性一个文件，工单内嵌或旁置拆分）。禁止在
+仓库根目录创建 `.scratch/`、工单转储或一次性的进展笔记。调研笔记放 `docs/research/`。
 
-## Read By Task
+## 按任务查阅
 
-- Domain terms or legacy business rules: consult the archived reference only
-  when a task touches legacy behavior —
-  `docs/archive/2026-09-07-doc-driven-development/root/CONTEXT.md` for terms,
-  and the ADRs under `docs/archive/2026-09-07-doc-driven-development/adr/` for
-  historical decisions.
-- Legacy-schema compatibility: archived
-  `docs/archive/2026-09-07-doc-driven-development/migrations/` plus the
-  backend's own resources.
-- Local MySQL integration: `docs/local-development.md`.
-- Everything else: the code is the fact — read the relevant `backend/` package
-  or `frontend/` feature directory and neighboring implementations, and follow
-  the existing layering (controller → application service → domain →
-  infrastructure adapter) and naming conventions you observe there.
-- Do not inspect `.docx`, `node_modules`, `dist`, `target`, `.playwright-cli`,
-  or `output` unless the task explicitly requires an artifact from them.
+- 领域术语或遗留业务规则：只有当任务触及遗留行为时才查阅归档参考 —— 术语见
+  `docs/archive/2026-09-07-doc-driven-development/root/CONTEXT.md`，历史决策见
+  `docs/archive/2026-09-07-doc-driven-development/adr/` 下的 ADR。
+- 遗留 schema 兼容性：归档的
+  `docs/archive/2026-09-07-doc-driven-development/migrations/` 加上后端自身的资源。
+- 本地 MySQL 联调：`docs/local-development.md`。
+- 其余情况：代码即事实 —— 阅读相关的 `backend/` 包或 `frontend/` 特性目录及相邻实现，
+  并遵循你在那里看到的既有分层（controller → application service → domain →
+  infrastructure adapter）与命名约定。
+- 不要查看 `.docx`、`node_modules`、`dist`、`target`、`.playwright-cli` 或 `output`，
+  除非任务明确需要其中的产物。
 
-## Repository Structure
+## 仓库结构
 
-Keep the repository root clean and stable. The root is a whitelist; everything
-else lives in a named directory.
+保持仓库根目录干净稳定。根目录是白名单；其他一切都在具名目录里。
 
-Allowed at root: `AGENTS.md`, `README.md`, `.agents/`, `.claude/`, `backend/`,
-`docs/`, `frontend/`, `scripts/`, `skills-lock.json`, and standard dotfiles
-(`.editorconfig`, `.env.example`, `.env.local`, `.gitignore`).
+根目录允许：`AGENTS.md`、`README.md`、`.agents/`、`.claude/`、`backend/`、`docs/`、
+`frontend/`、`scripts/`、`skills-lock.json`，以及标准 dotfiles（`.editorconfig`、
+`.env.example`、`.env.local`、`.gitignore`）。
 
-- Never create cache or generated-artifact directories at the root
-  (`.pnpm-store`, `.playwright-cli`, `.superpowers`, `.worktrees`, `output/`,
-  `node_modules/`, `dist/`, `target/`). Project-local agent skills belong under
-  `.agents/skills/` and are pinned by `skills-lock.json`; other generated
-  artifacts belong under `/tmp` or `scripts/e2e/.logs/`.
-- Run `scripts/check_repo_structure.sh` before committing; it fails on any
-  unexpected root entry.
+- 禁止在根目录创建缓存或生成产物目录（`.pnpm-store`、`.playwright-cli`、
+  `.superpowers`、`.worktrees`、`output/`、`node_modules/`、`dist/`、`target/`）。
+  项目级 agent 技能放在 `.agents/skills/` 下并由 `skills-lock.json` 锁定；其他生成
+  产物放 `/tmp` 或 `scripts/e2e/.logs/`。
+- 提交前运行 `scripts/check_repo_structure.sh`；任何意外的根目录条目都会让它失败。
 
-### Document Locations
+### 文档位置
 
-Active documentation is kept minimal:
+活跃文档保持精简：
 
-| What | Where |
+| 内容 | 位置 |
 | --- | --- |
-| Local development / DB runbook | `docs/local-development.md` |
-| New-requirement development flow | `docs/development-flow.md` |
-| Testing strategy and verification layers | `docs/testing-strategy.md` |
-| Feature specs and tickets (active) | `docs/plans/` |
-| Research findings (active) | `docs/research/` |
-| Retired doc-driven regime (frozen history) | `docs/archive/2026-09-07-doc-driven-development/` |
+| 本地开发 / 数据库手册 | `docs/local-development.md` |
+| 新需求开发流程 | `docs/development-flow.md` |
+| 测试策略与验证分层 | `docs/testing-strategy.md` |
+| 特性规格与工单（活跃） | `docs/plans/` |
+| 调研结论（活跃） | `docs/research/` |
+| 已退役的文档驱动体系（冻结历史） | `docs/archive/2026-09-07-doc-driven-development/` |
 
-The retired tree holds the former requirement.md baseline and generated docx,
-CONTEXT.md glossary, module requirements, technical design, ADRs, migrations,
-design specs, R2C pipeline/template assets (`.ai/`, `.prompt/`), and the docx
-generator script. Treat it as read-only history; never revive a "source of
-truth" document line from it without an explicit human decision.
+退役目录保存了旧的 requirement.md 基线及生成的 docx、CONTEXT.md 术语表、模块需求、
+技术设计、ADR、迁移、设计规格、R2C 流水线/模板资产（`.ai/`、`.prompt/`）以及 docx
+生成脚本。把它当作只读历史；未经人类明确决定，绝不要从中复活任何「事实来源」文档线。
 
-New documentation goes under `docs/` only. Never add new markdown, docx, or
-PDF files at the repository root.
+新文档一律放 `docs/` 下。绝不在仓库根目录新增 markdown、docx 或 PDF 文件。
 
-## Hard Rules
+## 硬规则
 
-- Use `pnpm` for frontend commands. Do not create `package-lock.json`.
-- Use `rtk` for noisy Git, Maven, pnpm, build, test, diff, and log output. Use
-  `rtk proxy` when an unfiltered failure is needed for diagnosis.
-- Locate code with `rg`, then read the smallest useful file range.
-- The real database is the only data source. The backend defaults to the
-  `local` profile and talks to the configured MySQL/OceanBase instance; there
-  are no in-memory repositories or seeded mock data in `src/main`. In-memory
-  implementations live in `src/test` as test doubles only. Never connect to or
-  mutate a production database during development or verification.
-- Do not change legacy primary keys or overwrite legacy source values.
-- Product and production filters must match within the same `AssetScope`; do
-  not combine matches from different scopes.
-- The asset lifecycle is `草稿 -> 待整理 -> 已标准化 -> 已停用`.
-- Do not commit credentials, local environment files, uploaded data, generated
-  browser artifacts, or build output.
-- Keep the repository root whitelisted (see Repository Structure); run
-  `scripts/check_repo_structure.sh` before committing and fix every violation.
-- API error codes are declared only in
-  `backend/src/main/java/com/tianshu/assets/common/api/ErrorCode.java`; never
-  write a response code as a string literal. Uniqueness of `code()` is asserted
-  by `ErrorCodeTest`, so a duplicate fails `mvn test`.
-- The API error body has exactly one shape (`ApiError`) and the frontend has
-  exactly one mirror (`frontend/src/types/api.ts` → `ApiErrorBody`). Do not
-  redeclare it in a service or feature.
-- Schema changes under `scripts/db/migrations/` require a spec or a
-  `docs/plans/` record first. Destructive changes (dropping a column, changing a
-  column type, adding NOT NULL) additionally stop for explicit human
-  confirmation.
-- Adding a dependency to `pom.xml`, `package.json`, or the lockfiles requires a
-  stated reason in the spec or the commit body. Do not add a dependency to avoid
-  writing a small amount of code.
-- Every outbound call and external process declares a bounded timeout and a
-  defined failure path — follow `HttpAiCapabilityClient` (connect/request
-  timeouts, mapped errors) and `LibreOfficeDocumentPreviewConverter` (`waitFor`
-  timeout, then `destroyForcibly`). State the retry policy (fail-fast counts) and
-  give mutating calls an idempotency key as `GovernanceExecutionService` does.
-- Never log or return secrets, tokens, credentials, file contents, or full
-  request bodies; log with SLF4J carrying the operation and the actor. No
-  request/correlation id exists yet — add one centrally, never per module.
-- No repo-wide or multi-module refactor without explicit human confirmation:
-  publish the change list (files, renames, deletions, API changes) and get a yes
-  before writing it. Refactors stay out of the red → green loop and out of
-  feature tickets.
-- Test cases for business rules (state transitions, statistics, `AssetScope`
-  filters, numbering and settlement rules) are confirmed by a human before
-  implementation, and model-authored cases are drafts. An expectation that
-  recomputes the implementation's formula is not a test.
+- 前端命令一律用 `pnpm`。不要创建 `package-lock.json`。
+- 嘈杂的 Git、Maven、pnpm、构建、测试、diff 与日志输出用 `rtk` 处理。诊断需要未经
+  过滤的失败输出时用 `rtk proxy`。
+- 用 `rg` 定位代码，然后只读取最小可用的文件范围。
+- 真实数据库是唯一数据源。后端默认 `local` profile，连接所配置的 MySQL/OceanBase
+  实例；`src/main` 中没有内存仓储或种子 mock 数据。内存实现只作为测试替身放在
+  `src/test`。开发或验证期间绝不连接或变更生产数据库。
+- 不要修改遗留主键，不要覆盖遗留源值。
+- 成品与产线过滤必须在同一个 `AssetScope` 内匹配；不要把不同 scope 的匹配结果合并。
+- 资产生命周期是 `草稿 -> 待整理 -> 已标准化 -> 已停用`。
+- 不要提交凭据、本地环境文件、上传数据、生成的浏览器产物或构建输出。
+- 保持仓库根目录白名单（见「仓库结构」）；提交前运行
+  `scripts/check_repo_structure.sh` 并修掉每一处违规。
+- API 错误码只在 `backend/src/main/java/com/tianshu/assets/common/api/ErrorCode.java`
+  声明；绝不把响应码写成字符串字面量。`code()` 的唯一性由 `ErrorCodeTest` 断言，
+  重复会让 `mvn test` 失败。
+- API 错误体只有一种形状（`ApiError`），前端只有一份镜像
+  （`frontend/src/types/api.ts` → `ApiErrorBody`）。不要在 service 或 feature 里重新
+  声明它。
+- `scripts/db/migrations/` 下的 schema 变更必须先有规格或 `docs/plans/` 记录。破坏性
+  变更（删列、改列类型、加 NOT NULL）还要停下来等待人类明确确认。
+- 往 `pom.xml`、`package.json` 或锁文件里新增依赖，必须在规格或提交正文里写明理由。
+  不要为了省下少量代码而引入依赖。
+- 每一次对外调用与外部进程都要声明有界超时和明确的失败路径 —— 参照
+  `HttpAiCapabilityClient`（连接/请求超时、错误映射）与
+  `LibreOfficeDocumentPreviewConverter`（`waitFor` 超时后 `destroyForcibly`）。写明
+  重试策略（fail-fast 也算一种），并像 `GovernanceExecutionService` 那样给变更类调用
+  加幂等键。
+- 绝不记录或返回密钥、令牌、凭据、文件内容或完整请求体；日志用 SLF4J 带上操作与
+  操作者。目前还没有 request/correlation id —— 要加就集中加，不要按模块各加一套。
+- 未经人类明确确认，不做全仓库或多模块重构：先发布变更清单（文件、重命名、删除、
+  API 变更）并拿到同意再动手。重构不进红绿循环，也不进特性工单。
+- 业务规则的测试用例（状态流转、统计口径、`AssetScope` 过滤、编号与结算规则）在实现
+  前须由人类确认，模型给出的用例只是草稿。用实现本身的公式重算出来的期望值不算测试。
 
-## Git Commits
+## Git 提交
 
-- Every completed, independently verifiable version must be committed after its
-  required checks pass; do not leave a completed version only in the worktree.
-- Keep backend and frontend changes in separate commits, even when they belong
-  to the same product version. Contract or documentation changes use their own
-  commit when they are independently reviewable.
-- Use Chinese Conventional Commit messages, for example
-  `feat(后端): 实现文档首次发布` and `feat(前端): 实现文档检索工作台`.
-- Stage only files belonging to the current version and layer. Never include
-  unrelated user changes or generated artifacts in a version commit.
-- Do not commit before verification. Record the product version in the commit
-  body when one version contains multiple frontend/backend commits.
+- 每个完成且可独立验证的版本，必须在其所需检查通过后提交；不要只把完成的版本留在
+  工作区。
+- 前后端改动分开提交，即使属于同一个产品版本。契约或文档改动在可独立评审时单独成
+  一次提交。
+- 提交信息用中文 Conventional Commits，例如 `feat(后端): 实现文档首次发布` 与
+  `feat(前端): 实现文档检索工作台`。
+- 只暂存属于当前版本与层次的文件。绝不把无关的用户改动或生成产物带进版本提交。
+- 未经验证不提交。当一个版本包含多次前后端提交时，在提交正文里记录产品版本号。
 
-## Verification
+## 验证
 
-Run the smallest relevant check first. Broaden verification for shared
-contracts, cross-module changes, or release-ready work.
+先跑最小的相关检查。对共享契约、跨模块改动或接近发布的工作扩大验证范围。
 
 ```bash
-# Repository structure hygiene (run first; must pass)
+# 仓库结构卫生（先跑；必须通过）
 scripts/check_repo_structure.sh
 
-# Frontend
+# 前端
 cd frontend
 rtk pnpm lint
 rtk pnpm typecheck
-rtk pnpm build   # release gate only: routing/lazy-load/Vite config/cross-feature/release
+rtk pnpm build   # 仅发布门禁：路由/懒加载/Vite 配置/跨特性/发布
 
-# One backend test class
+# 单个后端测试类
 cd backend
 rtk mvn -Dtest=AssetControllerTest test
 
-# Full backend suite
+# 后端全量
 cd backend
 rtk mvn test
 ```
 
-- Frontend-only changes: the daily commit gate is lint + typecheck. Run
-  `pnpm build` only for whitelisted triggers (release gate): routing or
-  lazy-loaded entry points, Vite/bundler configuration, cross-feature page
-  mounting, or a release/acceptance checkpoint. When build is required, wrap it
-  in `rtk` and judge by exit code and failure summary, not full logs.
-- Backend-only changes: run the directly affected test class first; run the
-  full suite for shared API, repository, configuration, or domain changes.
-- UI behavior without automated coverage: provide browser evidence for the
-  affected workflow at an appropriate desktop viewport.
-- Do not repeat an unchanged successful check. Diagnose repeated failures before
-  rerunning the same command.
-- Local commit gate: `bash scripts/install-hooks.sh` installs the versioned hook
-  from `scripts/git-hooks/` (structure whitelist + secret scan + frontend
-  lint/typecheck when `frontend/` is staged). Backend tests stay out of the hook
-  on purpose; run them yourself. Bypass only with `--no-verify`, and say why in
-  the commit body.
+- 仅前端改动：日常提交门禁是 lint + typecheck。`pnpm build` 只在白名单触发时跑
+  （发布门禁）：路由或懒加载入口、Vite/打包器配置、跨特性页面挂载，或发布/验收检查
+  点。必须跑 build 时用 `rtk` 包裹，并以退出码和失败摘要判断，不要看完整日志。
+- 仅后端改动：先跑直接受影响的测试类；共享 API、仓储、配置或领域改动跑全量。
+- 没有自动化覆盖的 UI 行为：在合适的桌面视口为受影响的工作流提供浏览器证据。
+- 不要重复一次未发生变化且已成功的检查。反复失败要先诊断再重跑同一命令。
+- 本地提交门禁：`bash scripts/install-hooks.sh` 会从 `scripts/git-hooks/` 安装受版本
+  管理的 hook（结构白名单 + 密钥扫描 + 暂存了 `frontend/` 时的前端 lint/typecheck）。
+  后端测试故意不放进 hook；请自行运行。只有用 `--no-verify` 才能绕过，并在提交正文里
+  说明原因。
 
-## Before Finishing
+## 收尾之前
 
-- Review only the relevant diff and confirm unrelated user changes remain intact.
-- Report the files changed, checks run, and any behavior that still needs human
-  confirmation.
-- Keep the final report concise; do not paste full files, logs, or test output.
+- 只审查相关 diff，并确认无关的用户改动保持完好。
+- 报告改动的文件、跑过的检查，以及任何仍需人类确认的行为。
+- 最终报告保持简洁；不要粘贴完整文件、日志或测试输出。
