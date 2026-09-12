@@ -85,11 +85,32 @@ UI 行为若没有自动化覆盖，需按 `AGENTS.md` 提供桌面视口的浏�
 | 前端组件 / 页面 / 交互 | `pnpm exec vitest run <file>` + `pnpm lint` + `pnpm typecheck` |
 | 路由 / 懒加载 / Vite 配置 / 跨 feature 挂载 | 上述 + `pnpm build` |
 | 跨模块业务闭环（资产→治理→文档→检索） | `scripts/e2e/run-e2e.sh`，并在 `flow.mjs` 补阶段断言 |
+| **授权 / 权限**（治理域闸门、身份头、角色判定） | 全量 `rtk mvn test` + `bash scripts/e2e/run-e2e.sh`。授权是 fail-closed 的，只测正向路径等于没测——必须同时覆盖「未登录」与「登录但无权」两条拒绝路径（见下） |
 | **ep ↔ ai-rag 契约**（`AiCapabilityClient`、`ai/` 模块、能力服务端点/payload/事件序） | 三层：① **`mvn test`** 的 `HttpAiCapabilityClientContractTest`（本地 stub，断言 ep 发出的路径/鉴权头/camelCase payload 与九个抽取字段的解析）② ai-rag 侧 `rag/tests/test_capability_contract.py`（17 个走真实路由：鉴权双头、camelCase 别名、extract 字段、base64 运输、namespace、scopes、**ep 模式 SSE 事件序**）③ **`node scripts/e2e/rag-contract-smoke.mjs`**（需起 ai-rag；含 `/openapi.json` 规范名断言，改事件序再加 `--with-llm`） |
 | 纯文案 / 样式 | `pnpm lint` + `pnpm typecheck`（+ 浏览器证据） |
 
 `flow.mjs` 扩展规则：新需求若改变对外可见的业务闭环（新增状态、新增必经步骤、跨模块联动），
 必须在 `flow.mjs` 对应阶段补断言；仅内部实现调整不扩。
+
+### 3.1 授权改动的四层覆盖（D-002 / D-006 的教训）
+
+治理域曾有 10 个 controller 完全没接授权服务，而 **131 个测试全绿** —— 因为每个 controller
+测试都用「不带授权服务」的短构造器，授权链路整条不在射程内。这类失效不会自己暴露，必须靠
+**刻意的拒绝路径断言**。四层分工：
+
+| 层 | 测试 | 钉住什么 |
+| --- | --- | --- |
+| 语义 | `GovernanceAuthorizationServiceTest` | 闸门 fail-closed：**身份为空即拒**，即使角色看起来合法；只看角色的实现会在这里放行 |
+| 结构 | `GovernanceEndpointIdentityTest` | 自动扫描 `governance/api` 包，任一治理处理函数漏读 `X-User-Id` 即红（用变异测试验证过会点名到方法） |
+| 行为 | 各 `*ControllerTest` | 正向路径走真实授权服务（`GovernanceApiTestSupport` 注入），不是短构造器 |
+| 链路 | `flow.mjs` 阶段 12 | 真实库 + 真实会话：匿名扫全部治理读端点（应 403）与写端点（应 401），并确认管理员仍可用 |
+
+**拒绝路径必须覆盖两种身份**：① 未登录（身份头为空）；② 已登录但无管理员角色。
+只断言①等于只测了 `SessionIdentityFilter`，测不到闸门本身 ——
+「任何登录用户都能调治理配置」正是 D-006 的真实形态。
+
+配置了 `E2E_STAFF_USER_ID` / `E2E_STAFF_PASSWORD` 时，阶段 12 会额外端到端验证②；
+未配置时**明确跳过并打印原因**，不拿①冒充②。
 
 **跨仓改动**：`ai-rag/` 是独立仓（ep 的 `.gitignore` 已忽略它），不在这张表的本地命令覆盖范围内 ——
 改它要按它自己的 `AGENTS.md` 与 `docs/EXECUTION_RULES.md` 跑它的 lint/测试并提交到它自己的仓。

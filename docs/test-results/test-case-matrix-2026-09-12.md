@@ -12,7 +12,7 @@
 | 实现核查 | 已实现 553 · 部分实现 50 · 存疑 24 · 未发现实现 7 |
 | **现有验证承载 = 无(测试盲区)** | **321**(占 51%) |
 | 实现核查 ≠ 已实现(功能缺口) | 81 |
-| 已核实/已确认缺陷 | 14 条(其中已修复 1 条) |
+| 已核实/已确认缺陷 | 14 条(其中已修复 3 条：D-001、D-002、D-006) |
 | 待核实缺陷 | 2 条 |
 
 ## 二、已核实缺陷清单
@@ -20,11 +20,11 @@
 | 编号 | 优先级 | 缺陷 | 证据与影响 | 核实状态 |
 |---|---|---|---|---|
 | D-001 | P0 | 文档停用在真实库上必然失败（已修复） | JdbcDocumentRepository 的两条 UPDATE 都带 status='DRAFT' 守卫(knowledge_document 与 document_version),而守卫比对的是库里存量行状态。因此 disable / applyAiCuratedMetadata / 发布指定版本 在真实库上匹配 0 行抛 document_state_conflict,即文档停用与 AI 编目应用不可用。测试全走内存替身故未发现。已于 e37ca49 删除两处守卫并补 H2 回归用例。 | 已修复 |
-| D-002 | P1 | 授权可被静默跳过,且权限测试无效 | 3 个 controller 各有不带授权服务的构造重载,配合 7 处 if(authorizationService!=null);GovernanceExecutionControllerTest:34 正用短构造器 → 测试在授权关闭下跑。生产因全参构造标 @Autowired 未受影响,但违反项目「不静默降级」原则。 | 已核实 |
+| D-002 | P1 | 授权可被静默跳过,且权限测试无效（已修复） | 3 个 controller 各有不带授权服务的构造重载,配合 7 处 if(authorizationService!=null);GovernanceExecutionControllerTest:34 正用短构造器 → 测试在授权关闭下跑。**已修复**：删除 4 个 controller 的短构造重载与全部 7 处 null 判断；`requireGovernanceAdmin`/`requireAcceptance` 改为 fail-closed 双参重载(身份为空即拒),只看角色的旧重载收为私有。12 个 controller 测试改由 `GovernanceApiTestSupport` 注入**真实**授权服务并带身份头——此前它们正是用短构造器,故授权链路整条不在射程内。回归测试：`GovernanceAuthorizationServiceTest`(5 例)、`GovernanceEndpointIdentityTest`(结构扫描,经变异测试验证会点名到方法)。 | 已修复 |
 | D-003 | P1 | ApiExceptionHandler 缺 3 类异常分支 | MethodArgumentTypeMismatchException / HttpMessageNotReadableException / IllegalStateException 均未注册(grep=0)→ 这些情况返回非 ApiError 形状,前端拿不到 error.code。 | 已核实 |
 | D-004 | P2 | DocumentCollaborationController 的 11 个 @PathVariable @Min(1) 是死注解 | 类上无 @Validated,方法级校验不触发;现靠「查不到就 404」兜底。 | 已核实 |
 | D-005 | P2 | GovernanceIssueController 只有 1 个端点 | 仅有 GET /issues,问题详情与状态变更端点不存在。 | 已核实 |
-| D-006 | P1 | 治理配置侧 7 个 controller 无任何授权调用 | scan/issue/mapping/standard/inventory/operations/history 未接入 GovernanceAuthorizationService(主链的 执行/确认/验收/责任人 已接入)。 | 已核实(范围) |
+| D-006 | P1 | 治理配置侧 controller 无任何授权调用（已修复，范围实为 10 个而非 7 个） | 原描述列了 scan/issue/mapping/standard/inventory/operations/history 7 个；**实际漏掉的是 10 个**——另含 `GovernanceTaskController`(创建任务/改派/启动/计划编排)、`GovernanceJobController`(重试)、`GovernanceResponsibilityBoardController`。其中任务域最严重：**任何登录用户都能创建治理任务并改派责任人**。另发现**匿名**(无会话)可直读全部治理数据，含 `/tasks/employees` 员工名单与治理报表。**已修复**：全部 10 个 controller 接入闸门——写操作 `requireGovernanceAdmin`(需登录+管理员角色)，读操作 `requireAuthenticated`(登录即可;治理台首页对普通员工开放，数据范围过滤仍归 S7)。`submit-for-confirmation` 刻意用 `requireExecutionTask`(责任人本人或内容管理员)，因它由清洗页的责任人发起。E2E 阶段 12 覆盖：匿名扫 11 个读端点(应 403)+17 个写端点(应 401)，并经变异测试验证会红。 | 已修复 |
 | D-007 | P1 | 文档点赞无评论存在性校验 | 可在 document_comment_like 留下指向不存在评论的孤儿行(该表无外键),并返回 200 + liked=true。 | 待核实 |
 | D-008 | P2 | 文档域与关联域未接只读总开关 | JdbcDocumentRepository 与 JdbcAssetDocumentRelationRepository 未接 asset.database-writes-enabled(dictionary/asset/system/governance 已接),只读部署下仍可写入。 | 待核实 |
 | D-009 | P2 | DocumentVersionStatus.HISTORICAL 无写入路径 | 枚举声明 1 处、全仓库使用 0 处。旧版本发布后仍为 PUBLISHED,与 javadoc「原版本转为历史」不符;「哪些是历史版本」只能靠 document.current_version_id 反推。 | 已核实 |

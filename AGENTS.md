@@ -104,6 +104,20 @@ MySQL 兼容模式的 OceanBase。
 - API 错误体只有一种形状（`ApiError`），前端只有一份镜像
   （`frontend/src/types/api.ts` → `ApiErrorBody`）。不要在 service 或 feature 里重新
   声明它。
+- **治理域的授权闸门只有一个入口 `GovernanceAuthorizationService`，且是 fail-closed 的**：
+  写操作用 `requireGovernanceAdmin(userId, roles)`（要求登录身份**且**具备
+  `CONTENT_ADMIN`/`SYSTEM_ADMIN`），读操作用 `requireAuthenticated(userId)`（登录即可，
+  数据范围过滤归 S7）。安全默认是「拒」，不是「放行」：
+  - 不要新增「不带授权服务」的 controller 构造重载，也不要写
+    `if (authorizationService != null)` —— 那会让授权**静默失效**而不是报错（D-002）。
+  - 不要把角色判断抄到 controller 里；也不要用只看角色的旧重载（已收为私有）。
+  - 治理域**每个 HTTP 处理函数都必须读取 `X-User-Id`**，由
+    `GovernanceEndpointIdentityTest` 自动扫描 `governance/api` 包强制 ——
+    新增漏读身份头的端点会让 `mvn test` 直接变红（已用变异测试验证会点名到方法）。
+  - 改动治理端点后必须跑 `bash scripts/e2e/run-e2e.sh`：其阶段 12 会匿名扫全部治理读写
+    端点，任一缺口都会让 E2E 失败并打印泄漏的端点与响应体。
+  - 身份头由 `SessionIdentityFilter` 从服务端会话覆写，客户端自报的 `X-User-Id`/`X-User-Roles`
+    一律失效；因此不要依赖调用方传来的角色。
 - `scripts/db/migrations/` 下的 schema 变更必须先有规格或 `docs/plans/` 记录。破坏性
   变更（删列、改列类型、加 NOT NULL）还要停下来等待人类明确确认。
 - 往 `pom.xml`、`package.json` 或锁文件里新增依赖，必须在规格或提交正文里写明理由。
