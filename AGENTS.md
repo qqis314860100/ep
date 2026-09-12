@@ -122,6 +122,20 @@ PDF files at the repository root.
   browser artifacts, or build output.
 - Keep the repository root whitelisted (see Repository Structure); run
   `scripts/check_repo_structure.sh` before committing and fix every violation.
+- API error codes are declared only in
+  `backend/src/main/java/com/tianshu/assets/common/api/ErrorCode.java`; never
+  write a response code as a string literal. Uniqueness of `code()` is asserted
+  by `ErrorCodeTest`, so a duplicate fails `mvn test`.
+- The API error body has exactly one shape (`ApiError`) and the frontend has
+  exactly one mirror (`frontend/src/types/api.ts` → `ApiErrorBody`). Do not
+  redeclare it in a service or feature.
+- Schema changes under `scripts/db/migrations/` require a spec or a
+  `docs/plans/` record first. Destructive changes (dropping a column, changing a
+  column type, adding NOT NULL) additionally stop for explicit human
+  confirmation.
+- Adding a dependency to `pom.xml`, `package.json`, or the lockfiles requires a
+  stated reason in the spec or the commit body. Do not add a dependency to avoid
+  writing a small amount of code.
 - Every outbound call and external process declares a bounded timeout and a
   defined failure path: follow `HttpAiCapabilityClient` (connect/request
   timeouts, mapped errors, nothing raw escaping infrastructure) and
