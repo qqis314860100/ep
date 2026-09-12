@@ -130,19 +130,19 @@ public class JdbcDocumentRepository implements DocumentRepository {
                     SET document_number = ?, title = ?, summary = ?, category_code = ?, maintainer_id = ?,
                         maintainer_name = ?, maintainer_department = ?, scope_mode = ?, status = ?, current_version_id = ?,
                         updated_at = ?, version = ?
-                    WHERE id = ? AND version = ? AND status = 'DRAFT'
+                    WHERE id = ? AND version = ?
                     """, document.documentNumber(), document.title(), document.summary(), document.categoryCode(),
                     document.maintainerId(), document.maintainerName(), document.maintainerDepartment(),
                     document.scopeMode().name(), document.status().name(), document.currentVersionId(), Timestamp.from(document.updatedAt()),
                     document.version(), document.id(), expectedVersion);
             if (count != 1) {
-                throw new DocumentStateConflictException("文档已被其他用户更新或不再是草稿");
+                throw new DocumentStateConflictException("文档已被其他用户更新");
             }
             var version = document.currentVersion();
             var versionCount = jdbcTemplate.update("""
                     UPDATE document_version
                     SET version_number = ?, change_summary = ?, status = ?, published_by = ?, published_at = ?
-                    WHERE id = ? AND document_id = ? AND status = 'DRAFT'
+                    WHERE id = ? AND document_id = ?
                     """, version.versionNumber(), version.changeSummary(), version.status().name(),
                     version.publishedBy(), timestamp(version.publishedAt()), version.id(), document.id());
             if (versionCount != 1) {

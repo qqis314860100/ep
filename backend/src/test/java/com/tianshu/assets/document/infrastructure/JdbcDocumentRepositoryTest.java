@@ -117,6 +117,32 @@ class JdbcDocumentRepositoryTest {
                 .isInstanceOf(DocumentStateConflictException.class);
     }
 
+    @Test
+    void updatesAnAlreadyPublishedDocumentWhenTheVersionMatches() {
+        var draft = repository.save(draft("DOC-JDBC-0002"));
+        var publishedVersion = new DocumentVersion(draft.currentVersion().id(), draft.id(), "V1.0", "首次发布",
+                DocumentVersionStatus.PUBLISHED, draft.currentVersion().files(), "陈工", draft.createdAt(),
+                "陈工", Instant.parse("2026-07-26T01:00:00Z"));
+        var published = new KnowledgeDocument(draft.id(), draft.documentNumber(), draft.title(), draft.summary(),
+                draft.categoryCode(), draft.maintainerId(), draft.maintainerName(), draft.maintainerDepartment(),
+                DocumentStatus.PUBLISHED, publishedVersion.id(), publishedVersion, draft.createdAt(),
+                publishedVersion.publishedAt(), 0);
+        var publishedRow = repository.update(published, 0);
+
+        // 停用文档与应用 AI 编目都要求文档当前是 PUBLISHED，随后用正确的版本号更新它。
+        var disabled = new KnowledgeDocument(publishedRow.id(), publishedRow.documentNumber(), publishedRow.title(),
+                publishedRow.summary(), publishedRow.categoryCode(), publishedRow.maintainerId(),
+                publishedRow.maintainerName(), publishedRow.maintainerDepartment(), DocumentStatus.DISABLED,
+                publishedRow.currentVersionId(), publishedRow.currentVersion(), publishedRow.createdAt(),
+                Instant.parse("2026-07-26T02:00:00Z"), publishedRow.version());
+
+        var saved = repository.update(disabled, publishedRow.version());
+
+        assertThat(saved.status()).isEqualTo(DocumentStatus.DISABLED);
+        assertThat(repository.findById(saved.id())).get()
+                .extracting(KnowledgeDocument::status).isEqualTo(DocumentStatus.DISABLED);
+    }
+
     private KnowledgeDocument draft(String number) {
         var now = Instant.parse("2026-07-26T00:00:00Z");
         var files = List.of(
