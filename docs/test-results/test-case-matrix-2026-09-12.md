@@ -741,3 +741,50 @@
 | TC-UI-052 | 前端-通知 | 通知铃铛未读数与空态 | P0 | 正向 | 已登录；通知接口返回若干条目 | 存在未读通知 | 点击顶栏「通知」铃铛 | 弹出面板；铃铛 Badge 显示未读数；面板中每条显示标题/描述/时间；点击条目后该条标记已读并跳转其 link | NotificationBell.test.tsx | 已实现 | Badge count=unreadCount；已读集合在本地维护，markAllRead 清除未读；空态文案「暂无通知」 |
 | TC-UI-053 | 前端-通知 | 通知拉取失败静默降级 | P2 | 异常 | 已登录；GET /api/v1/notifications 返回 5xx | 无 | 点击铃铛打开面板 | 面板不崩溃；不展示过期条目（保持上一次成功结果或空）；不因通知失败阻塞页面其他功能 | 无 | 存疑 | services/notifications.ts 以 response.ok 抛出仅含状态码的 Error，NotificationBell 的失败处理未在代码中明确标注（无 message.error 也无显式 catch 分支），实际表现需实测确认 |
 | TC-UI-054 | 前端-登录 | 已登录用户再次访问登录页 | P2 | 边界 | 已登录且会话有效 | 直接访问 /login | 在已登录状态下打开 /login | 期望自动跳回首页或 from；实际 LoginPage 未做已登录重定向，会再次渲染登录表单 | 无 | 存疑 | LoginPage 无 useAuth().user 的非空判断与 Navigate；行为需实测确认，属可用性而非安全问题 |
+
+
+## 五、优先补齐清单(P0 且无自动化承载)
+
+共 **93** 条。这些用例优先级最高、却没有任何自动化承载,是补齐自动化的首选范围。
+
+| 模块 | 条数 | 用例编号 |
+|---|---|---|
+| mapping | 8 | TC-GOVB-028、TC-GOVB-032、TC-GOVB-033、TC-GOVB-034、TC-GOVB-037、TC-GOVB-042、TC-GOVB-044、TC-GOVB-046 |
+| standard | 7 | TC-GOVB-060、TC-GOVB-061、TC-GOVB-067、TC-GOVB-068、TC-GOVB-069、TC-GOVB-070、TC-GOVB-071 |
+| 验收 | 6 | TC-GOV-062、TC-GOV-063、TC-GOV-068、TC-GOV-073、TC-GOV-075、TC-GOV-078 |
+| 文档域 | 5 | TC-DOC-010、TC-DOC-026、TC-DOC-030、TC-DOC-032、TC-DOC-036 |
+| 文档协作 | 5 | TC-DOC-048、TC-DOC-049、TC-DOC-057、TC-DOC-062、TC-DOC-068 |
+| 资产文档关联 | 4 | TC-DOC-098、TC-DOC-099、TC-DOC-100、TC-DOC-108 |
+| 执行 | 4 | TC-GOV-094、TC-GOV-100、TC-GOV-107、TC-GOV-110 |
+| 字典域 | 3 | TC-DOC-077、TC-DOC-084、TC-DOC-090 |
+| 确认 | 3 | TC-GOV-048、TC-GOV-056、TC-GOV-058 |
+| 返工 | 3 | TC-GOV-080、TC-GOV-081、TC-GOV-084 |
+| history | 3 | TC-GOVB-109、TC-GOVB-110、TC-GOVB-111 |
+| 认证 | 3 | TC-SYS-004、TC-SYS-011、TC-SYS-012 |
+| AI 建议 | 2 | TC-AI-038、TC-AI-040 |
+| 资产文件 | 2 | TC-ASSET-014、TC-ASSET-018 |
+| 评论图片 | 2 | TC-ASSET-082、TC-ASSET-083 |
+| 评论删除 | 2 | TC-ASSET-084、TC-ASSET-085 |
+| 任务 | 2 | TC-GOV-011、TC-GOV-038 |
+| inventory | 2 | TC-GOVB-081、TC-GOVB-082 |
+| 系统管理 | 2 | TC-SYS-023、TC-SYS-032 |
+| 前端-资料检索 | 2 | TC-UI-007、TC-UI-008 |
+| 前端-上传 | 2 | TC-UI-016、TC-UI-017 |
+| 前端-AI 助手 | 2 | TC-UI-029、TC-UI-031 |
+| 前端-AI 建议 | 2 | TC-UI-035、TC-UI-037 |
+| 前端-系统管理 | 2 | TC-UI-041、TC-UI-042 |
+| AI 编目 | 1 | TC-AI-050 |
+| 批量草稿 | 1 | TC-ASSET-035 |
+| 资产提交 | 1 | TC-ASSET-045 |
+| 资产停用 | 1 | TC-ASSET-052 |
+| 收藏 | 1 | TC-ASSET-058 |
+| 评论 | 1 | TC-ASSET-069 |
+| 评论点赞 | 1 | TC-ASSET-093 |
+| 文件访问 | 1 | TC-DOC-042 |
+| 应用作业 | 1 | TC-GOV-114 |
+| 横切 | 1 | TC-GOV-120 |
+| scan | 1 | TC-GOVB-004 |
+| operations | 1 | TC-GOVB-088 |
+| 前端-首页 | 1 | TC-UI-011 |
+| 前端-文档中心 | 1 | TC-UI-012 |
+| 前端-我的收藏 | 1 | TC-UI-019 |
