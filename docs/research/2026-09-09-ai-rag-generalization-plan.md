@@ -4,7 +4,23 @@
 > 背景：ep AI 一期后端契约已实现（T1~T4），dev 用 Fake 全链路通过浏览器验收；
 > 真实能力服务 = 泛化 `/Users/tomtong/Software/js/ai-rag`（独立仓、独立治理，本文件不提交其代码）。
 
-## 已核实的契约漂移（ep HttpAiCapabilityClient ↔ ai-rag 现状）
+## 复核结果（2026-09-12，ep 侧只读核对 ai-rag 源码）
+
+> **结论：下表 6 处漂移已全部在 ai-rag 侧解决，下方「泛化改动清单」的 6 项均已落地。**
+> 本文件保留为历史蓝图，不再作为待办依据。核对方式为只读阅读 ai-rag 源码，未改动其任何文件。
+
+| 项 | 2026-09-09 勘察 | ai-rag 现状（2026-09-12 复核） | 状态 |
+| --- | --- | --- | --- |
+| 鉴权头 | ep 发 `X-Service-Key`，ai-rag 验 `X-API-Key` | `rag/app/api/routes.py` verify_api_key 已双头兼容：`headers.get("X-Service-Key") or headers.get("X-API-Key")`，注释明确「X-Service-Key 是外部 AI 能力服务（ep）约定的鉴权头…迁移期两者兼容」 | ✅ 已解决 |
+| 流式问答 | 无 namespace/scopes，SSE 事件名未对齐 | `routes.py` chat_stream 内 `ep_mode = bool(req.headers.get("X-Service-Key"))`，注释写明 ep 模式下事件序对齐 `meta → delta* → citations → done`；另有 `_ep_citation_refs()` 产出 docId/location/excerpt/inScope | ✅ 已解决 |
+| 文档入库 | ep payload 无文件字节（T4 运输层缺口） | ep 侧已发 `fileContentBase64` + `fileName`（HttpAiCapabilityClient.documentPayload:248-251）；ai-rag `schemas/models.py` IngestRequest 用 `AliasChoices` 同时接受 snake_case 与 camelCase，注释写明「file_path 或 file_content_base64 + file_name 二选一」 | ✅ 两侧均已补齐 |
+| 元数据抽取 | ai-rag **无此端点** | `@router.post("/extract", response_model=ExtractionResult)` 已存在，响应模型名与 ep 对齐 | ✅ 已解决 |
+| 命名空间隔离 | ai-rag 单 collection（电池） | `core/config.py` 增 `rag_namespace_default`（默认 `battery`）；pipeline 全链路接 `namespace` 参数 | ✅ 已解决 |
+| 范围过滤 | ai-rag `/search` 无 scopes 维度 | `/search` 已接受 `namespace=request.namespace` 与 `scopes=request.scopes` | ✅ 已解决 |
+
+**仍未验证的一层**：以上均为**源码层核对**，未做运行时冒烟。两仓联调的实际连通性（尤其是 base64 落临时文件后的解析链路、ep_mode 下 SSE 事件序的实际输出）需起真实服务验证，见文末「联调闭环」。
+
+## 历史记录：勘察到的契约漂移（2026-09-09）
 
 | 项 | ep 侧（既有代码事实） | ai-rag 现状（勘察 2026-09-09） | 处理 |
 | --- | --- | --- | --- |
