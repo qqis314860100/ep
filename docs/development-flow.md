@@ -26,6 +26,10 @@
 ## 2. 阶段 6–8 的提交契约
 
 - 提交前依次确认：`scripts/check_repo_structure.sh` PASS → 最小验证集通过 → 无残留脚手架/生成物。
+- 本地提交门禁已提供：`bash scripts/install-hooks.sh` 把版本化的 hook（源在 `scripts/git-hooks/`）软链进
+  `.git/hooks/`，每次提交自动跑 结构白名单 + 密钥扫描（gitleaks 或内置规则）+ 暂存了 `frontend/` 时的
+  oxlint/tsc。**后端测试故意不在 hook 内**（mvn 太慢），仍需按上面的阶梯自行跑。绕过用
+  `git commit --no-verify`，并在提交说明里写明原因。
 - **后端与前端改动分开提交**，即使属于同一产品版本；契约与文档改动在可独立评审时单独提交。
 - 只暂存属于当前版本与当前层的文件；不得夹带他人未完成的改动或生成物。
 - 提交正文在「一个版本包含多个前后端提交」时记录产品版本号。

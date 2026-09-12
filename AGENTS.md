@@ -171,6 +171,11 @@ rtk mvn test
   affected workflow at an appropriate desktop viewport.
 - Do not repeat an unchanged successful check. Diagnose repeated failures before
   rerunning the same command.
+- Local commit gate: `bash scripts/install-hooks.sh` installs the versioned hook
+  from `scripts/git-hooks/` (structure whitelist + secret scan + frontend
+  lint/typecheck when `frontend/` is staged). Backend tests stay out of the hook
+  on purpose; run them yourself. Bypass only with `--no-verify`, and say why in
+  the commit body.
 
 ## Before Finishing
 
