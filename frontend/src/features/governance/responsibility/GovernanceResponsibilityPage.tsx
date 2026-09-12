@@ -180,32 +180,32 @@ export function GovernanceResponsibilityPage() {
   const statCards = [
     {
       key: 'scan', label: `本月扫描（${board?.monthly.month ?? ''}）`, value: board?.monthly.scanRuns ?? null,
-      unit: '次', tone: 'default',
+      unit: '次', tone: 'default' as const,
       footnote: board ? `核验 ${board.monthly.scannedAssets} 条 · 上月 ${board.monthly.prevScannedAssets} 条` : '加载中…',
     },
     {
       key: 'issues', label: '本月新发现问题', value: board?.monthly.newIssues ?? null,
-      unit: '项', tone: 'warn',
+      unit: '项', tone: 'warn' as const,
       footnote: board ? `上月 ${board.monthly.prevNewIssues} 项 · 环比口径一致` : '加载中…',
     },
     {
       key: 'closed', label: '本月闭环完成', value: board?.monthly.closedTasks ?? null,
-      unit: '个', tone: 'success',
+      unit: '个', tone: 'success' as const,
       footnote: board ? `上月 ${board.monthly.prevClosedTasks} 个 · 按验收通过时间` : '加载中…',
     },
     {
       key: 'open', label: '当前开放问题', value: board?.monthly.openIssues ?? null,
-      unit: '项', tone: 'default',
+      unit: '项', tone: 'default' as const,
       footnote: '仍未分派的开放问题存量（随扫描变化）',
     },
     {
       key: 'overdueStock', label: '当前逾期任务', value: board?.monthly.overdueTasks ?? null,
-      unit: '个', tone: 'alert',
+      unit: '个', tone: 'alert' as const,
       footnote: board ? `其中已升级 ${board.monthly.escalatedTasks} 个，管理员待跟进` : '加载中…',
     },
     {
       key: 'escalated', label: '逾期升级中', value: board?.monthly.escalatedTasks ?? null,
-      unit: '个', tone: 'alert',
+      unit: '个', tone: 'alert' as const,
       footnote: '闭环任务逾期满 3 天进入升级提醒',
     },
   ]
