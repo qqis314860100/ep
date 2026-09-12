@@ -10,6 +10,25 @@ PORT_BACK="${PORT_BACK:-8080}"
 RAG_URL="${RAG_URL:-http://127.0.0.1:8000}"
 JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home}"
 
+# Spring Boot 不会自动读取仓库根目录的 dotenv 文件；没有显式导出时，
+# application-local.yml 会拿不到真实数据库凭据，最终表现为登录/接口 401。
+if [[ -f "${REPO_ROOT}/.env.local" ]]; then
+  # shellcheck disable=SC1091
+  set -a && source "${REPO_ROOT}/.env.local" && set +a
+fi
+
+for required in DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD; do
+  value="${!required:-}"
+  if [[ -z "${value}" ]]; then
+    echo "缺少 ${required}，请在仓库根 .env.local 中配置本地 MySQL 连接信息。" >&2
+    exit 1
+  fi
+  if [[ "${value}" == *'${'* ]]; then
+    echo "${required} 仍是未解析的占位符，请检查 .env.local 或启动配置。" >&2
+    exit 1
+  fi
+done
+
 RAG_KEY=""
 if [[ -f "${AI_RAG_DIR}/.env" ]]; then
   RAG_KEY="$(grep '^RAG_API_KEY=' "${AI_RAG_DIR}/.env" | cut -d= -f2- || true)"
