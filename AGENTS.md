@@ -89,6 +89,7 @@ Active documentation is kept minimal:
 | Local development / DB runbook | `docs/local-development.md` |
 | New-requirement development flow | `docs/development-flow.md` |
 | Testing strategy and verification layers | `docs/testing-strategy.md` |
+| Vibe Coding checklist → repo mapping | `docs/vibe-coding-guardrails.md` |
 | Feature specs and tickets (active) | `docs/plans/` |
 | Research findings (active) | `docs/research/` |
 | Retired doc-driven regime (frozen history) | `docs/archive/2026-09-07-doc-driven-development/` |
@@ -121,6 +122,24 @@ PDF files at the repository root.
   browser artifacts, or build output.
 - Keep the repository root whitelisted (see Repository Structure); run
   `scripts/check_repo_structure.sh` before committing and fix every violation.
+- Every outbound call (AI capability service, document conversion,
+  interconnection, any HTTP or SSE client) declares an explicit connect and
+  request timeout and maps failures to a defined error: no unbounded wait, and
+  no raw `IOException`/`HttpTimeoutException` escaping infrastructure. Follow
+  `HttpAiCapabilityClient`; state the retry policy in the code or the commit
+  body (deliberate fail-fast counts), and give mutating calls an idempotency key
+  as `GovernanceExecutionService` does.
+- Never log or return secrets, tokens, credentials, file contents, or full
+  request bodies. When adding logging use SLF4J with the operation, the actor,
+  and the correlated id.
+- No repo-wide or multi-module refactor without explicit human confirmation:
+  publish the change list (files, renames, deletions, API changes) and get a yes
+  before writing it. Refactors stay out of the red → green loop and out of
+  feature tickets.
+- Test cases for business rules (state transitions, statistics, `AssetScope`
+  filters, numbering and settlement rules) are confirmed by a human before
+  implementation, and model-authored cases are drafts. An expectation that
+  recomputes the implementation's formula is not a test.
 
 ## Git Commits
 
