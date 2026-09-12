@@ -7,16 +7,10 @@ import type {
   KnowledgeDocument,
   AssetDocumentRelation,
 } from '../types/document'
+import type { ApiErrorBody } from '../types/api'
 import type { Asset } from '../types/asset'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
-
-interface ApiErrorBody {
-  error?: {
-    code?: string
-    message?: string
-  }
-}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {

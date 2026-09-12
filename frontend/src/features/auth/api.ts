@@ -1,10 +1,7 @@
+import type { ApiErrorBody } from '../../types/api'
 import { authSession, type SessionUser } from './session'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
-
-interface ApiErrorBody {
-  error?: { message?: string }
-}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
