@@ -163,12 +163,21 @@ rtk mvn -Dtest=AssetControllerTest test
 # 后端全量
 cd backend
 rtk mvn test
+
+# ep ↔ ai-rag 契约冒烟（需先起 ai-rag 的 rag 服务）
+node scripts/e2e/rag-contract-smoke.mjs
 ```
 
 - 仅前端改动：日常提交门禁是 lint + typecheck。`pnpm build` 只在白名单触发时跑
   （发布门禁）：路由或懒加载入口、Vite/打包器配置、跨特性页面挂载，或发布/验收检查
   点。必须跑 build 时用 `rtk` 包裹，并以退出码和失败摘要判断，不要看完整日志。
 - 仅后端改动：先跑直接受影响的测试类；共享 API、仓储、配置或领域改动跑全量。
+- **改动 ep↔ai-rag 契约时**（`AiCapabilityClient`、`ai/` 模块、`{base}/rag/*` 的端点、
+  payload 字段或 SSE 事件序）：跑 `node scripts/e2e/rag-contract-smoke.mjs`。它默认只读、
+  不发入库请求也不调 LLM，可反复跑；改了事件序再加 `--with-llm`。**两仓的契约没有别的
+  守护** —— ai-rag 侧那份契约测试把 pipeline mock 掉了，所以改了契约必须手工跑它。
+- **这条脚本不进 pre-commit**：它需要 ai-rag 的 rag 服务在跑（默认 8000），而那个服务在
+  提交时未必启动。它是按需验证，不是提交门禁。
 - 没有自动化覆盖的 UI 行为：在合适的桌面视口为受影响的工作流提供浏览器证据。
 - 不要重复一次未发生变化且已成功的检查。反复失败要先诊断再重跑同一命令。
 - 本地提交门禁：`bash scripts/install-hooks.sh` 会从 `scripts/git-hooks/` 安装受版本

@@ -105,6 +105,14 @@ if printf '%s\n' "$staged" | grep -qE '^backend/src/main/'; then
   printf '  %scd backend && rtk mvn -Dtest=<受影响的测试类> test%s\n' "$dim" "$reset"
 fi
 
+# ------------------------------------------------- 5. ep↔ai-rag 契约提醒
+# ai-rag 是独立仓（ep 已忽略它），它的改动这里看不到；只有 ep 侧碰到契约相关路径时才提示。
+if printf '%s\n' "$staged" | grep -qE '^backend/src/main/java/com/tianshu/assets/ai/|^docs/research/.*ai-rag|^scripts/e2e/rag-contract-smoke'; then
+  printf '\n%s[pre-commit]%s 提示：改动触及 ep↔ai-rag 契约，请跑契约冒烟（需先起 ai-rag 的 rag 服务）\n' "$bold" "$reset"
+  printf '  %snode scripts/e2e/rag-contract-smoke.mjs%s\n' "$dim" "$reset"
+  printf '  %s改了 SSE 事件序时再加 --with-llm（会真实调用 LLM）%s\n' "$dim" "$reset"
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf '\n%s[pre-commit] 门禁未通过，提交已阻止。%s\n' "$red" "$reset"
   printf '  修好再提交；确需绕过用 git commit --no-verify（并在提交说明里说明原因）。\n'

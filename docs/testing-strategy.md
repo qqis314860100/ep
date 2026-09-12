@@ -48,6 +48,10 @@ pnpm lint && pnpm typecheck       # 日常提交门禁
 
 # 端到端：真实本地库全流程
 bash scripts/e2e/run-e2e.sh
+
+# ep ↔ ai-rag 契约冒烟（需先起 ai-rag 的 rag 服务）
+node scripts/e2e/rag-contract-smoke.mjs
+node scripts/e2e/rag-contract-smoke.mjs --with-llm   # 追加 SSE 事件序，会真实调用 LLM
 ```
 
 `pnpm build` 仅在白名单触发时跑（路由/懒加载入口、Vite 配置、跨 feature 页面挂载、发布验收）。
@@ -81,10 +85,15 @@ UI 行为若没有自动化覆盖，需按 `AGENTS.md` 提供桌面视口的浏�
 | 前端组件 / 页面 / 交互 | `pnpm exec vitest run <file>` + `pnpm lint` + `pnpm typecheck` |
 | 路由 / 懒加载 / Vite 配置 / 跨 feature 挂载 | 上述 + `pnpm build` |
 | 跨模块业务闭环（资产→治理→文档→检索） | `scripts/e2e/run-e2e.sh`，并在 `flow.mjs` 补阶段断言 |
+| **ep ↔ ai-rag 契约**（`AiCapabilityClient`、`ai/` 模块、能力服务端点/payload/事件序） | **`node scripts/e2e/rag-contract-smoke.mjs`**（需先起 ai-rag 的 rag 服务）；改了 SSE 事件序再加 `--with-llm`。改动任一侧都必须跑 —— 这条线没有别的守护 |
 | 纯文案 / 样式 | `pnpm lint` + `pnpm typecheck`（+ 浏览器证据） |
 
 `flow.mjs` 扩展规则：新需求若改变对外可见的业务闭环（新增状态、新增必经步骤、跨模块联动），
 必须在 `flow.mjs` 对应阶段补断言；仅内部实现调整不扩。
+
+**跨仓改动**：`ai-rag/` 是独立仓（ep 的 `.gitignore` 已忽略它），不在这张表的本地命令覆盖范围内 ——
+改它要按它自己的 `AGENTS.md` 与 `docs/EXECUTION_RULES.md` 跑它的 lint/测试并提交到它自己的仓。
+跨仓契约的验证用上面的 `rag-contract-smoke.mjs`，两仓都适用。
 
 ## 4. 硬规则
 
