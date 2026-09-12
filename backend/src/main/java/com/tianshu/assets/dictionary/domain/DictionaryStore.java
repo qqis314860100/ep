@@ -1,6 +1,5 @@
-package com.tianshu.assets.dictionary.application;
+package com.tianshu.assets.dictionary.domain;
 
-import com.tianshu.assets.dictionary.domain.DictionaryItem;
 import java.util.List;
 import java.util.Optional;
 

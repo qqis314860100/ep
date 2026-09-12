@@ -1,7 +1,7 @@
 package com.tianshu.assets.dictionary.infrastructure;
 
 import com.tianshu.assets.dictionary.application.DictionaryConflictException;
-import com.tianshu.assets.dictionary.application.DictionaryStore;
+import com.tianshu.assets.dictionary.domain.DictionaryStore;
 import com.tianshu.assets.dictionary.domain.DictionaryItem;
 import com.tianshu.assets.dictionary.domain.DictionaryStatus;
 import java.time.LocalDateTime;

@@ -3,6 +3,7 @@ package com.tianshu.assets.dictionary.application;
 import com.tianshu.assets.dictionary.domain.DictionaryCategory;
 import com.tianshu.assets.dictionary.domain.DictionaryItem;
 import com.tianshu.assets.dictionary.domain.DictionaryStatus;
+import com.tianshu.assets.dictionary.domain.DictionaryStore;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;

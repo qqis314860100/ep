@@ -1,7 +1,7 @@
 package com.tianshu.assets.governance.mapping.application;
 
 import com.tianshu.assets.asset.domain.AssetScope;
-import com.tianshu.assets.dictionary.application.DictionaryStore;
+import com.tianshu.assets.dictionary.domain.DictionaryStore;
 import com.tianshu.assets.dictionary.domain.DictionaryStatus;
 import com.tianshu.assets.governance.application.GovernanceConflictException;
 import com.tianshu.assets.governance.application.GovernanceNotFoundException;

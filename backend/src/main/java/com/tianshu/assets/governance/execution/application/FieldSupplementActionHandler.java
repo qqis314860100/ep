@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.tianshu.assets.asset.domain.AssetScope;
-import com.tianshu.assets.dictionary.application.DictionaryStore;
+import com.tianshu.assets.dictionary.domain.DictionaryStore;
 import com.tianshu.assets.dictionary.domain.DictionaryStatus;
 import com.tianshu.assets.governance.application.GovernanceConflictException;
 import com.tianshu.assets.governance.application.GovernanceValidationException;
