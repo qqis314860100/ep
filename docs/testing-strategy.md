@@ -85,7 +85,7 @@ UI 行为若没有自动化覆盖，需按 `AGENTS.md` 提供桌面视口的浏�
 | 前端组件 / 页面 / 交互 | `pnpm exec vitest run <file>` + `pnpm lint` + `pnpm typecheck` |
 | 路由 / 懒加载 / Vite 配置 / 跨 feature 挂载 | 上述 + `pnpm build` |
 | 跨模块业务闭环（资产→治理→文档→检索） | `scripts/e2e/run-e2e.sh`，并在 `flow.mjs` 补阶段断言 |
-| **ep ↔ ai-rag 契约**（`AiCapabilityClient`、`ai/` 模块、能力服务端点/payload/事件序） | **`node scripts/e2e/rag-contract-smoke.mjs`**（需先起 ai-rag 的 rag 服务）；改了 SSE 事件序再加 `--with-llm`。改动任一侧都必须跑 —— 这条线没有别的守护 |
+| **ep ↔ ai-rag 契约**（`AiCapabilityClient`、`ai/` 模块、能力服务端点/payload/事件序） | **`node scripts/e2e/rag-contract-smoke.mjs`**（需先起 ai-rag 的 rag 服务）；改了 SSE 事件序再加 `--with-llm`。ai-rag 侧另有 12 个走真实路由的契约测试（`rag/tests/test_capability_contract.py`）覆盖鉴权双头、camelCase 别名、extract 字段、base64 运输、namespace、scopes 语义；**ep 模式的事件序与 ep 侧的期望没有自动断言，只有这个脚本能验** |
 | 纯文案 / 样式 | `pnpm lint` + `pnpm typecheck`（+ 浏览器证据） |
 
 `flow.mjs` 扩展规则：新需求若改变对外可见的业务闭环（新增状态、新增必经步骤、跨模块联动），

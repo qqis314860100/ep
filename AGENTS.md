@@ -128,8 +128,13 @@ MySQL 兼容模式的 OceanBase。
   改动。动过 ai-rag 之后，必须单独 `git -C ai-rag status` 确认，否则会留下没人提交的修改。
 - **两仓之间的唯一接口是 HTTP 契约**，契约由 ep 定义（`AiCapabilityClient`）、ai-rag 适配
   （`{base}/rag/chat/stream`、`/rag/documents/ingest`、`/rag/extract`；鉴权 `X-Service-Key`；
-  命名空间 `ep-docs`）。不共享代码、不共享数据库。改动契约的一方必须同时更新另一方，
-  因为这条线目前没有自动化契约测试守护。
+  命名空间 `ep-docs`）。不共享代码、不共享数据库。
+- **契约的自动化覆盖现状（2026-09-12 核实）**：ai-rag 侧的 `rag/tests/test_capability_contract.py`
+  已有 12 个**走真实路由**的契约测试（只 monkeypatch 配置与 LLM，不 mock 契约本身）——
+  覆盖鉴权双头、ep camelCase 别名、`/rag/extract` 响应字段、base64 运输、namespace 解析、
+  `scopes: []` 语义。**真正的缺口有两处**：① `chat/stream` 在 ep 模式（带 `X-Service-Key`）
+  下的 **SSE 事件序**没有端到端断言；② ep 侧没有对"它需要什么"（字段名、事件序）的期望测试。
+  改动这两处所涉及的行为时，必须手工跑 `node scripts/e2e/rag-contract-smoke.mjs`。
 
 ## Git 提交
 
@@ -174,8 +179,8 @@ node scripts/e2e/rag-contract-smoke.mjs
 - 仅后端改动：先跑直接受影响的测试类；共享 API、仓储、配置或领域改动跑全量。
 - **改动 ep↔ai-rag 契约时**（`AiCapabilityClient`、`ai/` 模块、`{base}/rag/*` 的端点、
   payload 字段或 SSE 事件序）：跑 `node scripts/e2e/rag-contract-smoke.mjs`。它默认只读、
-  不发入库请求也不调 LLM，可反复跑；改了事件序再加 `--with-llm`。**两仓的契约没有别的
-  守护** —— ai-rag 侧那份契约测试把 pipeline mock 掉了，所以改了契约必须手工跑它。
+  不发入库请求也不调 LLM，可反复跑；改了事件序再加 `--with-llm`。ai-rag 侧虽已有 12 个
+  契约测试，但不覆盖 ep 模式的事件序与 ep 侧的期望，这两处只有这个脚本能验。
 - **这条脚本不进 pre-commit**：它需要 ai-rag 的 rag 服务在跑（默认 8000），而那个服务在
   提交时未必启动。它是按需验证，不是提交门禁。
 - 没有自动化覆盖的 UI 行为：在合适的桌面视口为受影响的工作流提供浏览器证据。
