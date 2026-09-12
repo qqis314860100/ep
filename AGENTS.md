@@ -122,16 +122,16 @@ PDF files at the repository root.
   browser artifacts, or build output.
 - Keep the repository root whitelisted (see Repository Structure); run
   `scripts/check_repo_structure.sh` before committing and fix every violation.
-- Every outbound call (AI capability service, document conversion,
-  interconnection, any HTTP or SSE client) declares an explicit connect and
-  request timeout and maps failures to a defined error: no unbounded wait, and
-  no raw `IOException`/`HttpTimeoutException` escaping infrastructure. Follow
-  `HttpAiCapabilityClient`; state the retry policy in the code or the commit
-  body (deliberate fail-fast counts), and give mutating calls an idempotency key
-  as `GovernanceExecutionService` does.
+- Every outbound call and external process declares a bounded timeout and a
+  defined failure path: follow `HttpAiCapabilityClient` (connect/request
+  timeouts, mapped errors, nothing raw escaping infrastructure) and
+  `LibreOfficeDocumentPreviewConverter` (`waitFor` timeout, then
+  `destroyForcibly`). State the retry policy (deliberate fail-fast counts) and
+  give mutating calls an idempotency key as `GovernanceExecutionService` does.
 - Never log or return secrets, tokens, credentials, file contents, or full
-  request bodies. When adding logging use SLF4J with the operation, the actor,
-  and the correlated id.
+  request bodies. When adding logging use SLF4J with the operation and the actor.
+  There is no request/correlation id yet: add one centrally if a feature needs
+  it, never a per-module variant.
 - No repo-wide or multi-module refactor without explicit human confirmation:
   publish the change list (files, renames, deletions, API changes) and get a yes
   before writing it. Refactors stay out of the red → green loop and out of
