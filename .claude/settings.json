@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/scripts/claude-hooks/pretooluse-ask-irreversible.sh\"",
+            "timeout": 10,
+            "statusMessage": "检查是否为不可逆文件"
+          }
+        ]
+      }
+    ]
+  }
+}
